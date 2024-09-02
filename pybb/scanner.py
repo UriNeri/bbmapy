@@ -1,7 +1,7 @@
 import os
 import glob
 import re
-from bbpy.base import find_bbtools_path
+from pybb.base import find_bbtools_path
 
 def extract_help_message(file_path):
     with open(file_path, 'r') as f:
@@ -64,9 +64,9 @@ def main():
 if __name__ == "__main__":
     main()
     
-    # test:
-    from bbpy import * 
-# #     bbtools = BBTools()
+#     # test:
+#     from pybb import * 
+# # #     bbtools = BBTools()
 #     bbtools.bbduk()
     
 

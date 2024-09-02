@@ -1,5 +1,5 @@
 from typing import Union, Tuple
-from bbpy.base import _pack_args, _run_command
+from pybb.base import _pack_args, _run_command
 
 
 def addadapters(capture_output: bool = False, **kwargs) -> Union[None, Tuple[str, str]]:

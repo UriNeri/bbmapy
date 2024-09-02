@@ -1,5 +1,5 @@
 import os
-from bbpy import bbduk, bbmap, reformat, bbmerge
+from pybb import bbduk, bbmap, reformat, bbmerge
 
 def test_bbduk():
     print("Testing bbduk...")

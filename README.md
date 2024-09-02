@@ -5,15 +5,15 @@ A Python wrapper for BBTools.
 ## Installation
 1. Lazy way - Clone this repository, download bbmap, and install the package:
    ```
-   git clone https://github.com/urineri/bbpy.git
-   cd bbpy
+   git clone https://github.com/urineri/ppby.git
+   cd ppby
    cd vendor
    rm bb* -rf
    wget https://sourceforge.net/projects/bbmap/files/latest/download -O bbtools.tar.gz
    tar -xf bbtools.tar.gz
    cd ..
    pip install -e .
-   generate-bbpy-commands
+   generate-ppby-commands
    ```
    
 2. Unlazy way - is commented out below this line, that's how much it isn't suggested.
@@ -35,7 +35,7 @@ A Python wrapper for BBTools.
 
 5. Generate the commands:
    ```
-   generate-bbpy-commands
+   generate-ppby-commands
    ```
 6. Now actually delete the git submodule in vendor and replace it with the sourceforge version (i.e. the lazy way):
 ```
@@ -49,7 +49,7 @@ tar -xf bbtools.tar.gz
 Note: Steps 2 and 3 are only necessary if you're setting up the project for the first time or if the submodule hasn't been added yet. If you're cloning the repository and the submodule has already been added, you can use: -->
 <!-- 
 ```
-git clone --recurse-submodules https://github.com/yourusername/bbpy.git
+git clone --recurse-submodules https://github.com/yourusername/ppby.git
 ```
 
 This will clone the repository and initialize the submodule in one step... I think? -->
@@ -67,7 +67,7 @@ If you rather this to use your own bbmap etc, go to the base.py script and comme
 After installation, you can use BBPy in your Python scripts like this:
 
 ```python
-from bbpy import bbduk
+from ppby import bbduk
 
 # Basic usage
 bbduk(
@@ -136,11 +136,11 @@ Now you can make changes to the code and test them in real-time. -->
 ## License
 
 This project is only a wrapper, please see the actual bbtools repository for license etc.  
-Neither the developers of bbtools nor of bbpy take any responsibility for how you use this code. All accountability is on you.
+Neither the developers of bbtools nor of ppby take any responsibility for how you use this code. All accountability is on you.
 
 ## Acknowledgments
 
 This project only (crudely) wraps BBTools (a.k.a bbmap), which is developed by Brian Bushnell.  
-If you use bbpy and things don't quite work like you'd like, don't expect the developer of bbmap to help you with this whacky python wrapper.  
+If you use ppby and things don't quite work like you'd like, don't expect the developer of bbmap to help you with this whacky python wrapper.  
 If 
 Please see the [BBTools website](https://jgi.doe.gov/data-and-tools/bbtools/) for more information about the underlying tools.  
