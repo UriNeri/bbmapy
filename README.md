@@ -1,4 +1,4 @@
-# BBPy
+# ppby
 
 A Python wrapper for BBTools.
 
@@ -64,7 +64,7 @@ If you rather this to use your own bbmap etc, go to the base.py script and comme
 
 ## Usage
 
-After installation, you can use BBPy in your Python scripts like this:
+After installation, you can use ppby in your Python scripts like this:
 
 ```python
 from ppby import bbduk
