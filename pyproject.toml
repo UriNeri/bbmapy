@@ -1,0 +1,34 @@
+[build-system]
+requires = ["setuptools>=45", "wheel", "setuptools_scm>=6.2"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "bbpy"
+description = "A Python wrapper for BBTools"
+readme = "README.md"
+requires-python = ">=3.10"
+license = {file = "LICENSE"}
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Science/Research",
+    "Operating System :: Linux",
+    "Programming Language :: Python :: 3.10",
+]
+dependencies = [
+    "rich>=10.0.0",
+]
+dynamic = ["version"]
+
+[project.urls]
+Homepage = "https://github.com/urineri/bbpy"
+Repository = "https://github.com/urineri/bbpy.git"
+"BBTools Repository" = "https://bitbucket.org/berkeleylab/jgi-bbtools/src/master/"
+
+[project.scripts]
+generate-bbpy-commands = "bbpy.scanner:main"
+
+[tool.setuptools_scm]
+write_to = "bbpy/_version.py"
+
+[tool.setuptools]
+packages = ["bbpy"]
