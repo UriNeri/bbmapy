@@ -106,7 +106,7 @@ stdout, stderr = bbduk(
     capture_output=True,
     Xmx="2g",
     in_file="input.fastq",
-    out="output.fastq",
+    out="stdout.fastq",
     # ... other parameters ...
 )
 ```
@@ -116,22 +116,7 @@ stdout, stderr = bbduk(
  * Java flags (such as `Xmx`, `Xms`, `da`, `ea`, `eoom`) are automatically recognized and handled appropriately. Include them in your function calls just like any other argument.
  * the `capture_output` argument might be switched (stderr --> out and vice verse). 
  
-<!--  
-## Development
 
-To set up the development environment:
-
-1. Clone the repository and set up the submodule as described in the Installation section.
-2. Install the package in editable mode:
-   ```
-   poetry install
-   ```
-3. Activate the virtual environment:
-   ```
-   poetry shell
-   ```
-
-Now you can make changes to the code and test them in real-time. -->
 
 ## License
 
