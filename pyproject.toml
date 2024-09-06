@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "bbmapy"
-version = "0.0.4"  # Update this as needed
+version = "0.0.5"  # Update this as needed
 description = "A Python wrapper for BBTools"
 readme = "README.md"
 requires-python = ">=3.10"
