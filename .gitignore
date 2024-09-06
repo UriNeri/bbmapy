@@ -1,4 +1,5 @@
 # vendor
+bbmapy/vendor/
 test
 .vscode
 .cursorignore

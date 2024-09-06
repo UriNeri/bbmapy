@@ -1,10 +1,10 @@
 [build-system]
-requires = ["setuptools>=45", "wheel", "setuptools_scm>=6.2"]
+requires = ["setuptools>=45", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
 name = "bbmapy"
-version = "0.0.4"
+version = "0.0.4"  # Update this as needed
 description = "A Python wrapper for BBTools"
 readme = "README.md"
 requires-python = ">=3.10"
@@ -23,12 +23,8 @@ Homepage = "https://github.com/urineri/bbmapy"
 Repository = "https://github.com/urineri/bbmapy.git"
 "BBTools Repository" = "https://bitbucket.org/berkeleylab/jgi-bbtools/src/master/"
 
-[project.scripts]
-generate-bbmapy-commands = "bbmapy.scanner:main"
-
 [tool.setuptools]
 packages = ["bbmapy"]
-script-files = ["custom_build.py"]
 
-[tool.setuptools.cmdclass]
-install = "custom_build.CustomInstallCommand"
+[tool.setuptools.package-data]
+bbmapy = ["vendor/*"]
