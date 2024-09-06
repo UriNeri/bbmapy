@@ -3,6 +3,7 @@ import sys
 import subprocess
 from typing import List, Dict, Union, Tuple
 from rich import print as rprint
+from rich.markup import escape
 
 def find_bbtools_path():
     # Check if we're running from an installed package
@@ -14,10 +15,12 @@ def find_bbtools_path():
         base_path = os.path.abspath(os.path.dirname(__file__))
     
     # Navigate up to the project root
+    original_base_path = base_path
     while not os.path.exists(os.path.join(base_path, 'vendor')):
-        base_path = os.path.dirname(base_path)
-        if base_path == os.path.dirname(base_path):  # We've reached the root directory
-            raise FileNotFoundError("Could not find BBTools directory")
+        new_base_path = os.path.dirname(base_path)
+        if new_base_path == base_path:  # We've reached the root directory
+            raise FileNotFoundError(f"Could not find BBTools directory. Started search from: {original_base_path}")
+        base_path = new_base_path
     
     bbtools_path = os.path.join(base_path, 'vendor', 'bbmap')
     
@@ -26,8 +29,12 @@ def find_bbtools_path():
     
     return bbtools_path
 
-BBTOOLS_PATH = find_bbtools_path()
-os.environ["PATH"] = f"{BBTOOLS_PATH}/current/:{os.environ["PATH"]}"
+try:
+    BBTOOLS_PATH = find_bbtools_path()
+    os.environ["PATH"] = f"{BBTOOLS_PATH}/current/:{os.environ['PATH']}"
+except FileNotFoundError as e:
+    print(f"Error: {e}")
+    sys.exit(1)
 
 def _pack_args(kwargs: Dict[str, Union[str, bool, int]]) -> List[str]:
     args = []
@@ -37,25 +44,24 @@ def _pack_args(kwargs: Dict[str, Union[str, bool, int]]) -> List[str]:
             if isinstance(value, bool) and value:
                 args.append(f"-{key}")
             elif value is not None:
-                args.append(f"-{key}{value}")
+                args.append(f"-{key}{str(value)}")
         elif key == "in_file":
-            args.append(f"in={value}")
+            args.append(f"in={str(value)}")
         elif isinstance(value, bool) and value:
             args.append(key)
         elif value is not None:
-            args.append(f"{key}={value}")
+            args.append(f"{key}={str(value)}")
     
     return args
 
 def _run_command(tool: str, args: List[str], capture_output: bool = False) -> Union[None, Tuple[str, str]]:
-    command = [os.path.join(BBTOOLS_PATH,tool)] + args # ,
-    # command = [tool] + args # ,
-
+    command = [os.path.join(BBTOOLS_PATH, tool)] + args
+    escaped_command = ' '.join(escape(str(arg)) for arg in command)
     
     if capture_output:
         result = subprocess.run(command, capture_output=True, text=True)
         if result.returncode != 0:
-            raise RuntimeError(f"Command failed: {' '.join(command)}\nError: {result.stderr}")
+            raise RuntimeError(f"Command failed: {escaped_command}\nError: {escape(result.stderr)}")
         return result.stdout, result.stderr
     else:
         process = subprocess.Popen(command, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
@@ -68,11 +74,11 @@ def _run_command(tool: str, args: List[str], capture_output: bool = False) -> Un
                 break
             
             if stdout_line:
-                rprint(stdout_line.strip())
+                rprint(escape(stdout_line.strip()))
             if stderr_line:
-                rprint("[bold red]" + stderr_line.strip() + "[/bold red]")
+                rprint("[bold red]" + escape(stderr_line.strip()) + "[/bold red]")
         
         if process.returncode != 0:
-            raise RuntimeError(f"Command failed: {' '.join(command)}")
+            raise RuntimeError(f"Command failed: {escaped_command}")
         
         return None
