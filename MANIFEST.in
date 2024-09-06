@@ -1,2 +1,4 @@
-include build.py
+include custom_build.py
+include bbmapy/__init__.py
+recursive-include bbmapy *
 recursive-include vendor *

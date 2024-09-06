@@ -1,7 +1,7 @@
 import os
 import glob
 import re
-from bbmapy.base import find_bbtools_path
+from .base import find_bbtools_path
 
 def extract_help_message(file_path):
     with open(file_path, 'r') as f:

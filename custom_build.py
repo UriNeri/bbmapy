@@ -18,7 +18,7 @@ class CustomInstallCommand(install):
                     os.remove(item)
         
         # Download and extract BBTools
-        subprocess.run(['wget', 'https://sourceforge.net/projects/bbmap/files/latest/download', '-O', 'bbtools.tar.gz'], check=True)
+        subprocess.run(['wget', 'https://pilotfiber.dl.sourceforge.net/project/bbmap/BBMap_39.08.tar.gz', '-O', 'bbtools.tar.gz'], check=True)
         subprocess.run(['tar', '-xf', 'bbtools.tar.gz'], check=True)
         
         # Change back to root directory

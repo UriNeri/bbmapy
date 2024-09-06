@@ -1,20 +1,21 @@
-# ppby
+# bbmapy
 
 A Python wrapper for BBTools.
 
 ## Installation
 1. Lazy way - Clone this repository, download bbmap, and install the package:
    ```
-   git clone https://github.com/urineri/ppby.git
-   cd ppby
+   git clone https://github.com/urineri/bbmapy.git
+   cd bbmapy
    cd vendor
    rm bb* -rf
    wget https://sourceforge.net/projects/bbmap/files/latest/download -O bbtools.tar.gz
    tar -xf bbtools.tar.gz
    cd ..
    pip install -e .
-   generate-ppby-commands
+   generate-bbmapy-commands
    ```
+   The above should be automatically done if you are installing from pip (pypi)
    
 2. Unlazy way - is commented out below this line, that's how much it isn't suggested.
 <!-- Add the BBTools submodule:
@@ -116,11 +117,15 @@ stdout, stderr = bbduk(
  * Java flags (such as `Xmx`, `Xms`, `da`, `ea`, `eoom`) are automatically recognized and handled appropriately. Include them in your function calls just like any other argument.
  * the `capture_output` argument might be switched (stderr --> out and vice verse). 
  
+### Citation
+BBMerge manuscript: https://journals.plos.org/plosone/article?id=10.1371/journal.pone.0185056
+Please cite this paper if you use bbmap in your work.
+
 
 
 ## License
 
-This project is only a wrapper, please see the actual bbtools repository for license etc.  
+This project is only a wrapper, please see the actual bbtools repository for (license)[https://bitbucket.org/berkeleylab/jgi-bbtools/src/master/license.txt] etc.  
 Neither the developers of bbtools nor of ppby take any responsibility for how you use this code. All accountability is on you.
 
 ## Acknowledgments
