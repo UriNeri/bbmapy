@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "bbmapy"
-version = "0.0.2"
+version = "0.0.3"
 description = "A Python wrapper for BBTools"
 readme = "README.md"
 requires-python = ">=3.10"
@@ -26,8 +26,9 @@ Repository = "https://github.com/urineri/bbmapy.git"
 [project.scripts]
 generate-bbmapy-commands = "bbmapy.scanner:main"
 
-[tool.setuptools_scm]
-write_to = "bbmapy/_version.py"
-
 [tool.setuptools]
 packages = ["bbmapy"]
+script-files = ["build.py"]
+
+[tool.setuptools.cmdclass]
+install = "build.CustomInstallCommand"
