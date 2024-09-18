@@ -15,7 +15,7 @@ A Python wrapper for BBTools.
    pip install -e .
    generate-bbmapy-commands
    ```
-   The above should be automatically done if you are installing from pip (pypi)
+   The above should be automatically done or just not needed if you are installing from pip (pypi)
    
 2. Unlazy way - is commented out below this line, that's how much it isn't suggested.
 <!-- Add the BBTools submodule:
@@ -36,7 +36,7 @@ A Python wrapper for BBTools.
 
 5. Generate the commands:
    ```
-   generate-ppby-commands
+   generate-bbmapy-commands
    ```
 6. Now actually delete the git submodule in vendor and replace it with the sourceforge version (i.e. the lazy way):
 ```
@@ -50,7 +50,7 @@ tar -xf bbtools.tar.gz
 Note: Steps 2 and 3 are only necessary if you're setting up the project for the first time or if the submodule hasn't been added yet. If you're cloning the repository and the submodule has already been added, you can use: -->
 <!-- 
 ```
-git clone --recurse-submodules https://github.com/yourusername/ppby.git
+git clone --recurse-submodules https://github.com/yourusername/bbmapy.git
 ```
 
 This will clone the repository and initialize the submodule in one step... I think? -->
@@ -65,10 +65,10 @@ If you rather this to use your own bbmap etc, go to the base.py script and comme
 
 ## Usage
 
-After installation, you can use ppby in your Python scripts like this:
+After installation, you can use bbmapy in your Python scripts like this:
 
 ```python
-from ppby import bbduk
+from bbmapy import bbduk
 
 # Basic usage
 bbduk(
@@ -90,8 +90,9 @@ bbduk(
     overwrite="t",
     stats="stats.txt"
 )
-
-# Using Java flags alongside other arguments
+```
+### Using Java flags alongside other arguments
+```python
 bbduk(
     Xmx="2g",  # Set maximum heap size
     da=True,   # Enable assertions
@@ -101,8 +102,11 @@ bbduk(
     ktrim="r",
     k="23"
 )
+```
 
-# To capture output
+### To capture output
+You need to set `capture_output=True` in the function call, AND out="stdout.fastq" (or any other file format you like). 
+```python
 stdout, stderr = bbduk(
     capture_output=True,
     Xmx="2g",
@@ -116,6 +120,14 @@ stdout, stderr = bbduk(
  * `in` can be a protected word in python and other code, it is replaced by `in_file` in function calls. `in1`, `in2` are still valid.
  * Java flags (such as `Xmx`, `Xms`, `da`, `ea`, `eoom`) are automatically recognized and handled appropriately. Include them in your function calls just like any other argument.
  * the `capture_output` argument might be switched (stderr --> out and vice verse). 
+ * Flags (i.e. argument that do not take value in the OG bbmap version) are set with Boolean values. e.g.:
+ ``` 
+ flag : True
+ ```
+ Not to be mistaken for lower case, fouble qouted `"true"` and `"false"` for boolian arguments to be passed to bbtools, e.g.:
+ ```
+ argument : "true"
+ ```
  
 ### Citation
 BBMerge manuscript: https://journals.plos.org/plosone/article?id=10.1371/journal.pone.0185056
@@ -126,11 +138,11 @@ Please cite this paper if you use bbmap in your work.
 ## License
 
 This project is only a wrapper, please see the actual bbtools repository for (license)[https://bitbucket.org/berkeleylab/jgi-bbtools/src/master/license.txt] etc.  
-Neither the developers of bbtools nor of ppby take any responsibility for how you use this code. All accountability is on you.
+Neither the developers of bbtools nor of bbmapy take any responsibility for how you use this code. All accountability is on you.
 
 ## Acknowledgments
 
 This project only (crudely) wraps BBTools (a.k.a bbmap), which is developed by Brian Bushnell.  
-If you use ppby and things don't quite work like you'd like, don't expect the developer of bbmap to help you with this whacky python wrapper.  
+If you use bbmapy and things don't quite work like you'd like, don't expect the developer of bbmap to help you with this whacky python wrapper.  
 If 
 Please see the [BBTools website](https://jgi.doe.gov/data-and-tools/bbtools/) for more information about the underlying tools.  
