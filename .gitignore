@@ -8,6 +8,10 @@ __pycache__/
 *.py[cod]
 *$py.class
 
+.pypirc
+.pypi
+.pypi-version
+
 # C extensions
 *.so
 

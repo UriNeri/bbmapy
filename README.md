@@ -1,6 +1,7 @@
 # bbmapy
 
-A Python wrapper for BBTools.
+A Python wrapper for BBTools.  
+Current BBMap version: 0.0.41
 
 ## Installation
 1. Lazy way - Clone this repository, download bbmap, and install the package:

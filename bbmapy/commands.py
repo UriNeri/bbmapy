@@ -1,5 +1,5 @@
 from typing import Union, Tuple
-from .base import _pack_args, _run_command
+from bbmapy.base import _pack_args, _run_command
 
 
 def addadapters(capture_output: bool = False, **kwargs) -> Union[None, Tuple[str, str]]:
@@ -406,9 +406,6 @@ in_file=<file>       Primary input, or read 1 input.
 in2=<file>      Read 2 input if reads are in two files.
 out=<file>      Primary output, or read 1 output.
 out2=<file>     Read 2 output if reads are in two files.
-overwrite=f     (ow) Set to false to force the program to abort rather than
-                overwrite an existing file.
-showspeed=t     (ss) Set to 'f' to suppress display of processing speed.
 ziplevel=2      (zl) Set to 1 (lowest) through 9 (max) to change compression
                 level; lower compression is faster.
 
@@ -778,7 +775,7 @@ def bbduk(capture_output: bool = False, **kwargs) -> Union[None, Tuple[str, str]
 
     Help message:
     Written by Brian Bushnell
-Last modified November 9, 2023
+Last modified November 18, 2024
 
 Description:  Compares reads to the kmers in a reference dataset, optionally 
 allowing an edit distance. Splits the reads into two outputs - those that 
@@ -799,6 +796,10 @@ ref=<file,file>     Comma-delimited list of reference files.
                     In addition to filenames, you may also use the keywords:
                     adapters, artifacts, phix, lambda, pjet, mtst, kapa
 literal=<seq,seq>   Comma-delimited list of literal reference sequences.
+                    Polymers are also allowed with the 'poly' prefix;
+                    for example, 'literal=ATGGT,polyGC' will add both ATGGT
+                    and GCGCGCGCGCGCGCGCGCGCGCGCGCGCGCGCGCGC - 32+ of them,
+                    enough replicates to ensure that all kmers are present.
 touppercase=f       (tuc) Change all bases upper-case.
 interleaved=auto    (int) t/f overrides interleaved autodetection.
                     Must be set mainually when streaming fastq input.
@@ -983,6 +984,9 @@ qtrim=f             Trim read ends to remove bases with quality below trimq.
 trimq=6             Regions with average quality BELOW this will be trimmed,
                     if qtrim is set to something other than f.  Can be a 
                     floating-point number like 7.3.
+quantize            Bin quality scores to reduce file size.  quantize=2 will
+                    eliminate all odd quality scores, while quantize=0,10,37
+                    will only allow qualty scores of 0, 10, or 37.
 trimclip=f          Trim soft-clipped bases from sam files.
 minlength=10        (ml) Reads shorter than this after trimming will be 
                     discarded.  Pairs will be discarded if both are shorter.
@@ -1087,6 +1091,23 @@ loglogbuckets=2048  Use this many buckets for counting.
 khist=<file>        Kmer frequency histogram; plots number of kmers versus
                     kmer depth.  This is approximate.
 khistout=<file>     Kmer frequency histogram for output reads.
+
+Side Channel:
+sideout=<file>      Output for aligned reads.
+sideref=phix        Reference for side-channel alignment; must be a single
+                    sequence and virtually repeat-free at selected k.
+sidek1=17           Kmer length for seeding alignment to reference.
+sidek2=13           Kmer length for seeding alignment of unaligned reads
+                    with an aligned mate.
+sideminid1=0.66     Minimum identity to accept individual alignments.
+sideminid2=0.58     Minimum identity for aligning reads with aligned mates.
+sidemm1=1           Middle mask length for sidek1.
+sidemm2=1           Middle mask length for sidek2.
+Note:  The side channel is a special additional output that allows alignment
+to a secondary reference while also doing trimming.  Alignment does not affect
+whether reads go to the normal outputs (out, outm).  The main purpose is to
+simplify pipelines that need trimmed, aligned phiX reads for recalibration.
+
 
 Java Parameters:
 
@@ -1622,7 +1643,7 @@ def bbmerge(capture_output: bool = False, **kwargs) -> Union[None, Tuple[str, st
 
     Help message:
     Written by Brian Bushnell and Jonathan Rood
-Last modified Jan 31, 2024
+Last modified October 8, 2024
 
 Description:  Merges paired reads into single reads by overlap detection.
 With sufficient coverage, can merge nonoverlapping reads by kmer extension.
@@ -1708,6 +1729,8 @@ minoverlap0=8        Overlaps shorter than this will not be considered.
                      Must be less than or equal to minoverlap.
 minq=9               Ignore bases with quality below this.
 maxq=41              Cap output quality scores at this.
+quantize=1           Set to a higher number to eliminate some quality scores
+                     for a lower output filesize.
 entropy=t            Increase the minimum overlap requirement for low-
                      complexity reads.
 efilter=6            Ban overlaps with over this many times the expected 
@@ -2365,7 +2388,7 @@ match the reference.
 Usage:  bloomfilter.sh in_file=<input file> out=<nonmatches> outm=<matches> ref=<reference>
 
 Example:
-bloomfilter.sh in_file=reads.fq outm=nonhuman.fq outm=human.fq k=31 minhits=3 ref=human.fa
+bloomfilter.sh in_file=reads.fq outm=nonhuman.fq out=human.fq k=31 minhits=3 ref=human.fa
 
 Error correction and depth filtering can be done simultaneously.
 
@@ -2483,7 +2506,7 @@ def calctruequality(capture_output: bool = False, **kwargs) -> Union[None, Tuple
 
     Help message:
     Written by Brian Bushnell
-Last modified March 21, 2019
+Last modified October 8, 2024
 
 Description:  Calculates observed quality scores from mapped sam/bam files.
 Generates matrices for use in recalibrating quality scores.  By default, 
@@ -2540,6 +2563,9 @@ trackall=f          Track all available quality metrics and produce all
                     quality adjustment.  Reduces speed, but allows testing the
                     effects of different recalibration matrices.
 indels=t            Include indels in quality calculations.
+usetiles=f          Use per-tile quality statistics to generate matrices.
+                    If this is true, the flag must also be used during
+                    recalibration (e.g. in BBDuk).
 
 Variation calling:
 varfile=<file>      Use the variants in this var file, instead of calling
@@ -2602,7 +2628,7 @@ def callgenes(capture_output: bool = False, **kwargs) -> Union[None, Tuple[str, 
 
     Help message:
     Written by Brian Bushnell
-Last modified February 10, 2020
+Last modified December 5, 2024
 
 Description:  Finds orfs and calls genes in unspliced prokaryotes.
 This includes bacteria, archaea, viruses, and mitochondria.
@@ -2624,8 +2650,8 @@ compareto=      Optional reference gff file to compare with the gene calls.
 
 Formatting parameters:
 json=false      Print stats in JSON.
-binlen=20       Histogram bin length.
-bins=2000       Maximum histogram bins.
+binlen=21       Histogram bin length.
+bins=1000       Maximum histogram bins.
 pz=f            (printzero) Print histogram lines with zero count.
 
 
@@ -2883,17 +2909,15 @@ def cg2illumina(capture_output: bool = False, **kwargs) -> Union[None, Tuple[str
 
     Help message:
     Written by Brian Bushnell
-Last modified May 7, 2024
+Last modified May 6, 2024
 
-Description:  Converts Complete Genomics or BGI reads to Illumina header
-format, and optionally appends barcodes/indexes. For example, 
+Description:  Converts BGI/Complete Genomics reads to Illumina header format,
+and optionally appends barcodes/indexes. For example, 
 @E200008112L1C001R00100063962/1 
 would become
-@CG:0:E200008112:1:6396:1:1 1:N:0:
-or
-@CG:0:E200008112:1:6396:1:1 1:N:0:ACGTACGT
+@E200008112:0:FC:1:6396:1:1 1:N:0:
 
-Usage:  cg2illumina.sh in_file=<input file> out=<output file> barcode=<string>
+Usage:  bgi2illumina.sh in_file=<input file> out=<output file> barcode=<string>
 
 Input may be fasta or fastq, compressed or uncompressed.
 
@@ -3059,7 +3083,7 @@ def clumpify(capture_output: bool = False, **kwargs) -> Union[None, Tuple[str, s
 
     Help message:
     Written by Brian Bushnell
-Last modified October 20, 2023
+Last modified January 15, 2025
 
 Description:  Sorts sequences to put similar reads near each other.
 Can be used for increased compression or error correction.
@@ -3149,6 +3173,10 @@ dedupe=f            Remove duplicate reads.  For pairs, both must match.
 markduplicates=f    Don't remove; just append ' duplicate' to the name.
 allduplicates=f     Mark or remove all copies of duplicates, instead of
                     keeping the highest-quality copy.
+umi=f               Set to true to require matching UMIs in read headers
+                    to consider reads as duplicates.  These are parsed from
+		    standard Illumina header format.
+umisubs=0           Maximum mismatches in UMIs to be considered matching.
 addcount=f          Append the number of copies to the read name.
                     Mutually exclusive with markduplicates or allduplicates.
 entryfilter=f       This assists in removing exact duplicates, which saves
@@ -5367,67 +5395,128 @@ def filterbytile(capture_output: bool = False, **kwargs) -> Union[None, Tuple[st
 
     Help message:
     Written by Brian Bushnell
-Last modified October 30, 2019
+Last modified November 18, 2024
 
 Description:  Filters reads based on positional quality over a flowcell.
-Quality is estimated based on quality scores and kmer uniqueness.
+Quality is estimated based on quality scores and kmer uniqueness; ideally,
+the input to this program will already be adapter-trimmed and 
+quality-score recalibrated.  PhiX, if present, will be used to estimate
+absolute error rates from kmer uniqueness rates.
 All reads within a small unit of area called a micro-tile are averaged,
-then the micro-tile is either retained or discarded as a unit.
+then the micro-tile is either retained or discarded as a unit depending
+on whether its metrics fall outside of a specified range (generally some
+number of standard deviations away from average).
+This program can process individual libraries, but achieves optimal 
+performance when processing one lane at a time.  For this purpose it is best
+to use as much memory as possible (e.g., 200GB RAM for 5 billion reads),
+though it will still work with much less memory.
+
 Please read bbmap/docs/guides/FilterByTileGuide.txt for more information.
+
 
 Usage:	filterbytile.sh in_file=<input> out=<output>
 
 Input parameters:
 in_file=<file>           Primary input file.
-in2=<file>          Second input file for paired reads in two files.
+in2=<file>          Second input file for paired reads in twin files.
 indump=<file>       Specify an already-made dump file to use instead of
                     analyzing the input reads.
+barcodes=<file>     Optional list of expected barcodes, one per line.
 reads=-1            Process this number of reads, then quit (-1 means all).
 interleaved=auto    Set true/false to override autodetection of the
                     input file as paired interleaved.
-seed=-1             Set to a positive numver for deterministic output.
 
 Output parameters:
 out=<file>          Output file for filtered reads.
 dump=<file>         Write a summary of quality information by coordinates.
+                    This can be later used for filtering individual libraries.
+counts=<file>       Write barcode counts.
+
 
 Tile parameters:
-xsize=500           Initial width of micro-tiles.
-ysize=500           Initial height of micro-tiles.
-size=               Allows setting xsize and ysize tot he same value.
-target=800          Iteratively increase the size of micro-tiles until they
-                    contain an average of at least this number of reads.
+xsize=500           Initial width of micro-tiles.  For NovaSeqX use 520.
+ysize=500           Initial height of micro-tiles.  For NovaSeqX use 590.
+size=               Allows setting xsize and ysize to the same value.
+target=1600         Iteratively widen the micro-tiles until they contain
+                    an average of at least this many reads.
+alignedreads=250    Average aligned reads per tile for error rate calibration.
 
-A micro-tile is discarded if any of 3 metrics indicate a problem.
-The metrics are kmer uniqueness (u), average quality (q), and probability
-of being error-free (e).  Each has 3 parameters: deviations (d),
-fraction (f), and absolute (a).  After calculating the difference (delta)
-between a micro-tile and average, it is discarded only if all three of these
-conditions are true for at least one metric (using quality as the example):
+A micro-tile is discarded if any of several metrics indicate a problem.
+The metrics are kmer uniqueness (u), average quality (q), probability
+of being error-free (e), and poly-G rate (pg).  
+Each has 3 parameters: deviations (d), fraction (f), and absolute (a).  
+After calculating the difference (delta) between a micro-tile and average, 
+it is discarded only if all three of these conditions are true for at least
+one metric (using quality as the example):
 1) delta is greater than (qd) standard deviations.
 2) delta is greater than average times the fraction (qf).
 3) delta is greater than the absolute value (qa).
+Tiles are also marked for discard if they have too few reads to calculate
+statistics or an inferred error rate (ier) above an absolute value; ier
+does not need deviations because it is calibrated. 
 
 Filtering parameters:
 udeviations=1.5     (ud) Standard deviations for uniqueness discarding.
-qdeviations=2       (qd) Standard deviations for quality discarding.
-edeviations=2       (ed) Standard deviations for error-free probablity 
-                    discarding.
+qdeviations=2.4     (qd) Standard deviations for quality discarding.
+edeviations=3.0     (ed) Standard deviations for error-free probablity. 
+pgdeviations=1.4    (pgd) Standard deviations for poly-G discarding.
 ufraction=0.01      (uf) Min fraction for uniqueness discarding.
-qfraction=0.01      (qf) Min fraction for quality discarding.
-efraction=0.01      (ef) Min fraction for error-free probablity discarding.
+qfraction=0.08      (qf) Min fraction for quality discarding.
+efraction=0.2       (ef) Min fraction for error-free probablity discarding.
+pgfraction=0.2      (pgf) Min fraction for poly-G discarding.
 uabsolute=1         (ua) Min absolute value for uniqueness discarding.
-qabsolute=1         (qa) Min absolute value for quality discarding.
-eabsolute=1         (ea) Min absolute value for error-free probablity discarding.
+qabsolute=2.0       (qa) Min absolute value for quality discarding.
+eabsolute=6         (ea) Min absolute value for error-free probablity.
+pgabsolute=0.2      (pga) Min absolute value for poly-G discarding.
+ier=0.012           (inferrederrorrate) Maximum predicted base error rate.
+                    A more recent addition and usually superior to using
+                    uniqueness deviations, if ~1% PhiX is spiked in.
+mdf=0.4             (maxdiscardfraction) Don't discard more than this 
+                    fraction of tiles no matter how bad the data is.
+
+Alignment parameters:
+Note: Alignment will only be performed if there is no input sam file,
+and nothing will go to the output sam file unless internal alignment occurs.
+samin_file=<file>        Optional aligned sam input file for error rate analysis.
+samout=<file>       Output file for aligned reads.  Can be sam or fastq.
+align=true          If no sam file is present, align reads to the reference.
+alignref=phix       Reference for aligning reads if there is no sam file.
+alignk1=17          Kmer length for seeding alignment to reference.
+alignk2=13          Kmer length for seeding alignment of unaligned reads
+                    with an aligned mate.
+minid1=0.62         Minimum identity to accept individual alignments.
+minid2=0.54         Minimum identity for aligning reads with aligned mates.
+alignmm1=1          Middle mask length for alignk1.
+alignmm2=1          Middle mask length for alignk2.
+
+Note: Alignment is optional, but allows translation of kmer depth to error 
+rate at high resolution.  The default reference, phiX, is nonrepetitive down
+to k=13.  For internal alignment, the reference must be a short single 
+sequence that is almost completely nonrepetitive at the selected kmer length.
+If a sam file is used, any reference is OK and the alignment parameters are
+ignored, but it should have few mutations.  A SNP rate of 1/1000 (like human)
+is acceptable but sets an inferred error rate floor of 0.001 (Q30).
 
 Other parameters:
-lowqualityonly=t    (lqo) Only filter low quality reads within low quality 
-                    micro-tiles, rather than the whole micro-tile.
-trimq=-1            If set to a positive number, trim reads to that quality
-                    level instead of filtering them.
-qtrim=r             If trimq is positive, to quality trimming on this end
-                    of the reads.  Values are r, l, and rl for right,
-                    left, and both ends.
+usekmers=t          Load kmers to calculate uniqueness and depth.
+lowqualityonly=t    (lqo) Only discard low quality reads within bad areas, 
+                    rather than the whole micro-tile.  This usually discards
+                    most of the reads in the bad micro-tiles anyway.
+recalibrate=f       Recalibrate reads while filling tile info.
+                    Requires calibration matrices from CalcTrueQuality.
+                    Changes sam output, but not positionally-filter output.
+dmult=-.1           Lower increases amount removed when lqo=t.  At 0, only 
+                    reads with below average quality (or polyG) are removed.
+idmaskwrite=15      A bitmask, (2^N-1), controlling the fraction of kmers
+                    loaded in the bloom filter.  15 means 1/16th are loaded.
+                    0 uses all kmers.
+idmaskread=7        Controls fraction of kmers read when counting uniqueness.
+k=31                Kmer length for Bloom filter (uniqueness calculation).
+hashes=3            Bloom filter hashes.
+cbits=2             Bloom filter bits per cell.
+merge=f             Merge reads for insert and error rate statistics.
+                    This can make the program take ~50% longer and only
+                    affects the dump file.
 
 Java Parameters:
 -Xmx                This will set Java's memory usage, overriding autodetection.
@@ -5600,7 +5689,7 @@ def filtersubs(capture_output: bool = False, **kwargs) -> Union[None, Tuple[str,
 
     Help message:
     Written by Brian Bushnell
-Last modified April 3, 2020
+Last modified August 22, 2024
 
 Description:  Filters a sam file to select only reads with substitution errors
 for bases with quality scores in a certain interval.  Used for manually 
@@ -5615,6 +5704,8 @@ minq=0          Keep only reads with substitutions of at least this quality.
 maxq=99         Keep only reads with substitutions of at most this quality.
 countindels=t   Also keep reads with indels in the quality range. 
 minsubs=1       Require at least this many substitutions.
+minclips=0      Discard reads with more clip operations than this.
+maxclips=-1     If nonnegative, discard reads with more clip operations.
 keepperfect=f   Also keep error-free reads.
 
 Please contact Brian Bushnell at bbushnell@lbl.gov if you encounter any problems.
@@ -8162,7 +8253,7 @@ def novademux(capture_output: bool = False, **kwargs) -> Union[None, Tuple[str, 
 
     Help message:
     Written by Brian Bushnell
-Last modified July 16, 2024
+Last modified November 18, 2024
 
 Description:  Demultiplexes sequencer reads into multiple files based on
 their barcodes.  Uses statistical analysis to ensure optimal yield and
@@ -8211,7 +8302,8 @@ addpolyg=f      It is recommended to set this to true on a platform where
                 no signal is read as G.  This will add poly-G as a dummy
                 expected barcode.  If no signal yields a different base call,
                 use the appropriate flag (addpolyc, etc).
-
+remap=          Change symbols for output filenames.  For example, remap=+-
+                would output barcode ACGT+TGCA to file ACGT-TCGA.fq.gz.
 
 Legacy Output Stats File Support:
 legacy=         Set this to a path like '.' to output legacy stats files.
@@ -8440,13 +8532,65 @@ Please contact Brian Bushnell at bbushnell@lbl.gov if you encounter any problems
     args = _pack_args(kwargs)
     return _run_command("phylip2fasta.sh", args, capture_output)
 
+def picksubset(capture_output: bool = False, **kwargs) -> Union[None, Tuple[str, str]]:
+    """
+    Wrapper for picksubset.sh
+
+    Help message:
+    Written by Brian Bushnell
+Last modified July 30, 2024
+
+Description:  Selects a subset of files from an all-to-all identity
+comparison.  The subset will contain exactly X files with maximal
+pairwise ANI, or all files with at most Y pairwise identity.
+This program is similar to representative.sh but does not use taxonomy.
+
+Input should be in 3+ column TSV format (first 3 are required):
+(query, ref, ANI)
+...as produced by CompareSketch when run like this:
+comparesketch.sh ata format=3 includeself perfile records=99999 *.fasta
+
+Usage:  picksubset.sh in_file=<file> out=<file> invalid=<file> files=<number>
+
+Parameters:
+in_file=             Input file comparing all-to-all comparisons.
+out=            Output file for the list of files to retain.
+invalid=        Output file for the list of files to discard.
+overwrite=f     (ow) Set to false to force the program to abort rather than
+                overwrite an existing file.
+files=0         Number of files to retain.
+ani=0           Maximum pairwise ANI allowed, expressed as a percent.
+NOTE: files or ani, or both, must be set.
+
+Java Parameters:
+-Xmx            This will set Java's memory usage, overriding autodetection.
+                -Xmx20g will
+                specify 20 gigs of RAM, and -Xmx200m will specify 200 megs.
+                The max is typically around 85% of physical memory.
+-eoom           This flag will cause the process to exit if an out-of-memory
+                exception occurs.  Requires Java 8u92+.
+-da             Disable assertions.
+
+Please contact Brian Bushnell at bbushnell@lbl.gov if you encounter any problems.
+
+    Args:
+        capture_output (bool): If True, capture and return the output instead of printing it.
+        in_file (str): Input file (replaces 'in=' parameter)
+        **kwargs: Other arguments for picksubset.sh
+
+    Returns:
+        Union[None, Tuple[str, str]]: If capture_output is True, returns (stdout, stderr), else None.
+    """
+    args = _pack_args(kwargs)
+    return _run_command("picksubset.sh", args, capture_output)
+
 def pileup(capture_output: bool = False, **kwargs) -> Union[None, Tuple[str, str]]:
     """
     Wrapper for pileup.sh
 
     Help message:
     Written by Brian Bushnell
-Last modified April 30, 2020
+Last modified September 28, 2024
 
 Description:  Calculates per-scaffold or per-base coverage information from an unsorted sam or bam file.
 Supports SAM/BAM format for reads and FASTA for reference.
@@ -8474,6 +8618,9 @@ outorf=<file>       Per-orf coverage info to this file (only if 'fastaorf' is sp
 outsam=<file>       Print the input sam stream to this file (or stdout).  Useful for piping data.
 hist=<file>         Histogram of # occurrences of each depth level.
 basecov=<file>      Coverage per base location.
+rangecov=<file>     Concise ranges where coverage depth is at least mincov.
+mincov=1            When calculating percent covered, ignore bases under this depth.
+                    Also used as threshold for rangecov.
 bincov=<file>       Binned coverage per location (one line per X bases).
 binsize=1000        Binsize for binned coverage output.
 keepshortbins=t     (ksb) Keep residual bins shorter than binsize.
@@ -8493,7 +8640,6 @@ covwindow=0         Calculate how many bases are in windows of this size with
 covwindowavg=5      Average coverage below this will be classified as low.
 k=0                 If positive, calculate kmer coverage statstics for this kmer length.
 keyvalue=f          Output statistics to screen as key=value pairs.
-mincov=1            When calculating percent covered, ignore bases under this depth.
 
 Processing Parameters:
 strandedcov=f       Track coverage for plus and minus strand independently.
@@ -8618,6 +8764,7 @@ def plotflowcell(capture_output: bool = False, **kwargs) -> Union[None, Tuple[st
 Last modified August 9, 2018
 
 Description:  Generates statistics about flowcell positions.
+Seems entirely superceded by filterbytile now; to be removed after 39.12.
 
 Usage:	plotflowcell.sh in_file=<input> out=<output>
 
@@ -8712,6 +8859,47 @@ Please contact Brian Bushnell at bbushnell@lbl.gov if you encounter any problems
     args = _pack_args(kwargs)
     return _run_command("plotgc.sh", args, capture_output)
 
+def plothist(capture_output: bool = False, **kwargs) -> Union[None, Tuple[str, str]]:
+    """
+    Wrapper for plothist.sh
+
+    Help message:
+    Written by Brian Bushnell
+Last modified November 5, 2024
+
+Description:  Generates histograms from a tile dump.
+Also works on other 2D numeric matrices with a header.
+Output files are automatically named from the header columns.
+
+Usage:  plothist.sh in_file=<input file> bins=<number>
+
+Parameters:
+in_file=<file>       Input dump file.
+bins=1000       Bins per histogram.
+overwrite=t     (ow) Set to false to force the program to abort rather than
+                overwrite an existing file.
+
+Java Parameters:
+-Xmx            This will set Java's memory usage, overriding autodetection.
+                -Xmx20g will specify 20 gigs of RAM, and -Xmx200m will
+                specify 200 megs. The max is typically 85% of physical memory.
+-eoom           This flag will cause the process to exit if an out-of-memory
+                exception occurs.  Requires Java 8u92+.
+-da             Disable assertions.
+
+Please contact Brian Bushnell at bbushnell@lbl.gov if you encounter any problems.
+
+    Args:
+        capture_output (bool): If True, capture and return the output instead of printing it.
+        in_file (str): Input file (replaces 'in=' parameter)
+        **kwargs: Other arguments for plothist.sh
+
+    Returns:
+        Union[None, Tuple[str, str]]: If capture_output is True, returns (stdout, stderr), else None.
+    """
+    args = _pack_args(kwargs)
+    return _run_command("plothist.sh", args, capture_output)
+
 def plotreadposition(capture_output: bool = False, **kwargs) -> Union[None, Tuple[str, str]]:
     """
     Wrapper for plotreadposition.sh
@@ -8736,6 +8924,117 @@ Please contact Brian Bushnell at bbushnell@lbl.gov if you encounter any problems
     """
     args = _pack_args(kwargs)
     return _run_command("plotreadposition.sh", args, capture_output)
+
+def polyfilter(capture_output: bool = False, **kwargs) -> Union[None, Tuple[str, str]]:
+    """
+    Wrapper for polyfilter.sh
+
+    Help message:
+    Written by Brian Bushnell
+Last modified October 1, 2024
+
+Description:  Filters reads to remove those with suspicious homopolymers.
+
+Usage:  polyfilter.sh in_file=<input reads> out=<filtered reads>
+
+Example:
+polyfilter.sh in_file=reads.fq out=clean.fq outb=bad.fq k=31 polymers=G
+
+
+File parameters:
+in_file=<file>       Primary input, or read 1 input.
+in2=<file>      Read 2 input if reads are in two files.
+out=<file>      Output for clean reads.
+outb=<file>     Output for bad (homopolymer) reads.
+extra=<file>    Comma-delimited list of additional sequence files.
+                For depth-based filtering, set this to the same as the input.
+overwrite=t     (ow) Set to false to force the program to abort rather than
+                overwrite an existing file.
+
+Hashing parameters:
+k=31            Kmer length.
+hashes=2        Number of hashes per kmer.  Higher generally reduces 
+                false positives at the expense of speed.
+sw=t            (symmetricwrite) Increases accuracy when bits>1 and hashes>1.
+minprob=0.5     Ignore reference kmers with probability of being correct
+                below this (affects fastq references only).
+memmult=1.0     Fraction of free memory to use for Bloom filter.  1.0 should
+                generally work; if the program crashes with an out of memory
+                error, set this lower.  Higher increases specificity.
+cells=          Option to set the number of cells manually.  By default this
+                will be autoset to use all available memory.  The only reason
+                to set this is to ensure deterministic output.
+seed=0          This will change the hash function used.
+bits=           Bits per cell; it is set automatically from mincount.
+
+Filtering rules:
+Reads will always be discarded if they fails ldf2, entropy2, or minpolymer2.
+Reads will also be discarded if they fail (minpolymer AND (ldf OR entropy)).
+A read pair will be discarded if either read is discarded.
+
+Depth-filtering parameters:
+mincount=2      Minimum number of times a read kmer must occur in the 
+                read set to be considered 'high-depth'.
+ldf=0.24        (lowdepthfraction) Consider a read low-depth if at least
+                this fraction of kmers are low depth.  Setting this above 1
+                will disable depth analysis (making the program run faster).
+ldf2=1.1        Discard reads with at least this fraction of low-depth kmers.
+                Values above 1 disables this filter (e.g., for metagenomes).
+
+Entropy-filtering parameters:
+entropy=0.67    Reads with average entropy below this are considered 
+                low-entropy.
+entropy2=0.2    Reads with average entropy below this are discarded.
+
+Quality-filtering parameters (only useful if q-scores are correct):
+quality=12.5    Reads with average quality below this are considered 
+                low-quality.
+quality2=7.5    Reads with average quality below this are discarded.
+
+Homopolymer-filtering parameters:
+polymers=GC     Look for homopolymers of these symbols.  e.g., polymers=GC
+                would look for poly-G or poly-C (but not poly-GC).
+minpolymer=20   Minimum length of homopolymers.
+minpolymer2=29  Discard any read with a homopolymer of at least this length.
+purity=0.85     Min fraction of the homopolymer region that is the correct
+                symbol.  For example, GGGGGGAGGG is length 10 with 9 Gs, for
+                a purity of 0.90 (insufficient in this case due to length).
+
+Trimming parameters:
+trimpolymers=   Homopolymers to use for trimming.  If unspecified, it will
+                be the same as 'polymers'.
+trimleft=6      Trim left ends where there is a homopolymer at least this
+                long; 0 disables trimming.
+trimright=6     Trim left ends where there is a homopolymer at least this
+                long; 0 disables trimming.
+trim=           Sets both trimleft and trimright.
+maxnonpoly=2    Trim through up to this many consecutive mismatches.
+minlen=50       Discard reads shorter than this after trimming.
+
+Other parameters:
+quantize=1      If greater than 1, bin the quality scores to reduce file size.
+cardinality=t   Report estimated number of unique output kmers.
+
+Java Parameters:
+-Xmx            This will set Java's memory usage, overriding autodetection.
+                -Xmx20g will specify 20 gigs of RAM, and -Xmx200m will
+                specify 200 megs. The max is typically 85% of physical memory.
+-eoom           This flag will cause the process to exit if an out-of-memory
+                exception occurs.  Requires Java 8u92+.
+-da             Disable assertions.
+
+Please contact Brian Bushnell at bbushnell@lbl.gov if you encounter any problems.
+
+    Args:
+        capture_output (bool): If True, capture and return the output instead of printing it.
+        in_file (str): Input file (replaces 'in=' parameter)
+        **kwargs: Other arguments for polyfilter.sh
+
+    Returns:
+        Union[None, Tuple[str, str]]: If capture_output is True, returns (stdout, stderr), else None.
+    """
+    args = _pack_args(kwargs)
+    return _run_command("polyfilter.sh", args, capture_output)
 
 def postfilter(capture_output: bool = False, **kwargs) -> Union[None, Tuple[str, str]]:
     """
@@ -8930,6 +9229,55 @@ Please contact Brian Bushnell at bbushnell@lbl.gov if you encounter any problems
     """
     args = _pack_args(kwargs)
     return _run_command("processspeed.sh", args, capture_output)
+
+def quickbin(capture_output: bool = False, **kwargs) -> Union[None, Tuple[str, str]]:
+    """
+    Wrapper for quickbin.sh
+
+    Help message:
+    Written by Brian Bushnell
+Last modified January 7, 2024
+
+Description:  Bins contigs using coverage, kmer frequencies, and
+reference-based sequence comparison using BBSketch.
+If reads or covstats are provided, coverage will be calculated from those;
+otherwise, it will be parsed from contig headers.
+
+Usage:  quickbin.sh contigs=<file> out=<pattern>
+
+File parameters:
+contigs=<file>  (in) Assembly input; only required parameter.
+covstats=<file> Covstats file from BBMap or Pileup.
+readsin_file=<file>  Read input (fastq or sam).
+readsin2=<file> Read 2 input if fastq reads are in two files.
+out=<pattern>   Output pattern.  If this contains a % symbol, like bin%.fa,
+                one file will be created per bin.  If not, all contigs will
+                be written to the same file, with the name modified to
+                indicate their bin number.
+
+Processing parameters:
+None yet!
+
+Java Parameters:
+-Xmx            This will set Java's memory usage, overriding autodetection.
+                -Xmx20g will specify 20 gigs of RAM, and -Xmx200m will
+                specify 200 megs. The max is typically 85% of physical memory.
+-eoom           This flag will cause the process to exit if an out-of-memory
+                exception occurs.  Requires Java 8u92+.
+-da             Disable assertions.
+
+Please contact Brian Bushnell at bbushnell@lbl.gov if you encounter any problems.
+
+    Args:
+        capture_output (bool): If True, capture and return the output instead of printing it.
+        in_file (str): Input file (replaces 'in=' parameter)
+        **kwargs: Other arguments for quickbin.sh
+
+    Returns:
+        Union[None, Tuple[str, str]]: If capture_output is True, returns (stdout, stderr), else None.
+    """
+    args = _pack_args(kwargs)
+    return _run_command("quickbin.sh", args, capture_output)
 
 def randomgenome(capture_output: bool = False, **kwargs) -> Union[None, Tuple[str, str]]:
     """
@@ -9347,6 +9695,10 @@ delimiter=              Character after the end of the value, such as delimiter=
 minvalue=               If set, only accept a numeric value of at least this.
 maxvalue=               If set, only accept a numeric value of at most this.
 value=                  If set, only accept a string value of exactly this.
+
+Illumina-specific parameters:
+top=true                Include reads from the top of the flowcell.
+bottom=true             Include reads from the bottom of the flowcell.
 
 Sam and bam processing options:
 
@@ -9777,7 +10129,7 @@ def rename(capture_output: bool = False, **kwargs) -> Union[None, Tuple[str, str
 
     Help message:
     Written by Brian Bushnell
-Last modified April 2, 2024
+Last modified September 25, 2024
 
 Description:  Renames reads to <prefix>_<number> where you specify the prefix
 and the numbers are ordered.  There are other renaming modes too.
@@ -9806,6 +10158,7 @@ Renaming modes (if not default):
 renamebyinsert=f    Rename the read to indicate its correct insert size.
 renamebymapping=f   Rename the read to indicate its correct mapping coordinates.
 renamebytrim=f      Rename the read to indicate its correct post-trimming length.
+renamebycoords=f    Rename Illumina headers to leave coordinates but remove redundant info.
 addprefix=f         Rename the read by prepending the prefix to the existing name.
 prefixonly=f        Only use the prefix; don't add _<number>
 addunderscore=t     Add an underscore after the prefix (if there is a prefix).
@@ -9824,8 +10177,10 @@ trimbeforesymbol=0  Trim this many characters before the last instance of
 symbol=             Trim before this symbol.  This can be a literal like ':'
                     or a word like tab or lessthan for reserved symbols.
 
-Sampling parameters:
+Other parameters:
 reads=-1            Set to a positive number to only process this many INPUT reads (or pairs), then quit.
+quantize=           Set this to reduce compressed file size by binning quality.
+                    E.g., quantize=2 will eliminate odd qscores.
 
 Java Parameters:
 -Xmx                This will set Java's memory usage, overriding autodetection.
@@ -10070,7 +10425,7 @@ def rqcfilter2(capture_output: bool = False, **kwargs) -> Union[None, Tuple[str,
 
     Help message:
     Written by Brian Bushnell
-Last modified July 18, 2021
+Last modified September 20, 2024
 
 Description:  RQCFilter2 is a revised version of RQCFilter that uses a common path for all dependencies.
 The dependencies are available at http://portal.nersc.gov/dna/microbial/assembly/bushnell/RQCFilterData.tar
@@ -10168,7 +10523,7 @@ Filtering parameters (for artificial and genomic contaminants):
 skipfilter=f        Skip this phase.  Not recommended.
 filterpolya=f       Remove reads containing poly-A sequence (for RNA-seq).
 filterpolyg=0       Remove reads that start with a G polymer at least this long (0 disables).
-trimpolyg=0         Trim reads that start or end with a G polymer at least this long (0 disables).
+trimpolyg=6         Trim reads that start or end with a G polymer at least this long (0 disables).
 phix=t              Remove reads containing phiX kmers.
 lambda=f            Remove reads containing Lambda phage kmers.
 pjet=t              Remove reads containing PJET kmers.
@@ -10201,7 +10556,19 @@ ribomap=f           Remove ribosomal reads by mapping to this organism's ribosom
 NOTE: organism TaxID should be specified in taxlist, and taxlevel should be set to genus or species.
 
 FilterByTile parameters:
-filterbytile=f      Run FilterByTile to remove reads from low-quality parts of the flowcell.
+filterbytile=t      Run FilterByTile to remove reads from low-quality parts of the flowcell.
+tiledump=           Set this to the tiledump of the full lane (recommended).
+
+Recalibration parameters:
+recalibrate=t       Recalibrate quality scores based on PhiX alignment.
+phixsam=            Set this to the aligned PhiX data for the lane (required).
+quantize=2          Quantize the quality scores to reduce file size, using this divisor.
+                    2 reduces size by roughly 25%.  Disabled if recalibrate=f.
+                    Quantization happens AFTER all the quality-related steps.
+
+Polyfilter parameters:
+polyfilter=GC       Remove reads with homopolymers of these subunits.
+                    Set polyfilter=null to disable.
 
 Clumpify parameters:
 clumpify=f          Run clumpify; all deduplication flags require this.
@@ -10233,7 +10600,6 @@ filterk=31          Kmer length for filtering stage.
 rcomp=t             Look for reverse-complements of kmers in addition to forward kmers.
 nexteralmp=f        Split into different files based on Nextera LMP junction sequence.  Only for Nextera LMP, not normal Nextera.
 extend=f            Extend reads during merging to allow insert size estimation of non-overlapping reads.
-monitor=f           Kill this process if it crashes.  monitor=600,0.01 would kill after 600 seconds under 1% usage.
 pigz=t              Use pigz for compression.
 unpigz=t            Use pigz for decompression.
 khist=f             Set to true to generate a kmer-frequency histogram of the output data.
@@ -10241,7 +10607,8 @@ merge=t             Set to false to skip generation of insert size histogram.
 
 Header-specific parameters:  (NOTE - Be sure to disable these if the reads have improper headers, like SRA data.)
 chastityfilter=t    Remove reads failing chastity filter.
-barcodefilter=crash Crash when improper barcodes are discovered.  Set to 'f' to disable or 't' to just remove improper barcodes.
+barcodefilter=f     Crash when improper barcodes are discovered.  Set to 'f' to disable,
+                    't' to remove improper barcodes, or 'crash' to crash if they are discovered.
 barcodes=           A comma-delimited list of barcodes or files of barcodes.
 
 Java Parameters:
@@ -10402,7 +10769,7 @@ def seal(capture_output: bool = False, **kwargs) -> Union[None, Tuple[str, str]]
 
     Help message:
     Written by Brian Bushnell
-Last modified May 9, 2024
+Last modified November 12, 2024
 
 Description:  Performs high-speed alignment-free sequence quantification,
 by counting the number of long kmers that match between a read and
@@ -10512,6 +10879,8 @@ ambiguous=random    (ambig) Set behavior on ambiguously-mapped reads (with an
                          toss:   Consider unmapped.
                          random: Select one best-matching sequence randomly.
                          all:    Use all best-matching sequences.
+genesets=f          Assign ambiguously-mapping reads to a newly created gene
+                    set that they share for stats/rpkm output.  May be slow.
 clearzone=0         (cz) Threshhold for ambiguity.  If the best match shares X 
                     kmers with the read, the read will be considered
                     also ambiguously mapped to any sequence sharing at least
@@ -10612,7 +10981,7 @@ def sendsketch(capture_output: bool = False, **kwargs) -> Union[None, Tuple[str,
 
     Help message:
     Written by Brian Bushnell
-Last modified December 19, 2019
+Last modified October 10, 2024
 
 Description:  Compares query sketches to reference sketches hosted on a 
 remote server via the Internet.  The input can be sketches made by sketch.sh,
@@ -10643,7 +11012,7 @@ local=f         For local files, have the server load the sketches.
                 Local can only be used when the client and server access 
                 the same filesystem - e.g., Genepool and Cori.
 address=        Address of remote server.  Default address:
-                https://refseq-sketch.jgi-psf.org/sketch
+                https://refseq-sketch.jgi.doe.gov/sketch
                 You can also specify these abbreviations:
                    nt:      nt server
                    refseq:  Refseq server
@@ -13095,6 +13464,51 @@ Please contact Brian Bushnell at bbushnell@lbl.gov if you encounter any problems
     args = _pack_args(kwargs)
     return _run_command("textfile.sh", args, capture_output)
 
+def tiledump(capture_output: bool = False, **kwargs) -> Union[None, Tuple[str, str]]:
+    """
+    Wrapper for tiledump.sh
+
+    Help message:
+    Written by Brian Bushnell
+Last modified November 14, 2024
+
+Description:  Processes a tile dump from FilterByTile.
+
+Usage:  tiledump.sh in_file=<input file> out=<output file>
+
+Standard parameters:
+in_file=<file>       Input dump file.
+out=<file>      Output dump file.
+overwrite=t     (ow) Set to false to force the program to abort rather than
+                overwrite an existing file.
+
+Processing parameters:
+x=-1            Widen tiles to at least this X width.
+y=-1            Widen tiles to at least this Y width.
+reads=-1        Widen tiles to at least this average number of reads.
+alignedreads=250  Average aligned reads per tile for error rate calibration.
+
+Java Parameters:
+-Xmx            This will set Java's memory usage, overriding autodetection.
+                -Xmx20g will specify 20 gigs of RAM, and -Xmx200m will
+                specify 200 megs. The max is typically 85% of physical memory.
+-eoom           This flag will cause the process to exit if an out-of-memory
+                exception occurs.  Requires Java 8u92+.
+-da             Disable assertions.
+
+Please contact Brian Bushnell at bbushnell@lbl.gov if you encounter any problems.
+
+    Args:
+        capture_output (bool): If True, capture and return the output instead of printing it.
+        in_file (str): Input file (replaces 'in=' parameter)
+        **kwargs: Other arguments for tiledump.sh
+
+    Returns:
+        Union[None, Tuple[str, str]]: If capture_output is True, returns (stdout, stderr), else None.
+    """
+    args = _pack_args(kwargs)
+    return _run_command("tiledump.sh", args, capture_output)
+
 def train(capture_output: bool = False, **kwargs) -> Union[None, Tuple[str, str]]:
     """
     Wrapper for train.sh
@@ -13294,6 +13708,57 @@ Please contact Brian Bushnell at bbushnell@lbl.gov if you encounter any problems
     """
     args = _pack_args(kwargs)
     return _run_command("translate6frames.sh", args, capture_output)
+
+def trimcontigs(capture_output: bool = False, **kwargs) -> Union[None, Tuple[str, str]]:
+    """
+    Wrapper for trimcontigs.sh
+
+    Help message:
+    Written by Brian Bushnell
+Last modified October 1, 2024
+
+Description:  Trims contigs to remove sequence unsupported by read alignment.
+The coverage range file can be generated by pileup.sh.
+
+Usage:  trimcontigs.sh in_file=<assembly> ranges=<ranges> out=<trimmed assembly>
+
+Parameters:
+in_file=<file>       File containing input assembly.
+ranges=<file>   File generated by pileup with the 'ranges' flag.
+out=<file>      Destination of clean output assembly.
+outdirty=<file> (outd) Optional dirty output containing removed contigs.
+gffin_file=<file>    Optional gff file.
+gffout=<file>   Modified gff file.
+mincov=1        Discard contigs with lower average coverage than this.
+minlen=1        Discard contigs shorter than this, after trimming.
+trimmin_file=0       Trim the first and last X bases of each sequence.
+trimmax=big     Don't trim more than this much on contig ends.
+trimextra=5     Trim an additional amount when trimming.
+maxuncovered=3  Don't trim where there are at most this many uncovered bases.
+break=t         Break contigs where uncovered areas are present.
+breaklist=      Optional file to report the list of broken contigs.
+skippolyn=t     Don't break around uncovered poly-Ns (scaffold breaks).
+
+Java Parameters:
+-Xmx            This will set Java's memory usage, overriding autodetection.
+                -Xmx20g will specify 20 gigs of RAM, and -Xmx200m will specify 200 megs.
+                    The max is typically 85% of physical memory.
+-eoom           This flag will cause the process to exit if an out-of-memory
+                exception occurs.  Requires Java 8u92+.
+-da             Disable assertions.
+
+Please contact Brian Bushnell at bbushnell@lbl.gov if you encounter any problems.
+
+    Args:
+        capture_output (bool): If True, capture and return the output instead of printing it.
+        in_file (str): Input file (replaces 'in=' parameter)
+        **kwargs: Other arguments for trimcontigs.sh
+
+    Returns:
+        Union[None, Tuple[str, str]]: If capture_output is True, returns (stdout, stderr), else None.
+    """
+    args = _pack_args(kwargs)
+    return _run_command("trimcontigs.sh", args, capture_output)
 
 def unicode2ascii(capture_output: bool = False, **kwargs) -> Union[None, Tuple[str, str]]:
     """

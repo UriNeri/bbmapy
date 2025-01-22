@@ -30,9 +30,12 @@ def scan_bbtools():
 
 def generate_commands_file(tools):
     output_path = os.path.join(os.path.dirname(__file__), "commands.py")
+    if os.path.exists(output_path):
+        os.remove(output_path)
+    
     with open(output_path, "w") as f:
         f.write("from typing import Union, Tuple\n")
-        f.write("from bbpy.base import _pack_args, _run_command\n\n")
+        f.write("from bbmapy.base import _pack_args, _run_command\n\n")
         
         for tool, help_message in tools:
             method_name = tool.replace('-', '_')
