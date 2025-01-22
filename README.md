@@ -1,10 +1,14 @@
 # bbmapy
 
 A Python wrapper for BBTools.  
-Current BBMap version: 0.0.41
+Current BBMap version: 39.15
 
 ## Installation
-1. Lazy way - Clone this repository, download bbmap, and install the package:
+<!-- 1. Lazy way - just use pip: -->
+   ```
+   pip install bbmapy
+   ```
+<!-- 2. Unlazy way - Clone this repository, download bbmap, and install the package:
    ```
    git clone https://github.com/urineri/bbmapy.git
    cd bbmapy
@@ -18,7 +22,7 @@ Current BBMap version: 0.0.41
    ```
    The above should be automatically done or just not needed if you are installing from pip (pypi)
    
-2. Unlazy way - is commented out below this line, that's how much it isn't suggested.
+2. Unlazy way - is commented out below this line, that's how much it isn't suggested. -->
 <!-- Add the BBTools submodule:
    ```
    git submodule add https://bitbucket.org/berkeleylab/jgi-bbtools.git vendor/bbtools
@@ -56,12 +60,9 @@ git clone --recurse-submodules https://github.com/yourusername/bbmapy.git
 
 This will clone the repository and initialize the submodule in one step... I think? -->
 
-
-
 ## Dependencies
 - Java  
-- BBmap  (the above steps should download it to the vendor subdirectory...).  
-If you rather this to use your own bbmap etc, go to the base.py script and comment out line 51, then uncomment line 52.
+- BBmap  (the pip version includes it)  
 - rich (for pretty printing)
 
 ## Usage
