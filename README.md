@@ -1,6 +1,7 @@
 # bbmapy
 
 A Python wrapper for BBTools.
+Current version of bbmapy is v39.20.
 
 ## Installation
 
@@ -120,3 +121,15 @@ This project only (crudely) wraps BBTools (a.k.a bbmap), which is developed by B
 If you use bbmapy and things don't quite work like you'd like, don't expect the developer of bbmap to help you with this whacky python wrapper.  
 If 
 Please see the [BBTools website](https://jgi.doe.gov/data-and-tools/bbtools/) for more information about the underlying tools.  
+
+
+### to build and upload to pypi
+
+```bash
+rm -rf dist build egg-info
+python bbmapy/update.py # fetch latest version of bbtools and update version in pyproject.toml
+pip install --upgrade build twine
+python -m build
+twine upload dist/*
+
+```
