@@ -5,6 +5,52 @@ import subprocess
 import tempfile
 import urllib.request
 from pathlib import Path
+import jdk
+
+def ensure_java_availability_post_install():
+    """
+    Ensure Java runtime environment is available.
+    """
+    # Check if Java is in PATH
+    java_path = shutil.which('java')
+    if not java_path:
+        print("Java not found in PATH, installing...")
+        jre_path = jdk.install('11', jre=True, path=os.environ['CONDA_PREFIX'],vendor="adoptium")
+        print("Java installed, adding to this conda environment PATH...")
+        subprocess.run(f'conda env config vars set JAVA_HOME="{jre_path}"',shell=True, check=True)
+        subprocess.run(f'conda env config vars set PATH="{jre_path}/bin:$PATH"',shell=True, check=True)
+        # just in case, create a symlink to to the java binary in the conda envs' bin directory
+        java_bin_path = os.path.join(jre_path, 'bin', 'java')
+        os.symlink(java_bin_path, os.path.join(os.environ['CONDA_PREFIX'], 'bin', 'java'))
+        print("Java added to this conda environment PATH, testing...")
+        java_path = shutil.which('java')
+        if not java_path:
+            raise FileNotFoundError("Java executable not found in PATH")
+        print("Java executable found in PATH")
+        print("Please restart your shell to use Java")
+        
+
+def ensure_java_availability_on_build():
+    """
+    Ensure Java runtime environment is available. on conda build time the paths and global env variables are different.
+    """
+    # Check if Java is in PATH
+    java_path = shutil.which('java')
+    if not java_path:
+        print("Java not found in PATH, installing...")
+        jre_path = jdk.install('11', jre=True, path=os.environ['PREFIX'],vendor="adoptium")
+        print("Java installed, adding to this conda environment PATH...")
+        subprocess.run(f'conda env config vars set JAVA_HOME="{jre_path}"',shell=True, check=True)
+        subprocess.run(f'conda env config vars set PATH="{jre_path}/bin:$PATH"',shell=True, check=True)
+        # just in case, create a symlink to to the java binary in the conda envs' bin directory
+        java_bin_path = os.path.join(jre_path, 'bin', 'java')
+        os.symlink(java_bin_path, os.path.join(os.environ['PREFIX'], 'bin', 'java'))
+        print("Java added to this conda environment PATH, testing...")
+        java_path = shutil.which('java')
+        if not java_path:
+            raise FileNotFoundError("Java executable not found in PATH")
+        print("Java executable found in PATH")
+        print("Please restart your shell to use Java")
 
 def get_bbmap_version(vendor_dir):
     """Get BBMap version by running bbmap.sh version"""
@@ -25,7 +71,7 @@ def get_bbmap_version(vendor_dir):
     except subprocess.CalledProcessError:
         raise RuntimeError("Failed to run bbmap.sh version")
 
-def download_bbtools():
+def download_bbtools_sourceforge():
     """Download latest BBTools from SourceForge"""
     bbtools_url = "https://sourceforge.net/projects/bbmap/files/latest/download"
     
@@ -47,9 +93,12 @@ def extract_bbtools(archive_path, vendor_dir):
     shutil.unpack_archive(archive_path, vendor_dir)
 
 def update_version(new_version):
-    """Update version in pyproject.toml and README.md"""
+    """Update version in pyproject.toml, README.md, and meta.yaml"""
     # Update pyproject.toml
     pyproject_path = Path("pyproject.toml")
+    meta_yaml_path = Path("recipes/bbmapy/meta.yaml")
+    readme_path = Path("README.md")
+    
     if pyproject_path.exists():
         content = pyproject_path.read_text()
         # Update version in pyproject.toml
@@ -65,7 +114,6 @@ def update_version(new_version):
         print(f"Updated pyproject.toml version to {new_version}")
     
     # Update README.md
-    readme_path = Path("README.md")
     if readme_path.exists():
         content = readme_path.read_text()
         # Update version badge or version section in README
@@ -76,11 +124,24 @@ def update_version(new_version):
         )
         readme_path.write_text(content)
         print(f"Updated README.md version to {new_version}")
+    
+    # Update meta.yaml
+    if meta_yaml_path.exists():
+        content = meta_yaml_path.read_text()
+        # Update version in meta.yaml
+        content = re.sub(
+            pattern=r'{% set version = "0.0.\d+" %}',
+            repl=r'{% set version = "{new_version}" %}',
+            string=content
+        )
+        meta_yaml_path.write_text(content)
+        print(f"Updated meta.yaml version to {new_version}")
 
 def regenerate_commands():
     """Regenerate Python commands from BBTools scripts"""
     print("Regenerating commands...")
     subprocess.run(['python', '-m', 'bbmapy.scanner'], check=True)
+
 
 def main():
     # Get package root directory
@@ -92,7 +153,7 @@ def main():
     
     try:
         # Download and extract BBTools
-        archive_path = download_bbtools()
+        archive_path = download_bbtools_sourceforge()
         extract_bbtools(archive_path, vendor_dir)
         os.unlink(archive_path)
         
@@ -111,3 +172,4 @@ def main():
 
 if __name__ == "__main__":
     main() 
+    # this scripts is for development purposes only, when creating a new release to pypi and maybe bioconda.
