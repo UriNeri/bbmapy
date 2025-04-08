@@ -1,5 +1,5 @@
 # vendor
-bbmapy/vendor/
+# bbmapy/vendor/  # Commented out to allow vendor directory in package
 test
 .vscode/**  
 .cursorignore
@@ -8,6 +8,7 @@ __pycache__/
 *.py[cod]
 *$py.class
 
+.vscode
 .pypirc
 .pypi
 .pypi-version

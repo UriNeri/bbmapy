@@ -1,3 +1,6 @@
-include bbmapy/__init__.py
-recursive-include bbmapy *
-recursive-include vendor *
+include LICENSE
+include README.md
+include bbmapy/*.py
+recursive-include bbmapy/vendor/bbmap *
+recursive-include bbmapy/vendor/bbmap/current *
+recursive-include bbmapy/vendor/bbmap/resources *
