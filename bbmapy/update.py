@@ -96,7 +96,7 @@ def update_version(new_version):
     """Update version in pyproject.toml, README.md, and meta.yaml"""
     # Update pyproject.toml
     pyproject_path = Path("pyproject.toml")
-    meta_yaml_path = Path("recipes/bbmapy/meta.yaml")
+    # meta_yaml_path = Path("recipes/bbmapy/meta.yaml")
     readme_path = Path("README.md")
     
     if pyproject_path.exists():
@@ -125,17 +125,17 @@ def update_version(new_version):
         readme_path.write_text(content)
         print(f"Updated README.md version to {new_version}")
     
-    # Update meta.yaml
-    if meta_yaml_path.exists():
-        content = meta_yaml_path.read_text()
-        # Update version in meta.yaml
-        content = re.sub(
-            pattern=r'{% set version = "0.0.\d+" %}',
-            repl=r'{% set version = "{new_version}" %}',
-            string=content
-        )
-        meta_yaml_path.write_text(content)
-        print(f"Updated meta.yaml version to {new_version}")
+    # # Update meta.yaml
+    # if meta_yaml_path.exists():
+    #     content = meta_yaml_path.read_text()
+    #     # Update version in meta.yaml
+    #     content = re.sub(
+    #         pattern=r'{% set version = "0.0.\d+" %}',
+    #         repl=r'{% set version = "{new_version}" %}',
+    #         string=content
+    #     )
+    #     meta_yaml_path.write_text(content)
+    #     print(f"Updated meta.yaml version to {new_version}")
 
 def regenerate_commands():
     """Regenerate Python commands from BBTools scripts"""
