@@ -2903,6 +2903,49 @@ Please contact Brian Bushnell at bbushnell@lbl.gov if you encounter any problems
     args = _pack_args(kwargs)
     return _run_command("callvariants.sh", args, capture_output)
 
+def cat(capture_output: bool = False, **kwargs) -> Union[None, Tuple[str, str]]:
+    """
+    Wrapper for cat.sh
+
+    Help message:
+    Written by Brian Bushnell
+Last modified January 20, 2025
+
+Description:  Concatenates and recompresses files.
+
+Usage:  cat.sh *.fna out=catted.fa.gz
+
+Standard parameters:
+in_file=<file>       Comma-delimited input.  Filenames with no 'in_file=' will
+                also be treated as input files.
+out=<file>      Output.  Defaults to stdout.
+ziplevel=2      (zl) Set to 1 (lowest) through 9 (max) to change compression
+                level; lower compression is faster.
+
+Processing parameters:
+None yet!
+
+Java Parameters:
+-Xmx            This will set Java's memory usage, overriding autodetection.
+                -Xmx20g will specify 20 gigs of RAM, and -Xmx200m will
+                specify 200 megs. The max is typically 85% of physical memory.
+-eoom           This flag will cause the process to exit if an out-of-memory
+                exception occurs.  Requires Java 8u92+.
+-da             Disable assertions.
+
+Please contact Brian Bushnell at bbushnell@lbl.gov if you encounter any problems.
+
+    Args:
+        capture_output (bool): If True, capture and return the output instead of printing it.
+        in_file (str): Input file (replaces 'in=' parameter)
+        **kwargs: Other arguments for cat.sh
+
+    Returns:
+        Union[None, Tuple[str, str]]: If capture_output is True, returns (stdout, stderr), else None.
+    """
+    args = _pack_args(kwargs)
+    return _run_command("cat.sh", args, capture_output)
+
 def cg2illumina(capture_output: bool = False, **kwargs) -> Union[None, Tuple[str, str]]:
     """
     Wrapper for cg2illumina.sh
@@ -2955,11 +2998,12 @@ def checkstrand(capture_output: bool = False, **kwargs) -> Union[None, Tuple[str
 
     Help message:
     Written by Brian Bushnell
-Last modified September 12, 2023
+Last modified March 19, 2025
 
 Description:  Estimates the strandedness of a library without alignment; 
 intended for RNA-seq data.  Only the reads are required input to determine
-strandedness, so this works when run with just a fastq file.
+strandedness, so this works when run with just a fastq file.  If sam/bam
+input is used, additional alignment-based metrics will be reported.
 If an assembly and gff file are provided, the affinity of reads to the plus 
 or minus (sense or antisense) strand will also be calculated.  If a genome
 is specified with no gff file, the genes will be called automatically with a
@@ -2973,7 +3017,10 @@ Output meaning:
 
 Depth_Analysis: Based on comparing the fraction of kmers in forward and
                 reverse orientation to a binomial distribution.
-Strandedness:   Percent of reads that came from the majority strand.
+Strandedness:   Percent of reads that came from the majority strand, based
+                on kmer depth.
+StrandednessN:  Depth-normalized strandedness, where each unique kmer
+                contributes equally regardless of depth.
 AvgKmerDepth:   Average depth of kmers; typically higher than read depth.
 Kmers>Depth1:   Fraction of kmers with depth over 1.  Singleton kmers cannot
                 be used to calculate strandedness from depth.
@@ -3010,17 +3057,48 @@ AvgScoreMinus:  Average score of called plus-strand genes.
 UsedFraction:   Fraction of reads with any called genes (or partial genes);
                 this can be increased by merging the reads for longer frames.
 
-Alignment_Results:  Only available if the input is sam/bam, and the reads
-                are transcriptome-mapped or a gff file is provided.
+Alignment_Results:  Requires sam/bam input.  The reads must have been
+                mapped to a transcriptome or RNA-seq assembly, or to a 
+                specified genome, or a gff file must be provided.
 StrandednessAL: Percent of reads aligned to the dominant strand.  More 
                 accurate for transcriptome-mapped than genome-mapped reads.
+StrandednessAN: Depth-normalized strandedness, where each feature or
+                contig contributes equally.
 MajorStrandAL:  Strand to which a majority of reads aligned.
 P/(P+M)_Ratio:  P is the number of plus-mapped reads, M is minus.
+P/(P+M)_RatioN: Depth-normalized plus/total ratio.
+PlusFeatures:   Fraction of features with majority plus-mapped reads.
 AlignmentRate:  Fraction of reads that aligned.
 Feature-Mapped: Fraction of reads that aligned to a feature in the gff.
 
 
 Usage:  checkstrand.sh in_file=<input file>
+
+Running on a fastq is simple, but there are multiple ways to run CheckStrand
+on aligned data (in_file=, ref=, and gff= flags are not needed if the files have
+proper extensions):
+
+#1) This won't give alignment results, just kmer results
+checkstrand.sh mapped.sam
+
+#2) This will do gene-calling and the alignment strandedness will be based 
+    on gene sense strand, but only works for prokaryotes/viruses
+checkstrand.sh mapped.sam contigs.fa
+
+#3) This will use the annotation and the alignment strandedness will be based
+    on gene sense strand, works for proks, and should work for eukaryotes 
+    (there are lots of ways to annotate multi-exon genes though)
+checkstrand.sh mapped.sam genes.gff
+
+#4) This will assume that the reference was a sense-strand transcriptome,
+    and the alignment strandedness will be based on contig plus strand
+checkstrand.sh mapped.sam transcriptome
+
+#5) This will assume that the reference was unstranded contigs assembled
+    from RNA-seq data, so the alignment strandedness will be based on
+    contig majority strand
+checkstrand.sh mapped.sam rnacontigs
+
 
 Standard parameters:
 in_file=<file>       Primary input (a fastq, fasta, sam or bam file).
@@ -3035,10 +3113,13 @@ The destination of plus-mapped r1 would be outp, but outm for plus-mapped r2.
 Processing parameters:
 ref=<file>      Optional reference (assembly) input.
 gff=<file>      Optional gene annotation file.
-transcriptome=f Set this to 't' if the reference is a transcriptome rather
-                than a genome.  When true any gff will be ignored.
-                Also controls whether sam files are assumed to be
-                aligned to a transcriptome or genome.
+transcriptome=f Set this to 't' if the reference is a sense-strand 
+                transcriptome (rather than a genome assembly).  This applies
+                to either a reference specified by 'ref' or the reference
+                used for alignment, fo sam/bam input.
+rnacontigs=f    Set this to 't' if the reference is contigs assembled from
+                RNA-seq data, but with unknown orientation.  Only affects
+                alignment results.
 size=80000      Sketch size; larger may be more precise.
 merge=f         Attempt to merge paired reads, and use the merged read when
                 successful.  If unsuccessful only R1 is used.  This has a 
@@ -3053,7 +3134,6 @@ passes=2        Two passes refines the gene model for better gene-calling on
 samplerate=1.0  Set to a lower number to subsample the input reads; increases
                 speed on CPUs with few cores.
 sampleseed=17   Positive numbers are deterministic; negative use random seeds.
-
 reads=-1        If positive, quit after processing this many reads.
 
 Java Parameters:
@@ -3083,7 +3163,7 @@ def clumpify(capture_output: bool = False, **kwargs) -> Union[None, Tuple[str, s
 
     Help message:
     Written by Brian Bushnell
-Last modified January 15, 2025
+Last modified January 10, 2025
 
 Description:  Sorts sequences to put similar reads near each other.
 Can be used for increased compression or error correction.
@@ -3173,10 +3253,6 @@ dedupe=f            Remove duplicate reads.  For pairs, both must match.
 markduplicates=f    Don't remove; just append ' duplicate' to the name.
 allduplicates=f     Mark or remove all copies of duplicates, instead of
                     keeping the highest-quality copy.
-umi=f               Set to true to require matching UMIs in read headers
-                    to consider reads as duplicates.  These are parsed from
-		    standard Illumina header format.
-umisubs=0           Maximum mismatches in UMIs to be considered matching.
 addcount=f          Append the number of copies to the read name.
                     Mutually exclusive with markduplicates or allduplicates.
 entryfilter=f       This assists in removing exact duplicates, which saves
@@ -3188,6 +3264,10 @@ subrate=0.0         (dsr) If set, the number of substitutions allowed will be
 allowns=t           No-called bases will not be considered substitutions.
 scanlimit=5         (scan) Continue for this many reads after encountering a
                     nonduplicate.  Improves detection of inexact duplicates.
+umi=f               If reads have UMIs in the headers, require them to match
+                    to consider the reads duplicates.
+umisubs=0           Consider UMIs as matching if they have up to this many
+                    mismatches.
 containment=f       Allow containments (where one sequence is shorter).
 affix=f             For containments, require one sequence to be an affix
                     (prefix or suffix) of the other.
@@ -6244,6 +6324,69 @@ Please contact Brian Bushnell at bbushnell@lbl.gov if you encounter any problems
     args = _pack_args(kwargs)
     return _run_command("gitable.sh", args, capture_output)
 
+def gradebins(capture_output: bool = False, **kwargs) -> Union[None, Tuple[str, str]]:
+    """
+    Wrapper for gradebins.sh
+
+    Help message:
+    Written by Brian Bushnell
+Last modified April 7, 2025
+
+Description:  Grades metagenome bins for completeness and contamination.
+The contigs can be labeled with their taxID; in which case the header should
+contain 'tid_X' somewhere where X is a number unique to their proper genome.
+Alternately, CheckM2 and/or EukCC output can be fed to it.
+Do not include a 'chaff' file (for unbinned contigs) when grading.
+Completeness Score is (sum of completeness*size)/(total size) for all bins.
+Contamination Score is (sum of contam*size)/(total size) for all bins.
+Total Score is (sum of (completeness-5*contam)^2) for all bins.
+Bin Definitions:
+UHQ: >=99% complete and <=1% contam (subset of VHQ)
+VHQ: >=95% complete and <=2% contam (subset of HQ)
+HQ:  >=90% complete and <=5% contam
+MQ:  >=50% complete and <=10% contam, but not HQ
+LQ:  <50% complete or >10% contam
+VLQ: <20% complete or >5% contam    (subset of LQ)
+
+
+Usage:  gradebins.sh ref=assembly bin*.fa
+or
+gradebins.sh ref=assembly.fa in_file=bin_directory
+or
+gradebins.sh taxin_file=tax.txt in_file=bins
+
+File parameters:
+ref=<file>      The original assembly that was binned.
+in_file=<directory>  Location of bin fastas.
+checkm=<file>   Optional CheckM2 quality_report.tsv file or directory.
+eukcc=<file>    Optional EukCC eukcc.csv file or directory.
+hist=<file>     Histogram output.
+taxin_file=<file>    Optional file with taxIDs and sizes (instead of loading ref).
+                Does not need to include taxIDs.  The tax file loads faster.
+taxout=<file>   Generate a tax file from the reference.
+loadmt=t        Load bins multithreaded.
+
+Java Parameters:
+-Xmx            This will set Java's memory usage, overriding autodetection.
+                -Xmx20g will specify 20 gigs of RAM, and -Xmx200m will
+                specify 200 megs. The max is typically 85% of physical memory.
+-eoom           This flag will cause the process to exit if an out-of-memory
+                exception occurs.  Requires Java 8u92+.
+-da             Disable assertions.
+
+Please contact Brian Bushnell at bbushnell@lbl.gov if you encounter any problems.
+
+    Args:
+        capture_output (bool): If True, capture and return the output instead of printing it.
+        in_file (str): Input file (replaces 'in=' parameter)
+        **kwargs: Other arguments for gradebins.sh
+
+    Returns:
+        Union[None, Tuple[str, str]]: If capture_output is True, returns (stdout, stderr), else None.
+    """
+    args = _pack_args(kwargs)
+    return _run_command("gradebins.sh", args, capture_output)
+
 def grademerge(capture_output: bool = False, **kwargs) -> Union[None, Tuple[str, str]]:
     """
     Wrapper for grademerge.sh
@@ -7611,6 +7754,55 @@ Please contact Brian Bushnell at bbushnell@lbl.gov if you encounter any problems
     args = _pack_args(kwargs)
     return _run_command("makepolymers.sh", args, capture_output)
 
+def makequickbinvector(capture_output: bool = False, **kwargs) -> Union[None, Tuple[str, str]]:
+    """
+    Wrapper for makequickbinvector.sh
+
+    Help message:
+    Written by Brian Bushnell
+Last modified April 7, 2025
+
+Description:  Makes vectors for QuickBin network training.
+
+Usage: makequickbinvector.sh in_file=contigs.fa out=vector.txt cov=cov.txt lines=1m
+
+Parameters:
+in_file=<file>       Assembly input; only required parameter.
+cov=<file>      Cov file generated by Quickbin from sam files.
+out=<file>      Output file.
+lines=1m        Lines to output.
+rate=0.5        Fraction of vectors with positive results.
+mincontig=200   Do not load contigs shorter than this.
+minlen=0        Do not print comparisons where either contig is shorter 
+                than this.
+maxlen=2B       Do not print comparisons where both contigs are longer
+                than this.
+maxgcdif=1.0    Max allowed GC difference for output.
+maxkmerdif=1.0  Max allowed TNF cosine difference for output.
+mcc=9           Max contigs per cluster.
+maxdepthratio=1000.0  Max allowed depth ratio for output.
+
+Java Parameters:
+-Xmx            This will set Java's memory usage, overriding autodetection.
+                -Xmx20g will specify 20 gigs of RAM, and -Xmx200m will
+                specify 200 megs. The max is typically 85% of physical memory.
+-eoom           This flag will cause the process to exit if an out-of-memory
+                exception occurs.  Requires Java 8u92+.
+-da             Disable assertions.
+
+Please contact Brian Bushnell at bbushnell@lbl.gov if you encounter any problems.
+
+    Args:
+        capture_output (bool): If True, capture and return the output instead of printing it.
+        in_file (str): Input file (replaces 'in=' parameter)
+        **kwargs: Other arguments for makequickbinvector.sh
+
+    Returns:
+        Union[None, Tuple[str, str]]: If capture_output is True, returns (stdout, stderr), else None.
+    """
+    args = _pack_args(kwargs)
+    return _run_command("makequickbinvector.sh", args, capture_output)
+
 def mapPacBio(capture_output: bool = False, **kwargs) -> Union[None, Tuple[str, str]]:
     """
     Wrapper for mapPacBio.sh
@@ -7999,6 +8191,61 @@ Please contact Brian Bushnell at bbushnell@lbl.gov if you encounter any problems
     """
     args = _pack_args(kwargs)
     return _run_command("mergesorted.sh", args, capture_output)
+
+def microalign(capture_output: bool = False, **kwargs) -> Union[None, Tuple[str, str]]:
+    """
+    Wrapper for microalign.sh
+
+    Help message:
+    Written by Brian Bushnell
+Last modified March 21, 2025
+
+Description:  Wrapper for MicroAligner.
+Can align reads to a small, single-contig reference like PhiX.
+Probably faster than BBMap.  Produces most of the same histograms,
+like idhist, mhist, etc.
+Not currently designed for reference with multiple sequences,
+or duplicate kmers of length used for indexing.
+
+Usage:  microalign.sh in_file=<input file> out=<output file> ref=<reference>
+
+Input may be fasta or fastq, compressed or uncompressed.
+
+Standard parameters:
+in_file=<file>       Primary input, or read 1 input.
+in2=<file>      Read 2 input if reads are in two files.
+out=<file>      Primary output, or read 1 output.
+out2=<file>     Read 2 output if reads are in two files.
+outu=<file>     Optional unmapped read output.
+outu2=<file>    Optional unmapped read 2 output.
+
+Processing parameters:
+k=17            Main kmer length.
+k2=13           Sub-kmer length for paired reads only.
+minid=0.66      Minimum alignment identity.
+minid2=0.56     Minimum alignment identity if the mate is mapped.
+mm=1            Middle mask length; the index uses gapped kmers.
+
+Java Parameters:
+-Xmx            This will set Java's memory usage, overriding autodetection.
+                -Xmx20g will specify 20 gigs of RAM, and -Xmx200m will
+                specify 200 megs. The max is typically 85% of physical memory.
+-eoom           This flag will cause the process to exit if an out-of-memory
+                exception occurs.  Requires Java 8u92+.
+-da             Disable assertions.
+
+Please contact Brian Bushnell at bbushnell@lbl.gov if you encounter any problems.
+
+    Args:
+        capture_output (bool): If True, capture and return the output instead of printing it.
+        in_file (str): Input file (replaces 'in=' parameter)
+        **kwargs: Other arguments for microalign.sh
+
+    Returns:
+        Union[None, Tuple[str, str]]: If capture_output is True, returns (stdout, stderr), else None.
+    """
+    args = _pack_args(kwargs)
+    return _run_command("microalign.sh", args, capture_output)
 
 def msa(capture_output: bool = False, **kwargs) -> Union[None, Tuple[str, str]]:
     """
@@ -8720,8 +8967,8 @@ Description:  This is a version of Pileup designed to process multiple files
 concurrently.  If you only have one input file just use regular Pileup.
 Other than those mentioned here, the flags are the same as in pileup.sh.
 
-Usage:        pileup.sh in_file=<file,file,file> out=<file>
-Alternate:    pileup.sh *.sam out=<file>
+Usage:        pileup2.sh in_file=<file,file,file> out=<file>
+Alternate:    pileup2.sh *.sam out=<file>
 
 Parameters:
 in_file=<file,file>     The input sam/bam files.  Omit the 'in_file=' if a wildcard
@@ -9236,27 +9483,105 @@ def quickbin(capture_output: bool = False, **kwargs) -> Union[None, Tuple[str, s
 
     Help message:
     Written by Brian Bushnell
-Last modified January 7, 2024
+Last modified April 7, 2025
 
-Description:  Bins contigs using coverage, kmer frequencies, and
-reference-based sequence comparison using BBSketch.
+Description:  Bins contigs using coverage and kmer frequencies.
 If reads or covstats are provided, coverage will be calculated from those;
-otherwise, it will be parsed from contig headers.
+otherwise, it will be parsed from contig headers.  Coverage can be parsed
+from Spades or Tadpole contig headers; alternatively, renamebymapping.sh
+can be used to annotate the headers with coverage from multiple sam files.
+Any number of sam files may be used (from different samples of the same
+environment, usually).  The more sam files, the more accurate, though
+some stringency (depthratio and maxcovariance) may need to be relaxed
+with large numbers of sam files (more than 4).  Ideally, sam files will
+be generated from paired reads like this:
+bbmap.sh ref=contigs.fa in_file=reads.fq ambig=random mateqtag minid=0.9 maxindel=10 out=mapped.sam
+For PacBio-only metagenomes, it is best to generate synthetic paired 
+reads from the PacBio CCS reads, and align those.
 
-Usage:  quickbin.sh contigs=<file> out=<pattern>
+Usage:  quickbin.sh in_file=contigs.fa out=bins/bin_%.fa *.sam covout=cov.txt
+or
+quickbin.sh in_file=contigs.fa out=bins/bin_%.fa cov=cov.txt
+or
+quickbin.sh contigs.fa out=bins *.sam
 
 File parameters:
-contigs=<file>  (in) Assembly input; only required parameter.
-covstats=<file> Covstats file from BBMap or Pileup.
-readsin_file=<file>  Read input (fastq or sam).
-readsin2=<file> Read 2 input if fastq reads are in two files.
+in_file=<file>       Assembly input; only required parameter.  Files named *.fa
+                or *.fasta do not need 'in_file='.
+reads=<file>    Read input (sam or bam).  Multiple sam files may be used,
+                comma-delimited, or as plain arguments without 'reads='.
+                Multiple files will be assumed to be independent samples.
+covout=<file>   Coverage file summarizing sam files; allows rerunning
+                QuickBin faster.
+cov=<file>      Cov file generated by QuickBin via 'covout'; can be used
+                instead of sam/bam.  Files named cov*.txt do not need 'cov='
 out=<pattern>   Output pattern.  If this contains a % symbol, like bin%.fa,
                 one file will be created per bin.  If not, all contigs will
                 be written to the same file, with the name modified to
-                indicate their bin number.
+                indicate their bin number.  A term without a '.' symbol
+                like 'out=output' will be considered a directory.
 
-Processing parameters:
-None yet!
+Size parameters:
+mincluster=50k  (mcs) Minimum output cluster size in base pairs; smaller 
+                clusters will share a residual file if chaff=t.
+chaff=f         Set to 't' to write small clusters to a shared file.
+mincontig=100   Don't load contigs smaller than this; reduces memory usage.
+minseed=3000    Minimum contig length to create a new cluster; reducing this
+                can increase speed dramatically for large metagenomes,
+                increase sensitivity for small contigs, and slightly increase
+                contamination.  In particular, large metagenomes with only 
+                1 sample will run slowly if this is below 2000; with 
+                at least 3 samples the speed should not be affected much.
+minresidue=200  Discard unclustered contigs shorter than this; reduces memory.
+
+Stringency parameters:
+normal          Default stringency is 'normal'.  All settings, in order of
+                increasing sensitivity, are:  xstrict, ustrict, vstrict,
+                strict, normal, loose, vloose, uloose, xloose.  'normal'
+                aims at under 1% contamination; 'uloose' is more comparable
+                in stringency to other binners.  To set a stringency just add
+                that flag (without an = sign).  Acceptable shorthand is
+                xs, us, vs, s, n, l, vl, ul, xl.
+
+Quantization parameters:
+gcwidth=0.02    Width of GC matrix gridlines.  Smaller is faster.
+depthwidth=0.5  Width of depth matrix gridlines.  Smaller is faster.  This
+                is on a log2 scale so 0.5 would mean 2 gridlines per power
+                of 2 depth - lines at 0.707, 1, 1.414, 2, 2.818, 4, etc.
+Note: Halving either quantization parameter can roughly double speed,
+but may decrease recovery of shorter contigs.
+
+Neural network parameters:
+net=auto        Specify a neural network file to use; default is 
+                bbmap/resources/quickbin1D_all.bbnet
+cutoff=0.52     Neural network output threshold; higher increases specificity,
+                lower increases sensitivity.  This is a soft cutoff that
+                moderates other stringency settings, so increasing it would
+                make 'strict' mode stricter.
+
+Edge-processing parameters:
+e1=0                  Edge-first clustering passes; may increase speed
+                      at the cost of purity.
+e2=4                  Later edge-based clustering passes.
+edgeStringency1=0.25  Stringency for edge-first clustering; 
+                      lower is more stringent.
+edgeStringency2=1.1    Stringency for later edge-based clustering.
+maxEdges=3            Follow up to this many edges per contig.
+minEdgeWeight=2       Ignore edges made from fewer read pairs.
+minEdgeRatio=0.4      Ignore edges under this fraction of max edge weight.
+goodEdgeMult=1.4      Merge stringency multiplier for contigs joined by
+                      an edge; lower is more stringent.
+minmapq=20            When loading sam files, do not make edges from reads
+                      with map lower than this.  Setting it to 0 will allow
+                      ambigiously-mapped reads and may improve completeness.
+                      Reads below minmapq are still used for depth.
+minid=0.96            When loading sam files, ignore reads aligned with
+                      identity below this, both for edges and coverage.
+
+Other parameters:
+sketchoutput=f        Use SendSketch to identify taxonomy of output clusters.
+validate=f            If contig headers have a term such as 'tid_1234', this
+                      will be parsed and used to evaluate correctness.
 
 Java Parameters:
 -Xmx            This will set Java's memory usage, overriding autodetection.
@@ -9461,6 +9786,61 @@ Java Parameters:
     args = _pack_args(kwargs)
     return _run_command("randomreads.sh", args, capture_output)
 
+def randomreadsmg(capture_output: bool = False, **kwargs) -> Union[None, Tuple[str, str]]:
+    """
+    Wrapper for randomreadsmg.sh
+
+    Help message:
+    Written by Brian Bushnell
+Last modified April 7, 2025
+
+Description:  Generates synthetic reads from a set of fasta assemblies.
+Each assembly is assigned a random coverage level.
+
+Usage:  randomreadsmg.sh *.fa out=reads.fq.gz
+
+File parameters:
+in_file=<file,file>  Assembly input.  Can be a single file, a directory of files,
+                or comma-delimited list.  Unrecognized arguments with no '='
+                sign will also be treated as input files.
+out=<file>      Synthetic read output destination.
+out2=<file>     Read 2 output if twin files are desired for paired reads.
+
+Processing parameters:
+paired=true     Generate paired reads.
+mindepth=1      Minimum assembly average depth.
+maxdepth=256    Maximum assembly average depth.
+depth=          Sets minimum and maximum to the same level.
+variance=0.5    Coverage within an assembly will vary by up to this much;
+                one region can be up to this fraction deeper than another.
+mode=min4       Random depth distribution; can be min4, exp, root, or linear.
+length=150      Read length.
+avginsert=300   Average insert size; only affects paired reads.
+threads=        Set the number of threads; default is logical core count.
+seed=-1         If positive, use the specified RNG seed.  This will cause
+                deterministic output if threads=1.
+
+Java Parameters:
+-Xmx            This will set Java's memory usage, overriding autodetection.
+                -Xmx20g will specify 20 gigs of RAM, and -Xmx200m will
+                specify 200 megs. The max is typically 85% of physical memory.
+-eoom           This flag will cause the process to exit if an out-of-memory
+                exception occurs.  Requires Java 8u92+.
+-da             Disable assertions.
+
+Please contact Brian Bushnell at bbushnell@lbl.gov if you encounter any problems.
+
+    Args:
+        capture_output (bool): If True, capture and return the output instead of printing it.
+        in_file (str): Input file (replaces 'in=' parameter)
+        **kwargs: Other arguments for randomreadsmg.sh
+
+    Returns:
+        Union[None, Tuple[str, str]]: If capture_output is True, returns (stdout, stderr), else None.
+    """
+    args = _pack_args(kwargs)
+    return _run_command("randomreadsmg.sh", args, capture_output)
+
 def readlength(capture_output: bool = False, **kwargs) -> Union[None, Tuple[str, str]]:
     """
     Wrapper for readlength.sh
@@ -9493,6 +9873,29 @@ Please contact Brian Bushnell at bbushnell@lbl.gov if you encounter any problems
     """
     args = _pack_args(kwargs)
     return _run_command("readlength.sh", args, capture_output)
+
+def reducecolumns(capture_output: bool = False, **kwargs) -> Union[None, Tuple[str, str]]:
+    """
+    Wrapper for reducecolumns.sh
+
+    Help message:
+    Written by Brian Bushnell
+Last modified February 24, 2025
+
+Usage: reducecolumns.sh <in> <out> column column column
+
+Please contact Brian Bushnell at bbushnell@lbl.gov if you encounter any problems.
+
+    Args:
+        capture_output (bool): If True, capture and return the output instead of printing it.
+        in_file (str): Input file (replaces 'in=' parameter)
+        **kwargs: Other arguments for reducecolumns.sh
+
+    Returns:
+        Union[None, Tuple[str, str]]: If capture_output is True, returns (stdout, stderr), else None.
+    """
+    args = _pack_args(kwargs)
+    return _run_command("reducecolumns.sh", args, capture_output)
 
 def reducesilva(capture_output: bool = False, **kwargs) -> Union[None, Tuple[str, str]]:
     """
@@ -10202,6 +10605,92 @@ Please contact Brian Bushnell at bbushnell@lbl.gov if you encounter any problems
     """
     args = _pack_args(kwargs)
     return _run_command("rename.sh", args, capture_output)
+
+def renamebymapping(capture_output: bool = False, **kwargs) -> Union[None, Tuple[str, str]]:
+    """
+    Wrapper for renamebymapping.sh
+
+    Help message:
+    Written by Brian Bushnell
+Last modified February 21, 2025
+
+Description:  Renames contigs based on mapping information.
+Appends coverage and optionally taxID from parsing sam line headers.
+For taxID renaming, read headers should contain a term like 'tid_1234';
+output will be named as 'original tid_1234 cov_45.67' with potentially
+multiple coverage entries (if there are multiple sam files) but
+only one tid entry based on the highest-coverage sam file.
+Designed for metagenome binning evaluation and synthetic read generation.
+
+Usage:  renamebymapping.sh in_file=contigs.fa out=renamed.fa *.sam
+
+Parameters:
+in_file=<file>        Assembly to rename.
+out=<file>       Renamed assembly.
+sam=<file>       This can be a file, directory, or comma-delimited list.
+                 Unrecognized arguments that are existing files will also
+                 be treated as sam files.  Bam is acceptable too.
+delimiter=space  Delimiter between appended fields.
+wipe=f           Replace the original header with contig_#.
+depth=t          Add a depth field.
+tid=t            Add a tid field (if not already present).
+
+Java Parameters:
+-Xmx            This will set Java's memory usage, overriding autodetection.
+                -Xmx20g will specify 20 gigs of RAM, and -Xmx200m will
+                specify 200 megs. The max is typically 85% of physical memory.
+-eoom           This flag will cause the process to exit if an out-of-memory
+                exception occurs.  Requires Java 8u92+.
+-da             Disable assertions.
+
+Please contact Brian Bushnell at bbushnell@lbl.gov if you encounter any problems.
+
+    Args:
+        capture_output (bool): If True, capture and return the output instead of printing it.
+        in_file (str): Input file (replaces 'in=' parameter)
+        **kwargs: Other arguments for renamebymapping.sh
+
+    Returns:
+        Union[None, Tuple[str, str]]: If capture_output is True, returns (stdout, stderr), else None.
+    """
+    args = _pack_args(kwargs)
+    return _run_command("renamebymapping.sh", args, capture_output)
+
+def renamebysketch(capture_output: bool = False, **kwargs) -> Union[None, Tuple[str, str]]:
+    """
+    Wrapper for renamebysketch.sh
+
+    Help message:
+    Written by Brian Bushnell
+Last modified January 9, 2025
+
+Description:  Renames fasta files with a TaxID, based on SendSketch results.
+Designed for metagenome binning evaluation and synthetic read generation.
+
+Usage:  renamebysketch.sh *.fa
+
+Input may be fasta or fastq, compressed or uncompressed.
+
+Java Parameters:
+-Xmx            This will set Java's memory usage, overriding autodetection.
+                -Xmx20g will specify 20 gigs of RAM, and -Xmx200m will
+                specify 200 megs. The max is typically 85% of physical memory.
+-eoom           This flag will cause the process to exit if an out-of-memory
+                exception occurs.  Requires Java 8u92+.
+-da             Disable assertions.
+
+Please contact Brian Bushnell at bbushnell@lbl.gov if you encounter any problems.
+
+    Args:
+        capture_output (bool): If True, capture and return the output instead of printing it.
+        in_file (str): Input file (replaces 'in=' parameter)
+        **kwargs: Other arguments for renamebysketch.sh
+
+    Returns:
+        Union[None, Tuple[str, str]]: If capture_output is True, returns (stdout, stderr), else None.
+    """
+    args = _pack_args(kwargs)
+    return _run_command("renamebysketch.sh", args, capture_output)
 
 def renameimg(capture_output: bool = False, **kwargs) -> Union[None, Tuple[str, str]]:
     """
@@ -11281,7 +11770,7 @@ def shred(capture_output: bool = False, **kwargs) -> Union[None, Tuple[str, str]
 
     Help message:
     Written by Brian Bushnell
-Last modified November 14, 2023
+Last modified February 27, 2025
 Description:  Shreds sequences into shorter, possibly overlapping sequences.
 
 Usage: shred.sh in_file=<file> out=<file> length=<int>
@@ -11293,11 +11782,18 @@ minlen=-1       Shortest allowed shred.  The last shred of each input sequence
                 may be shorter than desired length if this is not set.
 maxlen=-1       Longest shred length.  If minlength and maxlength are both
                 set, shreds will use a random flat length distribution.
+median=-1       Alternatively, setting median and variance will override
+                minlen and maxlen.
+variance=-1
+linear          When maxlen is greater than minlen, the distribution can
+                be linear, exp, or log (pick one as a flag).
 overlap=0       Amount of overlap between successive shreds.
 reads=-1        If nonnegative, stop after this many input sequences.
 equal=f         Shred each sequence into subsequences of equal size of at most
                 'length', instead of a fixed size.
 qfake=30        Quality score, if using fastq output.
+filetid=f       Name shreds with a tid parsed from the filename (e.g. tid_5).
+headertid=f     Name shreds with a tid parsed from sequence headers.
 
 Please contact Brian Bushnell at bbushnell@lbl.gov if you encounter any problems.
 
@@ -12136,6 +12632,39 @@ Please contact Brian Bushnell at bbushnell@lbl.gov if you encounter any problems
     """
     args = _pack_args(kwargs)
     return _run_command("stats.sh", args, capture_output)
+
+def stats3(capture_output: bool = False, **kwargs) -> Union[None, Tuple[str, str]]:
+    """
+    Wrapper for stats3.sh
+
+    Help message:
+    Written by Brian Bushnell
+Last modified January 21, 2025
+
+Description:  In progress.
+Generates some assembly stats for multiple files.
+
+Usage:        stats3.sh in_file=file
+Or:           stats3.sh in_file=file,file
+Or:           stats3.sh file file file
+
+Parameters:
+in_file=file         Specify the input fasta file(s), or stdin.
+                Multiple files can be lested without a 'in_file=' flag.
+out=stdout      Destination of primary output; may be directed to a file.
+
+Please contact Brian Bushnell at bbushnell@lbl.gov if you encounter any problems.
+
+    Args:
+        capture_output (bool): If True, capture and return the output instead of printing it.
+        in_file (str): Input file (replaces 'in=' parameter)
+        **kwargs: Other arguments for stats3.sh
+
+    Returns:
+        Union[None, Tuple[str, str]]: If capture_output is True, returns (stdout, stderr), else None.
+    """
+    args = _pack_args(kwargs)
+    return _run_command("stats3.sh", args, capture_output)
 
 def statswrapper(capture_output: bool = False, **kwargs) -> Union[None, Tuple[str, str]]:
     """

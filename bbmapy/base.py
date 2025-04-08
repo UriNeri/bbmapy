@@ -1,42 +1,69 @@
 import os
-import sys
+import site
 import subprocess
+# import sys
 from typing import List, Dict, Union, Tuple
 from rich import print as rprint
 from rich.markup import escape
+# from pathlib import Path
+
+# Initialize global variables
+BBTOOLS_PATH = None
 
 def find_bbtools_path():
-    # Check if we're running from an installed package
-    if getattr(sys, 'frozen', False):
-        # We're running from a bundle (e.g., PyInstaller)
-        base_path = sys._MEIPASS
-    else:
-        # We're running from a normal Python environment
-        base_path = os.path.abspath(os.path.dirname(__file__))
+    """
+    Find the BBTools directory by checking multiple possible locations.
+    Returns the path to the BBTools directory or None if not found.
+    """
+    # Get the directory of the current file
+    current_dir = os.path.dirname(os.path.abspath(__file__))
     
-    # Navigate up to the project root
-    original_base_path = base_path
-    while not os.path.exists(os.path.join(base_path, 'vendor')):
-        new_base_path = os.path.dirname(base_path)
-        if new_base_path == base_path:  # We've reached the root directory
-            raise FileNotFoundError(f"Could not find BBTools directory. Started search from: {original_base_path}")
-        base_path = new_base_path
+    # List of possible paths to check
+    possible_paths = [
+        # Check vendor directory relative to this file
+        os.path.join(current_dir, "vendor", "bbmap"),
+        # Check site-packages directory
+        os.path.join(site.getsitepackages()[0], "bbmapy", "vendor", "bbmap"),
+        # Check parent directories
+        os.path.join(os.path.dirname(current_dir), "vendor", "bbmap"),
+        # Check current working directory
+        os.path.join(os.getcwd(), "vendor", "bbmap"),
+    ]
     
-    bbtools_path = os.path.join(base_path, 'vendor', 'bbmap')
+    # Add conda environment paths if available
+    if 'CONDA_PREFIX' in os.environ:
+        conda_prefix = os.environ['CONDA_PREFIX']
+        possible_paths.extend([
+            os.path.join(conda_prefix, "lib", "python3.*", "site-packages", "bbmapy", "vendor", "bbmap"),
+            os.path.join(conda_prefix, "vendor", "bbmap"),
+        ])
     
-    if not os.path.exists(bbtools_path):
-        raise FileNotFoundError(f"BBTools directory not found at {bbtools_path}")
+    # Check each path
+    for path in possible_paths:
+        # Handle glob patterns in path
+        if '*' in path:
+            import glob
+            matches = glob.glob(path)
+            for match in matches:
+                if os.path.exists(match) and os.path.isdir(match):
+                    return match
+        else:
+            if os.path.exists(path) and os.path.isdir(path):
+                return path
     
-    return bbtools_path
+    # If no path is found, return None
+    return None
 
 try:
-    BBTOOLS_PATH = find_bbtools_path()
-    os.environ["PATH"] = f"{BBTOOLS_PATH}/current/:{os.environ['PATH']}"
+    BBTOOLS_PATH = find_bbtools_path()  
+    os.environ["PATH"] = f"{BBTOOLS_PATH}/:{os.environ['PATH']}"
 except FileNotFoundError as e:
-    print(f"Error: {e}")
-    sys.exit(1)
+    rprint(f"[red]Error: {e}[/red]")
+    # Don't exit here, as this might be imported before bbtools is installed
+    # We'll check again when functions are actually called
 
 def _pack_args(kwargs: Dict[str, Union[str, bool, int]]) -> List[str]:
+    """Convert Python keyword arguments to BBTools command line arguments."""
     args = []
     
     for key, value in kwargs.items():
@@ -54,7 +81,19 @@ def _pack_args(kwargs: Dict[str, Union[str, bool, int]]) -> List[str]:
     
     return args
 
+
 def _run_command(tool: str, args: List[str], capture_output: bool = False) -> Union[None, Tuple[str, str]]:
+    """Run a BBTools command using subprocess (fallback method)."""
+
+    # Find the BBTools path if not already set
+    global BBTOOLS_PATH
+    if BBTOOLS_PATH is None:
+        BBTOOLS_PATH = find_bbtools_path()
+        if BBTOOLS_PATH is None:
+            raise RuntimeError("BBTools directory not found.")
+        os.environ["PATH"] = f"{BBTOOLS_PATH}/current/:{os.environ['PATH']}"
+    
+    # Build the command
     command = [os.path.join(BBTOOLS_PATH, tool)] + args
     escaped_command = ' '.join(escape(str(arg)) for arg in command)
     
@@ -82,3 +121,4 @@ def _run_command(tool: str, args: List[str], capture_output: bool = False) -> Un
             raise RuntimeError(f"Command failed: {escaped_command}")
         
         return None
+
