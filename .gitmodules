@@ -1,3 +1,0 @@
-[submodule "vendor/bbtools"]
-	path = vendor/bbtools
-	url = https://bitbucket.org/berkeleylab/jgi-bbtools.git
