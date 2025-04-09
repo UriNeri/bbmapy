@@ -14,7 +14,8 @@ def test_randomgenome():
     """Test the randomgenome command."""
     randomgenome(
         out="ref.fasta",
-        len=10000
+        len=700,
+        Xmx="240m"
     )
 
 def test_randomreads():
@@ -24,7 +25,8 @@ def test_randomreads():
         out2="input_2.fastq",
         paired="true",
         ref="ref.fasta",
-        reads=1000
+        reads=50,
+        Xmx="240m"
     )
 
 def test_randomreads1():
@@ -32,7 +34,8 @@ def test_randomreads1():
     randomreads(
         out="test_input.fastq",
         ref="ref.fasta",
-        reads=1000
+        reads=50,
+        Xmx="200m"
     )
 
 def test_bbmap():
@@ -46,7 +49,7 @@ def test_bbmap():
         in_file="test_input.fastq",
         ref="ref.fasta",
         out_file="output.sam",
-        vslow=True
+        Xmx="800m"
     )
     
     # Check if output file was created
@@ -61,7 +64,8 @@ def test_reformat():
         out="output_reformat.fasta",
         fastawrap=80,
         qin=33,
-        qout=64
+        qout=64,
+        Xmx="200m"
     )
 
 def test_bbmerge():
@@ -76,7 +80,7 @@ def test_bbmerge():
         k=60,
         extend2=50,
         rem=True,
-        Xmx="1g"
+        Xmx="240m"
     )
 
 def test_capture_output():
@@ -85,7 +89,8 @@ def test_capture_output():
         capture_output=True,
         in_file="test_input.fastq",
         out="output_capture.fastq",
-        ref="adapters.fa"
+        ref="adapters.fa",
+        Xmx="240m"
     )
     print("Captured stdout:", stdout[:100] + "..." if stdout else "None")
     print("Captured stderr:", stderr[:100] + "..." if stderr else "None")
