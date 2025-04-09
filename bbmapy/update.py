@@ -7,50 +7,57 @@ import urllib.request
 from pathlib import Path
 import jdk
 
-def ensure_java_availability_post_install():
-    """
-    Ensure Java runtime environment is available.
-    """
-    # Check if Java is in PATH
-    java_path = shutil.which('java')
-    if not java_path:
-        print("Java not found in PATH, installing...")
-        jre_path = jdk.install('11', jre=True, path=os.environ['CONDA_PREFIX'],vendor="adoptium")
-        print("Java installed, adding to this conda environment PATH...")
-        subprocess.run(f'conda env config vars set JAVA_HOME="{jre_path}"',shell=True, check=True)
-        subprocess.run(f'conda env config vars set PATH="{jre_path}/bin:$PATH"',shell=True, check=True)
-        # just in case, create a symlink to to the java binary in the conda envs' bin directory
-        java_bin_path = os.path.join(jre_path, 'bin', 'java')
-        os.symlink(java_bin_path, os.path.join(os.environ['CONDA_PREFIX'], 'bin', 'java'))
-        print("Java added to this conda environment PATH, testing...")
-        java_path = shutil.which('java')
-        if not java_path:
-            raise FileNotFoundError("Java executable not found in PATH")
-        print("Java executable found in PATH")
-        print("Please restart your shell to use Java")
-        
-
-def ensure_java_availability_on_build():
+def ensure_java_availability(on_runtime=False, on_build=False,on_conda_build_test=False):
     """
     Ensure Java runtime environment is available. on conda build time the paths and global env variables are different.
     """
     # Check if Java is in PATH
     java_path = shutil.which('java')
+    if java_path:
+        print(f"Java found in PATH: {java_path}")
+        return True
+    glob_pref_variables = {
+        'PREFIX': 'PREFIX',
+        'BUILD_PREFIX': 'BUILD_PREFIX',
+        'TEST_PREFIX': 'TEST_PREFIX',
+        'CONDA_PREFIX': 'CONDA_PREFIX'
+    } # need to figure out a better way to do this...
+    # if on_build:
+    #     glob_pref_variables = ['PREFIX', 'BUILD_PREFIX']
+    # if on_conda_build_test:
+    #     glob_pref_variables = ['TEST_PREFIX']
+    # if on_runtime:
+    #     glob_pref_variables = ['CONDA_PREFIX']
+    prefix_path = None
+    for pref_variable, pref_key in glob_pref_variables.items():
+        if pref_variable in os.environ:
+            prefix_path = os.environ[pref_variable]
+            print(f"prefix path: {prefix_path} from {pref_key}")
+            break
+    if prefix_path is None:
+        print(f"prefix path not found in {os.environ.keys()}")
+        raise ValueError(f"prefix path not found in {os.environ.keys()}")
+    print("Java not found in PATH, installing...")
+    version = '11'
+    jre_path = jdk.install(version, jre=True, path=prefix_path,vendor="adoptium")
+    print(f"Java adoptium JRE {version} installed to {jre_path}")
+    print("Trying to add to conda environment PATH...")
+    # subprocess.run(f'conda env config vars set JAVA_HOME="{jre_path}"',shell=True, check=True)
+    # subprocess.run(f'conda env config vars set PATH="{jre_path}/bin:$PATH"',shell=True, check=True)
+    # just in case, create a symlink to to the java binary in the conda envs' bin directory
+    java_bin_path = os.path.join(jre_path, 'bin', 'java')
+    # remove if a symlink exists
+    if os.path.exists(os.path.join(prefix_path, 'bin', 'java')):
+        os.remove(os.path.join(prefix_path, 'bin', 'java'))
+    os.symlink(java_bin_path, os.path.join(prefix_path, 'bin', 'java'))
+    print("Java added to this conda environment PATH, testing...")
+    # check if java is in PATH
+    print(f"testing if java is in PATH")
+    java_path = shutil.which('java')
     if not java_path:
-        print("Java not found in PATH, installing...")
-        jre_path = jdk.install('11', jre=True, path=os.environ['PREFIX'],vendor="adoptium")
-        print("Java installed, adding to this conda environment PATH...")
-        subprocess.run(f'conda env config vars set JAVA_HOME="{jre_path}"',shell=True, check=True)
-        subprocess.run(f'conda env config vars set PATH="{jre_path}/bin:$PATH"',shell=True, check=True)
-        # just in case, create a symlink to to the java binary in the conda envs' bin directory
-        java_bin_path = os.path.join(jre_path, 'bin', 'java')
-        os.symlink(java_bin_path, os.path.join(os.environ['PREFIX'], 'bin', 'java'))
-        print("Java added to this conda environment PATH, testing...")
-        java_path = shutil.which('java')
-        if not java_path:
-            raise FileNotFoundError("Java executable not found in PATH")
-        print("Java executable found in PATH")
-        print("Please restart your shell to use Java")
+           raise FileNotFoundError("Java executable not found in PATH")
+    print("Java executable found in PATH: " + java_path)
+    return True
 
 def get_bbmap_version(vendor_dir):
     """Get BBMap version by running bbmap.sh version"""
@@ -125,30 +132,16 @@ def update_version(new_version):
         readme_path.write_text(content)
         print(f"Updated README.md version to {new_version}")
     
-    # # Update meta.yaml
-    # if meta_yaml_path.exists():
-    #     content = meta_yaml_path.read_text()
-    #     # Update version in meta.yaml
-    #     content = re.sub(
-    #         pattern=r'{% set version = "0.0.\d+" %}',
-    #         repl=r'{% set version = "{new_version}" %}',
-    #         string=content
-    #     )
-    #     meta_yaml_path.write_text(content)
-    #     print(f"Updated meta.yaml version to {new_version}")
-
 def regenerate_commands():
     """Regenerate Python commands from BBTools scripts"""
     print("Regenerating commands...")
     subprocess.run(['python', '-m', 'bbmapy.scanner'], check=True)
-
 
 def main():
     # Get package root directory
     package_root = Path(__file__).parent.parent
     print(package_root)
     vendor_dir = package_root / "bbmapy/vendor"
-    # bbmap_dir = vendor_dir / "bbmap"
     os.makedirs(vendor_dir, exist_ok=True)
     
     try:

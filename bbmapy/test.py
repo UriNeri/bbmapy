@@ -2,6 +2,7 @@ import os
 from pathlib import Path
 import shutil
 from bbmapy.base import find_bbtools_path
+from bbmapy.update import ensure_java_availability
 from rich import print as rprint
 from bbmapy import  bbmap, reformat, bbmerge, bbduk, randomreads, randomgenome
 BBTOOLS_PATH = find_bbtools_path()
@@ -9,6 +10,7 @@ print(BBTOOLS_PATH)
 if BBTOOLS_PATH is None:
     BBTOOLS_PATH = Path(__file__).parent / "vendor" / "bbmap"
     
+ensure_java_availability()
 
 def test_randomgenome():
     """Test the randomgenome command."""
