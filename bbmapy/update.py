@@ -35,8 +35,14 @@ def ensure_java_availability(on_runtime=False, on_build=False,on_conda_build_tes
             print(f"prefix path: {prefix_path} from {pref_key}")
             break
     if prefix_path is None:
-        print(f"prefix path not found in {os.environ.keys()}")
-        raise ValueError(f"prefix path not found in {os.environ.keys()}")
+        print(f"prefix path not found in the usual conda suspects, here is the full list of env variables: {os.environ.keys()}")
+        print("trying to use the last bin folder in the path variable")
+        lbin_path = [p for p in os.environ['PATH'].split(':') if "bin" in p][-1]
+        if lbin_path:
+            prefix_path = os.path.dirname(lbin_path)
+            print(f"prefix path: {prefix_path}")
+        else:
+            raise ValueError(f"couldn't find a bin folder in the path variable")
     print("Java not found in PATH, installing...")
     version = '11'
     jre_path = jdk.install(version, jre=True, path=prefix_path,vendor="adoptium")

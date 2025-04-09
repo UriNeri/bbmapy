@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "bbmapy"
-version = "0.0.45"  # Update this as needed
+version = "0.0.46"  # Update this as needed
 description = "A Python wrapper for BBTools"
 readme = "README.md"
 requires-python = ">=3.9"
