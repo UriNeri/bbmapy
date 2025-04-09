@@ -128,6 +128,7 @@ Please see the [BBTools website](https://jgi.doe.gov/data-and-tools/bbtools/) fo
 ```bash
 rm -rf dist build egg-info
 python bbmapy/update.py # fetch latest version of bbtools and update version in pyproject.toml
+rm bbmapy/vendor/bbmap/pytools -rf # remove the pytools folder
 pip install --upgrade build twine
 python -m build
 twine upload dist/*
