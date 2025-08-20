@@ -30,6 +30,7 @@ import stream.SamHeader;
 import stream.SamLine;
 import stream.SequentialReadInputStream;
 import stream.SiteScore;
+import synth.RandomReads3;
 import tracker.ReadStats;
 
 /**
@@ -550,11 +551,10 @@ public abstract class AbstractMapper {
 				USE_MODULO=AbstractMapThread.USE_MODULO=IndexMaker4.USE_MODULO=IndexMaker5.USE_MODULO=Parse.parseBoolean(b);
 			}else if(a.equals("lowmem") || a.equals("lowram") || a.equals("lowmemory")){
 				boolean x=Parse.parseBoolean(b);
+				shared.SyncHeart.setLowMemory(x);
 				if(x){
 					Shared.LOW_MEMORY=true;
 					USE_MODULO=AbstractMapThread.USE_MODULO=IndexMaker4.USE_MODULO=IndexMaker5.USE_MODULO=Parse.parseBoolean(b);
-				}else{
-					Shared.LOW_MEMORY=false;
 				}
 			}else if(a.equals("coverage") || a.equals("cov") || a.equals("calccov") || a.equals("calccoverage")){
 				calcCov=Parse.parseBoolean(b);

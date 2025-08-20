@@ -3,7 +3,9 @@ package bin;
 import java.util.Arrays;
 
 import shared.Parse;
+import shared.Shared;
 import shared.Tools;
+import shared.Vector;
 
 /** Mostly written by ChatGPT and modified by me */
 public class SimilarityMeasures {
@@ -68,8 +70,8 @@ public class SimilarityMeasures {
 
     //For setting thresholds before neural net is implemented
     public static float calculateDifferenceAverage(int[] a, int[] b) {
-    	float inva=1f/Tools.max(1, Tools.sum(a));
-    	float invb=1f/Tools.max(1, Tools.sum(b));
+    	float inva=1f/Math.max(1, Tools.sum(a));
+    	float invb=1f/Math.max(1, Tools.sum(b));
         float cosineDifference=(COSINE ? cosineDifference(a, b, inva, invb) : 0);
         float euclideanDistance=(EUCLID ? euclideanDistance(a, b, inva, invb) : 0);
         float absoluteDifference=(ABSOLUTE ? absDif(a, b, inva, invb) : 0);
@@ -83,8 +85,8 @@ public class SimilarityMeasures {
     }
 
     public static float[] calculateDifferenceVector(int[] a, int[] b) {
-    	float inva=1f/Tools.max(1, Tools.sum(a));
-    	float invb=1f/Tools.max(1, Tools.sum(b));
+    	float inva=1f/Math.max(1, Tools.sum(a));
+    	float invb=1f/Math.max(1, Tools.sum(b));
 //        float cosineSimilarity=cosineSimilarity(a, b, inva, invb);
         float cosineDifference=cosineDifference(a, b, inva, invb);
         float euclideanDistance=euclideanDistance(a, b, inva, invb);
@@ -124,8 +126,8 @@ public class SimilarityMeasures {
     }
 
     public static float cosineDifference(int[] a, int[] b) {
-    	float inva=1f/Tools.max(1, Tools.sum(a));
-    	float invb=1f/Tools.max(1, Tools.sum(b));
+    	float inva=1f/Math.max(1, Tools.sum(a));
+    	float invb=1f/Math.max(1, Tools.sum(b));
     	float ret=1-cosineSimilarity(a, b, inva, invb);
     	return (Float.isFinite(ret) && ret>0 ? ret : 0);
     }
@@ -140,6 +142,7 @@ public class SimilarityMeasures {
     
     public static float cosineSimilarity(int[] a, int[] b, float inva, float invb) {
     	if(GC_COMPENSATED) {return cosineSimilarityCompensated(a, b, 4);}
+    	if(Shared.SIMD) {return Vector.cosineSimilarity(a, b, inva, invb);}
         float dotProduct=0f;
         float normVec1=0f;
         float normVec2=0f;
@@ -151,12 +154,69 @@ public class SimilarityMeasures {
             normVec2+=bi*bi;
         }
 
+	    normVec1=Math.max(normVec1, 1e-15f);
+	    normVec2=Math.max(normVec2, 1e-15f);
+        return (float)(dotProduct/(Math.sqrt(normVec1)*Math.sqrt(normVec2)));
+    }
+
+    public static float cosineDifference(long[] a, long[] b) {
+    	float inva=1f/Math.max(1, Tools.sum(a));
+    	float invb=1f/Math.max(1, Tools.sum(b));
+    	float ret=1-cosineSimilarity(a, b, inva, invb);
+    	return (Float.isFinite(ret) && ret>0 ? ret : 0);
+    }
+
+    public static float cosineDifference(long[] a, long[] b, float inva, float invb) {
+    	return 1-cosineSimilarity(a, b, inva, invb);
+    }
+    
+    public static float cosineSimilarity(long[] a, long[] b, float inva, float invb) {
+        float dotProduct=0f;
+        float normVec1=0f;
+        float normVec2=0f;
+
+        for (int i=0; i<a.length; i++) {
+        	float ai=a[i]*inva, bi=b[i]*invb;
+            dotProduct+=ai*bi;
+            normVec1+=ai*ai;
+            normVec2+=bi*bi;
+        }
+
+	    normVec1=Math.max(normVec1, 1e-15f);
+	    normVec2=Math.max(normVec2, 1e-15f);
         return (float)(dotProduct/(Math.sqrt(normVec1)*Math.sqrt(normVec2)));
     }
 
     public static float cosineSimilarityCompensated(int[] a, int[] b, int k) {
     	return cosineSimilarityCompensated(a, b, k, BinObject.gcmapMatrix[k]);
     }
+    
+    public static float[] compensate(int[] a, int k, int[] gcmap) {
+    	float[] aSum=new float[k+1];
+    	
+    	for(int i=0; i<a.length; i++) {
+    		int gc=gcmap[i];
+    		aSum[gc]+=a[i];
+    	}
+    	
+    	for(int i=0; i<aSum.length; i++) {
+    		aSum[i]=1f/Math.max(aSum[i], 1);
+    	}
+    	assert(Tools.sum(aSum)==1);
+
+    	float[] comp=new float[a.length];
+    	for(int i=0; i<a.length; i++) {
+        	int gc=gcmap[i];
+    		comp[i]=a[i]*aSum[gc];
+    	}
+    	return comp;
+    }
+    
+    public static float[] compensate(long[] a, int k) {
+    	final int[] gcmap=BinObject.gcmapMatrix[k];
+    	return Vector.compensate(a, k, gcmap);
+    }
+    
     public static float cosineSimilarityCompensated(int[] a, int[] b, int k, int[] gcmap) {
     	
     	float[] aSum=new float[k+1];
@@ -203,13 +263,33 @@ public class SimilarityMeasures {
     
 
     public static float euclideanDistance(int[] a, int[] b) {
-    	float inva=1f/Tools.max(1, Tools.sum(a));
-    	float invb=1f/Tools.max(1, Tools.sum(b));
+    	float inva=1f/Math.max(1, Tools.sum(a));
+    	float invb=1f/Math.max(1, Tools.sum(b));
     	float ret=euclideanDistance(a, b, inva, invb);
     	return (Float.isFinite(ret) && ret>0 ? ret : 0);
     }
 
     public static float euclideanDistance(int[] a, int[] b, float inva, float invb) {
+        float sumSquaredDifferences=0f;
+
+        for (int i=0; i<a.length; i++) {
+        	float ai=a[i]*inva, bi=b[i]*invb;
+        	float d=ai-bi;
+            sumSquaredDifferences+=d*d;
+        }
+
+        return (float)Math.sqrt(sumSquaredDifferences);
+    }
+    
+
+    public static float euclideanDistance(long[] a, long[] b) {
+    	float inva=1f/Math.max(1, Tools.sum(a));
+    	float invb=1f/Math.max(1, Tools.sum(b));
+    	float ret=euclideanDistance(a, b, inva, invb);
+    	return (Float.isFinite(ret) && ret>0 ? ret : 0);
+    }
+
+    public static float euclideanDistance(long[] a, long[] b, float inva, float invb) {
         float sumSquaredDifferences=0f;
 
         for (int i=0; i<a.length; i++) {
@@ -235,15 +315,54 @@ public class SimilarityMeasures {
 
 		return (float)sum;
 	}
+	
+	/**
+	 * @param a Contig kmer frequencies
+	 * @param b Cluster kmer frequencies
+	 * @return Score
+	 */
+	static final float absDifFloat(float[] a, float[] b){
+    	if(Shared.SIMD) {return Vector.absDifFloat(a, b);}
+		assert(a.length==b.length);
+		float sum=0;
+		for(int i=0; i<a.length; i++){
+			sum+=Math.abs(a[i]-b[i]);
+		}
+		return (float)sum;
+	}
     
     public static float absDif(int[] a, int[] b) {
-    	float inva=1f/Tools.max(1, Tools.sum(a));
-    	float invb=1f/Tools.max(1, Tools.sum(b));
+    	float inva=1f/Math.max(1, Tools.sum(a));
+    	float invb=1f/Math.max(1, Tools.sum(b));
     	float ret=absDif(a, b, inva, invb);
     	return (Float.isFinite(ret) && ret>0 ? ret : 0);
     }
     
 	static final float absDif(int[] a, int[] b, float inva, float invb){
+		assert(a.length==b.length);
+		float sum=0;
+		for(int i=0; i<a.length; i++){
+			float ai=a[i]*inva, bi=b[i]*invb;
+			sum+=Math.abs(ai-bi);
+		}
+		return sum;
+	}
+    
+    public static float absDifComp(long[] a, long[] b, int k) {
+    	float[] af=compensate(a, k);
+    	float[] bf=compensate(b, k);
+    	float ret=Vector.absDifFloat(af, bf);
+    	return Tools.mid(0, 1, (Float.isFinite(ret) && ret>0 ? ret : 0));
+    }
+    
+    public static float absDif(long[] a, long[] b) {
+    	float inva=1f/Math.max(1, Tools.sum(a));
+    	float invb=1f/Math.max(1, Tools.sum(b));
+    	float ret=absDif(a, b, inva, invb);
+    	return (Float.isFinite(ret) && ret>0 ? ret : 0);
+    }
+    
+	private static final float absDif(long[] a, long[] b, float inva, float invb){
 		assert(a.length==b.length);
 		float sum=0;
 		for(int i=0; i<a.length; i++){
@@ -266,8 +385,8 @@ public class SimilarityMeasures {
     
 
     public static float jensenShannonDivergence(int[] a, int[] b) {
-    	float inva=1f/Tools.max(1, Tools.sum(a));
-    	float invb=1f/Tools.max(1, Tools.sum(b));
+    	float inva=1f/Math.max(1, Tools.sum(a));
+    	float invb=1f/Math.max(1, Tools.sum(b));
     	float ret=jensenShannonDivergence(a, b, inva, invb);
     	return (Float.isFinite(ret) && ret>0 ? ret : 0);
     }
@@ -315,13 +434,30 @@ public class SimilarityMeasures {
     }
     
     public static float hellingerDistance(int[] a, int[] b) {
-    	float inva=1f/Tools.max(1, Tools.sum(a));
-    	float invb=1f/Tools.max(1, Tools.sum(b));
+    	float inva=1f/Math.max(1, Tools.sum(a));
+    	float invb=1f/Math.max(1, Tools.sum(b));
     	float ret=hellingerDistance(a, b, inva, invb);
     	return (Float.isFinite(ret) && ret>0 ? ret : 0);
     }
 
     public static float hellingerDistance(int[] a, int[] b, float inva, float invb) {
+        float sum=0f;
+        for (int i=0; i<a.length; i++) {
+        	float ai=a[i]*inva, bi=b[i]*invb;
+        	float d=(float)(Math.sqrt(ai)-Math.sqrt(bi));
+            sum+=d*d;
+        }
+        return (float)Math.sqrt(sum)*invRoot2;
+    }
+    
+    public static float hellingerDistance(long[] a, long[] b) {
+    	float inva=1f/Math.max(1, Tools.sum(a));
+    	float invb=1f/Math.max(1, Tools.sum(b));
+    	float ret=hellingerDistance(a, b, inva, invb);
+    	return (Float.isFinite(ret) && ret>0 ? ret : 0);
+    }
+
+    public static float hellingerDistance(long[] a, long[] b, float inva, float invb) {
         float sum=0f;
         for (int i=0; i<a.length; i++) {
         	float ai=a[i]*inva, bi=b[i]*invb;

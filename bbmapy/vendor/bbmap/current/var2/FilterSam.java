@@ -648,9 +648,9 @@ public class FilterSam {
 			
 			final ArrayList<Var> list;
 			if(subsOnly){
-				list=CallVariants.findUniqueSubs(r, sl, varMap, scafMap, maxBadAlleleDepth, maxBadAlleleFraction, minBadReadDepth, minEDist);
+				list=AnalyzeVars.findUniqueSubs(r, sl, varMap, scafMap, maxBadAlleleDepth, maxBadAlleleFraction, minBadReadDepth, minEDist);
 			}else{
-				list=CallVariants.findUniqueVars(r, sl, varMap, scafMap, maxBadAlleleDepth, maxBadAlleleFraction, minBadReadDepth, minEDist);
+				list=AnalyzeVars.findUniqueVars(r, sl, varMap, scafMap, maxBadAlleleDepth, maxBadAlleleFraction, minBadReadDepth, minEDist);
 			}
 			if(list==null || list.size()<=maxBadVars){
 				varSumGoodT+=vars;

@@ -149,7 +149,7 @@ def main():
     print(package_root)
     vendor_dir = package_root / "bbmapy/vendor"
     os.makedirs(vendor_dir, exist_ok=True)
-    
+
     try:
         # Download and extract BBTools
         archive_path = download_bbtools_sourceforge()

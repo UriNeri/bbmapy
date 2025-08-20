@@ -113,6 +113,38 @@ public class GffLine implements Comparable<GffLine>, Feature, Cloneable {
 //		assert(strand>=0) : "\n"+this.toString()+"\n"+new String(line);
 	}
 	
+	//Mostly identical.
+	public GffLine(GtfLine gtf){
+		seqid=gtf.seqname;
+		source=gtf.source;
+		type=gtf.feature;
+		start=gtf.start;
+		stop=gtf.end;
+		score=gtf.score;
+		strand=find(gtf.strand, STRANDS);
+		phase=gtf.frame;
+		String att=gtf.attribute;
+//		if(att.indexOf(';')<0) {att=att.replace(',', ';');}
+//		if(att.contains("; ")) {att.replaceAll("; ", ";");}
+		StringBuilder sb=new StringBuilder();
+		int tnum=0;
+		for(String term : att.split(";")) {
+			int space=term.indexOf(' ');
+			int equals=term.indexOf('=');
+			if(tnum>0) {sb.append(';');}
+			if(space>0) {
+				sb.append(term.substring(0, space)).append('=')
+				.append(term.substring(space+1, term.length()));
+			}else if(equals>0) {
+				sb.append(term);
+			}else {
+				sb.append("attrib").append(tnum).append('=').append(term);
+			}
+			tnum++;
+		}
+		attributes=sb.toString();
+	}
+	
 	public GffLine(VCFLine vcf){
 		seqid=vcf.scaf;
 		source=DOTS;
@@ -240,7 +272,7 @@ public class GffLine implements Comparable<GffLine>, Feature, Cloneable {
 			String type=typeArray[i];
 			lists[i]=new ArrayList<GffLine>();
 			for(GffLine gline : list){
-				if(gline.type.equals(type)){
+				if(gline.type.equalsIgnoreCase(type)){
 					lists[i].add(gline);
 				}
 			}

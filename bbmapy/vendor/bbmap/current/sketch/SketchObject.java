@@ -6,6 +6,7 @@ import java.util.Arrays;
 import java.util.Collections;
 import java.util.Random;
 
+import aligner.IDAligner;
 import aligner.SingleStateAlignerFlat2;
 import aligner.SingleStateAlignerFlatFloat;
 import dna.AminoAcid;
@@ -694,16 +695,8 @@ public class SketchObject {
 	/*--------------------------------------------------------------*/
 	
 	public static final float align(byte[] query, byte[] ref){
-		SingleStateAlignerFlat2 ssa=GeneCaller.getSSA();
-		int a=0, b=ref.length-1;
-		int[] max=ssa.fillUnlimited(query, ref, a, b, -9999);
-		if(max==null){return 0;}
-		
-		final int rows=max[0];
-		final int maxCol=max[1];
-		final int maxState=max[2];
-		final float id=ssa.tracebackIdentity(query, ref, a, b, rows, maxCol, maxState, null);
-		return id;
+		IDAligner ssa=GeneCaller.getSSA();
+		return ssa.align(query, ref);
 	}
 	
 	public static final float alignAndMakeMatch(Read r, byte[] ref){

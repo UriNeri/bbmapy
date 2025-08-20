@@ -68,7 +68,7 @@ public final class LineParser1 implements LineParser {
 	/*--------------------------------------------------------------*/
 	
 	@Override
-	public LineParser set(byte[] line_) {
+	public LineParser1 set(byte[] line_) {
 		clear();
 		line=line_;
 		for(int len=advance(); b<line.length; len=advance()) {
@@ -115,10 +115,39 @@ public final class LineParser1 implements LineParser {
 		return Parse.parseInt(line, a, b);
 	}
 	
+	public int parseInt(int term, int offset) {
+		setBounds(term);
+		return Parse.parseInt(line, a+offset, b);
+	}
+	
 	@Override
 	public long parseLong(int term) {
 		setBounds(term);
 		return Parse.parseLong(line, a, b);
+	}
+	
+	public long parseLongA48(int term) {
+		setBounds(term);
+		return Parse.parseLongA48(line, a, b);
+	}
+	
+	public long[] parseLongArray(int term) {
+		long[] array=new long[terms()-term];
+		return parseLongArray(term, array);
+	}
+	
+	public long[] parseLongArray(int term, long[] array) {
+		for(int i=0; i<array.length; i++) {
+			array[i]=parseLong(term+i);
+		}
+		return array;
+	}
+	
+	public long[] parseLongArrayA48(int term, long[] array) {
+		for(int i=0; i<array.length; i++) {
+			array[i]=parseLongA48(term+i);
+		}
+		return array;
 	}
 	
 	@Override

@@ -30,6 +30,7 @@ import stream.SamLine;
 import stream.SamReadStreamer;
 import structures.ListNum;
 import tracker.ReadStats;
+import var2.AnalyzeVars;
 import var2.CallVariants;
 import var2.ScafMap;
 import var2.VarFilter;
@@ -1132,7 +1133,7 @@ public class CalcTrueQuality {
 			
 			if(needsFixing){
 				int x=Read.countVars(r.match, true, true, true);
-				int y=CallVariants.fixVars(r, sl, varMap, scafMap);
+				int y=AnalyzeVars.fixVars(r, sl, varMap, scafMap);
 				varsTotalT+=x;
 				varsFixedT+=y;
 			}

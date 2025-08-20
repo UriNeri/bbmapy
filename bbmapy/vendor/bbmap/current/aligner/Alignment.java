@@ -22,7 +22,7 @@ public class Alignment implements Comparable<Alignment>{
 		return id;
 	}
 	
-	public static float align(Read r, byte[] ref){
+	public static final float align(Read r, byte[] ref){
 		SingleStateAlignerFlat2 ssa=GeneCaller.getSSA();
 		final int a=0, b=ref.length-1;
 		int[] max=ssa.fillUnlimited(r.bases, ref, a, b, 0);

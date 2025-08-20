@@ -91,6 +91,18 @@ stdout, stderr = bbduk(
 )
 ```
 
+#### Getting java executable
+Can be a pain, see [this PR discussion](https://github.com/conda-forge/staged-recipes/pull/29085).  
+bioconda's recipes that require java will usually bring a really bloated set of stuff. not good. way too much useless bandwidth (I see no reason that getting bbmap would require alsa).  
+But pip and bioconda recipies allow using other pip and conda recipes. Good. A workaround - adding a custom function that recognizes the os + arch and fetches during install or test.  
+Technically - this does not count as preloading a binary/executable. The actual JRE is tiny, and getting it can be done via [`install-jdk`](https://pypi.org/project/install-jdk/).  
+
+tl;dr: after installing from pypi (via pip/uv/pixi)
+```
+bbmapy-ensure-java
+```  
+
+
 #### Notes:
  * `in` can be a protected word in python and other code, it is replaced by `in_file` in function calls. `in1`, `in2` are still valid.
  * Java flags (such as `Xmx`, `Xms`, `da`, `ea`, `eoom`) are automatically recognized and handled appropriately. Include them in your function calls just like any other argument.
@@ -119,7 +131,6 @@ Neither the developers of bbtools nor of bbmapy take any responsibility for how 
 
 This project only (crudely) wraps BBTools (a.k.a bbmap), which is developed by Brian Bushnell.  
 If you use bbmapy and things don't quite work like you'd like, don't expect the developer of bbmap to help you with this whacky python wrapper.  
-If 
 Please see the [BBTools website](https://jgi.doe.gov/data-and-tools/bbtools/) for more information about the underlying tools.  
 
 

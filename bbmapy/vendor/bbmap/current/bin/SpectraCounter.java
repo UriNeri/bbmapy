@@ -4,6 +4,9 @@ import java.io.PrintStream;
 import java.util.ArrayList;
 import java.util.concurrent.locks.ReadWriteLock;
 
+import prok.CallGenes;
+import prok.GeneCaller;
+import prok.Orf;
 import shared.KillSwitch;
 import shared.LineParserS1;
 import shared.LineParserS4;
@@ -17,7 +20,7 @@ import template.Accumulator;
 import template.ThreadWaiter;
 import tracker.EntropyTracker;
 
-public class SpectraCounter implements Accumulator<SpectraCounter.LoadThread> {
+public class SpectraCounter extends BinObject implements Accumulator<SpectraCounter.LoadThread> {
 	
 	public SpectraCounter(PrintStream outstream_, boolean parseDepth_, 
 			boolean parseTID_, IntLongHashMap sizeMap_) {
@@ -40,8 +43,10 @@ public class SpectraCounter implements Accumulator<SpectraCounter.LoadThread> {
 		//Do anything necessary prior to processing
 //		sizeMap=(parseTax ? new IntLongHashMap(1021) : null);
 		
+		GeneTools.setMode(call16S, call18S, false, false, false, false);
 		//Determine how many threads may be used
 		int threads=Tools.mid(1, cris==null ? contigs.size()/4 : 128, Shared.threads());
+		if(loadThreadsOverride>0) {threads=loadThreadsOverride;}
 		//Fill a list with LoadThreads
 		ArrayList<LoadThread> alpt=new ArrayList<LoadThread>(threads);
 		for(int i=0; i<threads; i++){
@@ -87,6 +92,10 @@ public class SpectraCounter implements Accumulator<SpectraCounter.LoadThread> {
 		
 		@Override
 		public void run() {
+			et=new EntropyTracker(entropyK, entropyWindow, false);
+			if(call16S || call18S) {
+				caller=GeneTools.makeGeneCaller();
+			}
 			synchronized(this) {
 				runInner();
 			}
@@ -150,7 +159,7 @@ public class SpectraCounter implements Accumulator<SpectraCounter.LoadThread> {
 			basesLoadedT+=r.length();
 			int tid=-1;
 			if(parseTID) {
-				tid=DataLoader.parseTaxID(r.name());
+				tid=parseTaxID(r.name());
 				if(tid>0) {
 					synchronized(sizeMap) {
 						sizeMap.increment(tid, r.length());
@@ -161,10 +170,33 @@ public class SpectraCounter implements Accumulator<SpectraCounter.LoadThread> {
 			contigsRetainedT++;
 			basesRetainedT+=r.length();
 			Contig c=new Contig(r.name(), r.bases, (int)r.numericID);
+			byte[][] ssu=callSSU(r);
 			synchronized(c) {
 				c.labelTaxid=tid;
+				if(ssu!=null) {
+					c.r16S=ssu[0];
+					c.r18S=ssu[1];
+				}
 			}
 			return c;
+		}
+		
+		byte[][] callSSU(Read r) {
+			if(caller==null || r.length()<900) {return null;}
+			assert(call16S || call18S);
+			ArrayList<Orf> genes=caller.callGenes(r);
+			if(genes==null || genes.isEmpty()) {return null;}
+			byte[] r16s, r18s;
+			for(Orf orf : genes) {
+				if(orf.is16S()) {
+					r16s=CallGenes.fetch(orf, r).bases;
+					return new byte[][] {r16s, null};
+				}else if(orf.is18S()) {
+					r18s=CallGenes.fetch(orf, r).bases;
+					return new byte[][] {null, r18s};
+				}
+			}
+			return null;
 		}
 		
 		void processContig(Contig c) {
@@ -175,7 +207,12 @@ public class SpectraCounter implements Accumulator<SpectraCounter.LoadThread> {
 				c.loadCounts();
 				if(c.numDepths()>1) {c.fillNormDepth();}
 				if(calcEntropy) {
-					c.entropy=et.averageEntropy(c.bases, false);
+					if(!calcEntropyFast) {
+						c.entropy=et.averageEntropy(c.bases, false);
+					}else {
+						//This would need regeneration of nns but uses much less CPU time loading.
+						c.entropy=EntropyTracker.calcEntropyFromCounts(c.trimers);
+					}
 					c.entropy=AdjustEntropy.compensate(c.gc(), c.entropy);
 				}
 				if(calcStrandedness) {
@@ -200,7 +237,8 @@ public class SpectraCounter implements Accumulator<SpectraCounter.LoadThread> {
 		final int minlen;
 		final ArrayList<Contig> contigs;
 		final ConcurrentReadInputStream cris;
-		final EntropyTracker et=new EntropyTracker(entropyK, entropyWindow, false);
+		private EntropyTracker et;
+		private GeneCaller caller;
 //		final int[] counts=(calcEntropy ? new int[1<<(entropyK*2)] : null);
 		boolean success=false;
 		int contigsProcessedT=0;
@@ -227,8 +265,10 @@ public class SpectraCounter implements Accumulator<SpectraCounter.LoadThread> {
 	
 	public boolean errorState=false;
 	public static boolean calcEntropy=true;
+	public static boolean calcEntropyFast=false;
 	public static boolean calcStrandedness=true;
-	public static int entropyK=4;
-	public static int entropyWindow=150;
+	public static boolean call16S=false;
+	public static boolean call18S=false;
+	public static int loadThreadsOverride=-1;
 	
 }

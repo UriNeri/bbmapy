@@ -3,9 +3,10 @@
 usage(){
 echo "
 Written by Brian Bushnell
-Last modified August 6, 2019
+Last modified May 25, 2025
 
 Description:  Creates a mutant version of a genome.
+Also produces a VCF listing the added mutations.
 
 Usage:  mutate.sh in=<input file> out=<output file> id=<identity>
 
@@ -19,10 +20,12 @@ ziplevel=2      (zl) Set to 1 (lowest) through 9 (max) to change compression
                 level; lower compression is faster.
 
 Processing parameters:
-subrate=0       Substitution rate, 0 to 1.     
-indelrate=0     Indel rate, 0 to 1.
+subrate=0       Substitution rate, 0 to 1.
+insrate=0       Insertion rate, 0 to 1.
+delrate=0       Deletion rate, 0 to 1.
+indelrate=0     Sets ins and del rate each to half of this value.
 maxindel=1      Max indel length.
-indelspacing=10 Minimum distance between subsequent indels.
+indelspacing=3  Minimum distance between subsequent indels.
 id=1            Target identity, 0 to 1; 1 means 100%.
                 If this is used it will override subrate and indelrate;
                 99% of the mutations will be substitutions, and 1% indels.
@@ -42,6 +45,9 @@ nohomopolymers=f  If true, prevent indels in homopolymers that lead to
                 AC or deleting T from TTTT.  This is mainly for grading 
                 purposes.  It does not fully solve the problem, but greatly
                 improves concordance (reducing disagreements by 70%).
+                NOTE! nohomopolymers is temporarily disabled.
+pad=0           Add this many random bases to the ends of input sequences.
+                Padleft and padright may also be specified independently.
 
 Java Parameters:
 -Xmx            This will set Java's memory usage, overriding autodetection.
@@ -92,7 +98,7 @@ calcXmx () {
 calcXmx "$@"
 
 mutate() {
-	local CMD="java $EA $EOOM $z $z2 -cp $CP jgi.MutateGenome $@"
+	local CMD="java $EA $EOOM $z $z2 -cp $CP synth.MutateGenome $@"
 	echo $CMD >&2
 	eval $CMD
 }

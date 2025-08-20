@@ -147,9 +147,10 @@ public class Cluster extends Bin {
 		avgDepthValid=false;
 		size=size2;
 		gcSum+=c.gcSum;
-//		assert(gcSum>0 || grading) : gcSum+", "+c.gcSum+", "+c.size()+", "+c.numContigs();
-//		assert(isValid());
-//		assert(c.isValid());
+
+		if(r16S==null) {r16S=c.r16S;}
+		if(r18S==null) {r18S=c.r18S;}
+		
 		return this;
 	}
 	
@@ -229,6 +230,8 @@ public class Cluster extends Bin {
 		taxid=genusTaxid=labelTaxid=0;
 		topHit=secondHit=null;
 		nonDominantSize=0;
+		r16S=r18S=null;
+		wasReclustered=false;
 	}
 	
 	@Override

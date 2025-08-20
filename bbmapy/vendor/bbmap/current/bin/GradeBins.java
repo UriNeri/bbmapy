@@ -5,13 +5,20 @@ import java.io.PrintStream;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.concurrent.locks.ReadWriteLock;
 
+import dna.AminoAcid;
 import fileIO.ByteFile;
 import fileIO.ByteStreamWriter;
 import fileIO.FileFormat;
 import fileIO.ReadWrite;
+import gff.GffLine;
+import prok.CallGenes;
+import prok.GeneCaller;
+import prok.Orf;
+import prok.ProkObject;
 import shared.LineParser1;
 import shared.Parse;
 import shared.Parser;
@@ -21,10 +28,14 @@ import shared.Timer;
 import shared.Tools;
 import stream.ConcurrentReadInputStream;
 import stream.Read;
+import structures.FloatList;
 import structures.IntHashMap;
 import structures.IntLongHashMap;
 import structures.ListNum;
 import structures.LongList;
+import tax.Lineage;
+import tax.TaxNode;
+import tax.TaxTree;
 import template.Accumulator;
 import template.ThreadWaiter;
 
@@ -78,7 +89,13 @@ public class GradeBins implements Accumulator<GradeBins.ProcessThread> {
 				ref=b;
 			}else if(a.equals("hist")){
 				hist=b;
-			}else if(a.equals("report")){
+			}else if(a.equalsIgnoreCase("contamHist")){
+				contamHist=b;
+			}else if(a.equals("ccplot")){
+				ccplot=b;
+			}
+			
+			else if(a.equals("report")){
 				report=b;
 			}else if(a.equals("taxin")){
 				taxIn=b;
@@ -86,14 +103,77 @@ public class GradeBins implements Accumulator<GradeBins.ProcessThread> {
 				taxOut=b;
 			}else if(a.equals("tax") || a.equals("size")){
 				tax=b;
+			}else if(a.equals("cov")){
+				cov=b;
 			}else if(a.equals("loadmt")){
 				loadMT=Parse.parseBoolean(b);
-			}else if(a.equalsIgnoreCase("checkm")){
+			}else if(a.equals("tree") || a.equals("usetree")){
+				if(b==null || Parse.isBoolean(b)) {useTree=Parse.parseBoolean(b);}
+				else if(new File(b).exists()) {
+					BinObject.treePath=b;
+					useTree=true;
+				}else {
+					assert(false) : "Bad argument: "+arg;
+				}
+			}
+			
+			else if(a.equalsIgnoreCase("checkm")){
 				checkMFile=b;
 			}else if(a.equalsIgnoreCase("eukcc")){
 				eukCCFile=b;
+			}else if(a.equalsIgnoreCase("cami")){
+				camiFile=b;
+			}else if(a.equalsIgnoreCase("gtdb") || a.equalsIgnoreCase("gtdbtk")){
+				gtdbFile=b;
+			}else if(a.equalsIgnoreCase("pgm")){
+				GeneTools.pgmFile=b;
+			}else if(a.equalsIgnoreCase("gff")){
+				gffFile=b;
+			}else if(a.equalsIgnoreCase("imgmap")){
+				imgMapFile=b;
+			}else if(a.equalsIgnoreCase("spectra")){
+				spectraFile=b;
+			}else if(a.equalsIgnoreCase("quickclade")){
+				runQuickClade=Parse.parseBoolean(b);
+			}else if(a.equalsIgnoreCase("callgenes")){
+				callGenes=Parse.parseBoolean(b);
+			}else if(a.equalsIgnoreCase("userna") || a.equals("rna") || a.equals("ribo")){
+				useRNA=Parse.parseBoolean(b);
+			}else if(a.equals("aligner") || a.equals("idaligner")){
+				GeneCaller.useIDAligner=(b==null || !("f".equals(b) || "false".equals(b)));
+				if(GeneCaller.useIDAligner) {aligner.Factory.setType(b);}
 			}else if(b==null && new File(arg).isFile()){
-				in.add(arg);
+//				System.err.println("Examining "+arg);
+//				FileFormat.PRINT_WARNING=false;
+				FileFormat ff=FileFormat.testInput(arg, FileFormat.TXT, null, false, false);
+//				FileFormat.PRINT_WARNING=true;
+				String lc=arg.toLowerCase();
+				if(ff.fasta()) {
+					in.add(arg);
+				}else if(ff.pgm()) {
+					GeneTools.pgmFile=arg;
+				}else if(ff.gff()) {
+					gffFile=arg;
+				}else if(ff.clade()) {
+					spectraFile=arg;
+				}else if(lc.contains("checkm") && checkMFile==null) {
+					checkMFile=arg;
+				}else if(lc.contains("cami") && camiFile==null) {
+					camiFile=arg;
+				}else if(lc.contains("gtdb") && gtdbFile==null) {
+					gtdbFile=arg;
+				}else if(lc.contains("eukcc") && eukCCFile==null) {
+					eukCCFile=arg;
+				}else if(lc.equals("tax.txt") && taxIn==null) {
+//					System.err.println("Adding tax "+arg);
+					taxIn=arg;
+				}else if(DataLoader.looksLikeCovFile(arg) && cov==null) {
+//					System.err.println("Adding cov "+arg);
+					cov=arg;
+				}else {
+//					System.err.println("Adding bin "+arg);
+					in.add(arg);
+				}
 			}else if(b==null && new File(arg).isDirectory()){
 				Tools.getFileOrFiles(arg, in, true, false, false, false);
 			}else if(parser.parse(arg, a, b)){
@@ -110,6 +190,79 @@ public class GradeBins implements Accumulator<GradeBins.ProcessThread> {
 			maxReads=parser.maxReads;
 //			out1=parser.out1;
 		}
+		
+		if(callGenes) {
+			GeneTools.loadPGM();
+			CallGenes.callCDS=CallGenes.calltRNA=CallGenes.call16S=
+					CallGenes.call23S=CallGenes.call5S=CallGenes.call18S=true;
+		}
+		loadGff();
+		loadSpectra();
+		loadCov();
+		makeLevelMaps();
+		if(gtdbFile!=null || (cladeIndex!=null && report!=null)) {useTree=true;}
+		if(useTree) {BinObject.loadTree();}
+	}
+	
+	static synchronized void makeLevelMaps() {
+		if(levelMaps!=null) {return;}
+		levelMaps=new IntHashMap[TaxTree.LIFE+1];
+		levelMapsMQ=new IntHashMap[TaxTree.LIFE+1];
+		levelMapsHQ=new IntHashMap[TaxTree.LIFE+1];
+		for(int i=0; i<levelMaps.length; i++) {
+			levelMaps[i]=new IntHashMap();
+			levelMapsMQ[i]=new IntHashMap();
+			levelMapsHQ[i]=new IntHashMap();
+		}
+	}
+	
+	static synchronized void loadCov() {
+		if(cov==null || covMap!=null) {return;}
+		covMap=DataLoader.loadCovFile(cov);
+	}
+	
+	static synchronized void loadGff() {
+		if(gffFile==null || gffMap!=null) {return;}
+		HashMap<String, String> imgMap=loadImgMap(imgMapFile);
+		System.err.println("Loading "+gffFile);
+		ArrayList<GffLine> lines=GffLine.loadGffFile(gffFile, "rRNA,tRNA", callGenes);
+		gffMap=new HashMap<String, ArrayList<GffLine>>();
+		for(GffLine line : lines) {
+			if(imgMap!=null) {
+				String key=line.seqid;
+				String value=imgMap.get(key);
+				if(value!=null) {line.seqid=value;}
+			}
+			ArrayList<GffLine> value=gffMap.get(line.seqid());
+			if(value==null) {gffMap.put(line.seqid(), value=new ArrayList<GffLine>(2));}
+			value.add(line);
+		}
+//		assert(false) : gffMap;
+	}
+	
+	static HashMap<String, String> loadImgMap(String fname){
+		if(fname==null) {return null;}
+		HashMap<String,String> map=new HashMap<String,String>();
+		ByteFile bf=ByteFile.makeByteFile(fname, true);
+		LineParser1 lp=new LineParser1('\t');
+		for(ListNum<byte[]> ln=bf.nextList(); ln!=null; ln=bf.nextList()) {
+			for(byte[] line : ln) {
+				lp.set(line);
+				String a=lp.parseString(0);
+				String b=lp.parseString(1);
+				String old=map.put(a, b);
+				String old2=map.put(b, a);
+				assert(old==null) : "Evicted "+old+" for "+a+" -> "+b;
+			}
+		}
+		return map;
+	}
+	
+	static void loadSpectra() {
+		if(runQuickClade && spectraFile==null) {spectraFile=CladeSearcher.defaultRef();}
+		if(spectraFile!=null) {runQuickClade=true;}
+		if(spectraFile==null || cladeIndex!=null) {return;}
+		cladeIndex=CladeIndex.loadIndex(spectraFile);
 	}
 	
 	void process(Timer t){
@@ -131,12 +284,18 @@ public class GradeBins implements Accumulator<GradeBins.ProcessThread> {
 		}else {
 			sizeMap=makeSizeMap(ref);
 		}
+		System.err.println("Made size map.");
 		if(taxOut!=null) {
 			writeTaxOut(taxOut, sizeMap, countMap);
 		}
 		checkMMap=loadCheckM(checkMFile);
 		eukCCMap=loadEukCC(eukCCFile);
+		camiMap=loadCami(camiFile);
+		gtdbMap=loadGTDBDir(gtdbFile);
+		Timer t2=new Timer(System.err, false);
+		System.err.print("Loading bins: ");
 		ArrayList<BinStats> bins=(loadMT ? loadMT(in) : loadST(in));
+		t2.stopAndPrint();
 		
 		printResults(bins);
 		
@@ -145,11 +304,41 @@ public class GradeBins implements Accumulator<GradeBins.ProcessThread> {
 		outstream.println(Tools.timeReadsBasesProcessed(t, readsProcessed, basesProcessed, 8));
 	}
 	
+	private void addTaxLevels(BinStats bin) {
+		Lineage lineage=null;
+		if(gtdbMap!=null) {
+			lineage=gtdbMap.get(bin.name);
+			if(lineage!=null) {
+				bin.lineage=lineage.line;
+			}
+		}
+		int tid=bin.taxid;
+		if(tid<1) {tid=bin.taxid=TaxTree.LIFE_ID;}
+		if(lineage==null) {lineage=new Lineage(tid);}
+		addTaxLevels(bin, lineage);
+	}
+	
+	private void addTaxLevels(BinStats bin, Lineage lineage) {
+		boolean hq=bin.hq(useRNA);
+		boolean mq=bin.mq(useRNA);
+//		System.err.println("Incrementing lineage for "+bin.taxid);
+		for(TaxNode node : lineage.nodes) {
+			if(node!=null) {
+//				System.err.print('.');
+				levelMaps[node.level].increment(node.id);
+				if(mq) {levelMapsMQ[node.level].increment(node.id);}
+				if(hq) {levelMapsHQ[node.level].increment(node.id);}
+			}
+		}
+//		assert(false);
+	}
+	
 	void printResults(ArrayList<BinStats> bins) {
 		for(BinStats bin : bins) {
 			readsProcessed+=bin.contigs;
 			basesProcessed+=bin.size;
 			sizes.add(bin.size);
+			if(useTree) {addTaxLevels(bin);}
 		}
 		
 		if(verbose){outstream.println("Finished.");}
@@ -164,10 +353,21 @@ public class GradeBins implements Accumulator<GradeBins.ProcessThread> {
 		printScore(bins, totalSize, totalContigs, taxIDsIn, true);
 		
 		outstream.println();
-		printBinQuality(bins, minSize, outstream);
+		printBinQuality(bins, minSize, useRNA, outstream);
+		
+		if(useTree) {
+			outstream.println();
+			printTaxLevels(bins, outstream);
+		}
 		
 		if(hist!=null) {
 			ChartMaker.makeChartFromBinStats(hist, bins);
+		}
+		if(ccplot!=null) {
+			ChartMaker.writeCCPlot(ccplot, bins);
+		}
+		if(contamHist!=null) {
+			ChartMaker.writeContamHist(contamHist, bins);
 		}
 		if(report!=null) {
 			printClusterReport(bins, minSize, report);
@@ -226,6 +426,33 @@ public class GradeBins implements Accumulator<GradeBins.ProcessThread> {
 		}
 	}
 	
+	static String toScoreString(ArrayList<? extends Bin> bins, int minSize, IntLongHashMap sizeMap){
+		for(Bin b : bins) {
+			if(b.size()>minSize) {b.calcContam(sizeMap);}
+		}
+		return toScoreString(toStats(bins, minSize), sizeMap.sum());
+	}
+	
+	private static String toScoreString(ArrayList<BinStats> bins, long totalSize){
+		double compltScore=0, contamScore=0;
+		double totalScore2=0;
+		IntHashMap tidBins=new IntHashMap();
+		for(BinStats bin : bins) {
+			if(bin.taxid>0) {
+				tidBins.increment(bin.taxid);
+			}
+			long contam=Math.round(bin.contam*bin.size);
+			contamScore+=contam;
+			compltScore+=Math.round(bin.complt*(bin.size-contam));
+			double score=Math.max(0, bin.complt-5*bin.contam);
+			totalScore2+=score*score;
+		}
+		String compS=String.format("%.3f", 100*compltScore/totalSize);
+		String contamS=String.format("%.4f", 100*contamScore/totalSize);
+		String totalS=String.format("%.2f", totalScore2);
+		return "Complt:\t"+compS+"\tContam:\t"+contamS+"\tTotal:\t"+totalS;
+	}
+	
 	public static void printCleanDirty(ArrayList<BinStats> bins) {
 		long cleanBins=0, contamBins=0;
 		long cleanContigs=0, contamContigs=0;
@@ -262,11 +489,18 @@ public class GradeBins implements Accumulator<GradeBins.ProcessThread> {
 	public static ArrayList<BinStats> loadST(ArrayList<String> in){
 		ArrayList<BinStats> bins=new ArrayList<BinStats>(in.size());
 		for(String s : in) {
-			final BinStats c;
+			final BinStats bs;
 			Cluster clust=loadCluster(s);
 			calcContam(s, clust);
-			c=new BinStats(clust);
-			bins.add(c);
+			bs=new BinStats(clust, ReadWrite.stripToCore(s));
+			if(runQuickClade) {bs.taxid=callTax(clust);}
+			if(callGenes) {
+				callGenes(clust, GeneTools.gCaller, bs);
+			}else if(gffMap!=null) {
+				annotate(clust, gffMap, bs);
+			}
+			
+			bins.add(bs);
 		}
 		return bins;
 	}
@@ -301,7 +535,8 @@ public class GradeBins implements Accumulator<GradeBins.ProcessThread> {
 			cris=ConcurrentReadInputStream.getReadInputStream(maxReads, true, ffin, null);
 			cris.start();
 		}
-		Cluster c=new Cluster(0);		
+		Cluster c=new Cluster(0);
+		c.tetramers=new int[0];
 		{
 			ListNum<Read> ln=cris.nextList();
 			ArrayList<Read> reads=(ln!=null ? ln.list : null);
@@ -315,9 +550,23 @@ public class GradeBins implements Accumulator<GradeBins.ProcessThread> {
 					
 					//  *********  Process reads here  *********
 					Contig a=new Contig(r1.name(), r1.bases, (int)r1.numericID);
-					c.tetramers=new int[0];
-					int tid=DataLoader.parseTaxID(a.name);
+					for(byte b : a.bases) {
+						int x=AminoAcid.baseToNumber[b];
+						a.gcSum+=(x==1 || x==2) ? 1 : 0;
+					}
+					int tid=BinObject.parseTaxID(a.name);
 					a.taxid=a.labelTaxid=tid;
+					String key=ContigRenamer.toShortName(a.name);
+					if(camiMap!=null) {
+						Integer camiTid=camiMap.get(key);
+						a.labelTaxid=(camiTid==null ? 0 : camiTid.intValue());
+					}
+					if(covMap!=null) {
+						FloatList fl=covMap.get(key);
+						if(fl!=null) {
+							for(int i=0; i<fl.size; i++) {a.setDepth(fl.get(i), i);}
+						}
+					}
 					c.add(a);
 				}
 
@@ -341,7 +590,6 @@ public class GradeBins implements Accumulator<GradeBins.ProcessThread> {
 		CCLine checkm=(checkMMap==null ? null : checkMMap.get(core));
 		CCLine eukcc=(eukCCMap==null ? null : eukCCMap.get(core));
 		assert((checkMMap==null) == (checkm==null)) : checkm;
-//		assert(false) : checkm;
 		if(checkm==null && eukcc==null) {
 			c.calcContam(sizeMap);
 			return;
@@ -357,7 +605,13 @@ public class GradeBins implements Accumulator<GradeBins.ProcessThread> {
 		ArrayList<BinStats> list=new ArrayList<BinStats>();
 		for(Bin b : bins) {
 			if(b.size()>=minSize) {
-				BinStats bs=new BinStats(b);
+				BinStats bs=new BinStats(b, b.name());
+				if(runQuickClade) {bs.taxid=callTax(b);}
+				if(callGenes) {
+					callGenes(b, GeneTools.gCaller, bs);
+				}else if(gffMap!=null) {
+					annotate(b, gffMap, bs);
+				}
 				list.add(bs);
 			}
 		}
@@ -371,29 +625,60 @@ public class GradeBins implements Accumulator<GradeBins.ProcessThread> {
 	
 	static void printClusterReport(ArrayList<BinStats> bins, int minSize, String fname) {
 		if(fname==null) {return;}
+		Collections.sort(bins);
 		ByteStreamWriter bsw=new ByteStreamWriter(fname, true, false, false);
 		bsw.start();
-		bsw.print("#Bin\tSize\tContigs\tGC\tDepth\tMinDepth\tMaxDepth\tContam\tTaxID\tType\n");
+		String header="#Bin\tSize\tContigs\tGC\tDepth\tMinDepth\tMaxDepth";
+		header+="\tCompleteness\tContam\tTaxID\tType";
+		if(callGenes || gffFile!=null) {header+="\t16S\t18S\t23S\t5S\ttRNA\tCDS\tCDSLen";}
+		if(BinObject.tree!=null) {header+="\tLineage";}
+		bsw.println(header);
 		int i=0;
 		for(BinStats b : bins) {
 			if(b.size>=minSize) {
-				bsw.print(i).tab().print(b.size).tab().print(b.contigs).tab();
-				bsw.print(b.gc, 3).tab().print(b.depth, 2).tab();
-				bsw.print(b.minDepth, 2).tab().print(b.maxDepth, 2).tab();
-				bsw.print(b.complt, 5).tab().print(b.contam, 5).tab();
-				bsw.print(b.taxid).tab().print(b.type()).nl();
+				bsw.printt(b.name).printt(b.size).printt(b.contigs);
+				bsw.printt(b.gc, 3).printt(b.depth, 2);
+				bsw.printt(b.minDepth, 2).printt(b.maxDepth, 2);
+				bsw.printt(b.complt, 5).printt(b.contam, 5);
+				bsw.printt(b.taxid).print(b.type(useRNA));
+				
+				if(callGenes || gffFile!=null) {
+					bsw.tab().printt(b.r16Scount).printt(b.r18Scount);
+					bsw.printt(b.r23Scount).printt(b.r5Scount);
+					bsw.printt(b.trnaCount);
+					bsw.printt(b.cdsCount).print(b.cdsLength);
+				}
+				
+				if(BinObject.tree!=null) {
+					bsw.tab().print(b.lineage!=null ? b.lineage : Clade.lineage(b.taxid));
+				}
+				bsw.println();
 				i++;
 			}
 		}
 		bsw.poison();
 	}
 	
-	static void printBinQuality(Collection<? extends Bin> bins, int minSize, PrintStream outstream) {
-		ArrayList<BinStats> list=toStats(bins, minSize);
-		printBinQuality(list, minSize, outstream);
+	static void printTaxLevels(ArrayList<BinStats> bins, PrintStream outstream) {
+		outstream.println("Unique Taxa Counts:");
+		outstream.println("Level         \tTotal\tMQ\tHQ");
+		for(int i=TaxTree.DOMAIN; i>=TaxTree.SPECIES; i--) {
+			outstream.print(Tools.padRight(TaxTree.levelToString(i), 14));
+			outstream.print("\t"+levelMaps[i].size());
+			outstream.print("\t"+levelMapsMQ[i].size());
+			outstream.print("\t"+levelMapsHQ[i].size());
+			outstream.println();
+		}
 	}
 	
-	static void printBinQuality(ArrayList<BinStats> bins, int minSize, PrintStream outstream) {
+	static void printBinQuality(Collection<? extends Bin> bins, int minSize, boolean useRNA, 
+			PrintStream outstream) {
+		ArrayList<BinStats> list=toStats(bins, minSize);
+		printBinQuality(list, minSize, useRNA, outstream);
+	}
+	
+	static void printBinQuality(ArrayList<BinStats> bins, int minSize, boolean useRNA, 
+			PrintStream outstream) {
 		long uhq=0, uhqINC=0, uhqCON=0;
 		long vhq=0, vhqINC=0, vhqCON=0;
 		long hq=0, hqINC=0, hqCON=0;
@@ -412,7 +697,7 @@ public class GradeBins implements Accumulator<GradeBins.ProcessThread> {
 			final long size=b.size;
 			final float comp=b.complt, contam=b.contam;
 			if(size>=minSize) {
-				if(contam<=0.05f && comp>=0.9f) {
+				if(contam<=0.05f && comp>=0.9f && (!useRNA || (b.r16Scount>0 && b.r23Scount>0 && b.trnaCount>=18))) {
 					hq++;
 					hqSize+=size;
 					if(comp>=0.99f && contam<=0.01f) {
@@ -547,7 +832,7 @@ public class GradeBins implements Accumulator<GradeBins.ProcessThread> {
 					contigSum++;
 					
 					//  *********  Process reads here  *********
-					int tid=DataLoader.parseTaxID(r.id);
+					int tid=BinObject.parseTaxID(r.id);
 					long ret=map.increment(tid, r.length());
 					countMap.increment(tid);
 					if(ret==r.length() && tid>0) {taxIDsIn++;}
@@ -665,6 +950,56 @@ public class GradeBins implements Accumulator<GradeBins.ProcessThread> {
 		return map;
 	}
 	
+	public static HashMap<String, Integer> loadCami(String fname) {
+		if(fname==null) {return null;}
+		LineParser1 lp=new LineParser1('\t');
+		ArrayList<byte[]> lines=ByteFile.toLines(fname);
+		HashMap<String, Integer> map=new HashMap<String, Integer>();
+		for(byte[] line : lines) {
+			if(!Tools.startsWith(line, '@')){
+				lp.set(line);
+				String name=lp.parseString(0);
+				int taxID=lp.parseInt(2);
+				map.put(name, taxID);
+			}
+		}
+		return map;
+	}
+	
+	public static HashMap<String, Lineage> loadGTDBDir(String fname) {
+		if(fname==null) {return null;}
+		HashMap<String, Lineage> map=new HashMap<String, Lineage>();
+		File f=new File(fname);
+		if(f.isDirectory()) {
+			if(!fname.endsWith("/") && !fname.endsWith("\\")) {fname=fname+"/";}
+			String bac=fname+"gtdbtk.bac120.summary.tsv";
+			String ar=fname+"gtdbtk.ar53.summary.tsv";
+			int loaded=0;
+			if(loadGTDBFile(bac, map)) {loaded++;}
+			if(loadGTDBFile(ar, map)) {loaded++;}
+			assert(loaded>0) : "Could not find "+bac+" or "+ar;
+		}else {
+			loadGTDBFile(fname, map);
+		}
+		return map;
+	}
+	
+	public static boolean loadGTDBFile(String fname, HashMap<String, Lineage> map) {
+		if(fname==null || !new File(fname).canRead()) {return false;}
+		ByteFile bf=ByteFile.makeByteFile(fname, true);
+		LineParser1 lptab=new LineParser1('\t');
+		LineParser1 lpsemi=new LineParser1(';');
+		for(byte[] line=bf.nextLine(); line!=null; line=bf.nextLine()) {
+			if(line[0]=='u' && Tools.startsWith(line, "user_genome	classification")) {continue;}
+			lptab.set(line);
+			GTDBLine gline=new GTDBLine(lptab, lpsemi);
+			if(map.containsKey(gline.name)) {continue;}//Only one taxa per bin
+			map.put(gline.name, new Lineage(gline.classification));
+		}
+		return true;
+	}
+	
+	
 	/*--------------------------------------------------------------*/
 	/*----------------          Accumulator         ----------------*/
 	/*--------------------------------------------------------------*/
@@ -684,6 +1019,62 @@ public class GradeBins implements Accumulator<GradeBins.ProcessThread> {
 		return success;
 	}
 	
+	static int callTax(Bin b) {
+		Clade clade=new Clade(-1, -1, b.name());
+		for(Contig c : b) {
+			clade.add(c.bases, null);
+		}
+		clade.finish();
+		ArrayList<Comparison> list=cladeIndex.findBest(clade);
+		Comparison best=(list==null ? null : list.get(0));
+		return best==null || best.ref==null ? -1 : best.ref.taxID;
+	}
+	
+	static void callGenes(Bin b, GeneCaller gcall, BinStats bs) {
+		ArrayList<Read> reads=new ArrayList<Read>(b.numContigs());
+		for(Contig c : b) {
+			reads.add(new Read(c.bases, null, c.name, c.id()));
+		}
+		ArrayList<Orf> orfs=gcall.callGenes(reads);
+		for(Orf o : orfs) {
+			if(o.is16S()) {bs.r16Scount++;}
+			if(o.is18S()) {bs.r18Scount++;}
+			if(o.is23S()) {bs.r23Scount++;}
+			if(o.is5S()) {bs.r5Scount++;}
+			if(o.isTRNA()) {bs.trnaCount++;}
+			if(o.isCDS()) {
+				bs.cdsCount++;
+				bs.cdsLength+=o.length();
+			}
+		}
+	}
+	
+	static void annotate(Bin b, HashMap<String, ArrayList<GffLine>> map, BinStats bs) {
+//		System.err.println("Annotating "+b.name());
+		for(Contig c : b) {
+			String name=c.name;
+			ArrayList<GffLine> lines=map.get(name);
+			if(lines==null) {lines=map.get(ContigRenamer.toShortName(name));}
+//			System.err.println("Found "+(lines==null ? 0 : lines.size())+" lines for "+b.name());
+			if(lines==null) {continue;}
+			for(GffLine line : lines) {
+				final int type=line.prokType();
+//				System.err.println("Type="+type);
+				if(type==ProkObject.r16S) {bs.r16Scount++;}
+				else if(type==ProkObject.r18S) {bs.r18Scount++;}
+				else if(type==ProkObject.r23S) {bs.r23Scount++;}
+				else if(type==ProkObject.r5S) {bs.r5Scount++;}
+				else if(type==ProkObject.tRNA) {bs.trnaCount++;}
+				else if(type==ProkObject.CDS) {
+					bs.cdsCount++;
+					bs.cdsLength+=line.length();
+				}else {
+					System.err.println("No match for "+line);
+				}
+			}
+		}
+	}
+	
 	/*--------------------------------------------------------------*/
 	/*----------------         Inner Classes        ----------------*/
 	/*--------------------------------------------------------------*/
@@ -698,6 +1089,7 @@ public class GradeBins implements Accumulator<GradeBins.ProcessThread> {
 			bins=bins_;
 			tid=tid_;
 			threads=threads_;
+			gCallerT=(callGenes ? GeneTools.makeGeneCaller() : null);
 		}
 		
 		@Override
@@ -706,7 +1098,14 @@ public class GradeBins implements Accumulator<GradeBins.ProcessThread> {
 				String fname=fnames.get(i);
 				Cluster clust=loadCluster(fname);
 				calcContam(fname, clust);
-				BinStats bs=new BinStats(clust);
+				BinStats bs=new BinStats(clust, ReadWrite.stripToCore(fname));
+				if(runQuickClade) {bs.taxid=callTax(clust);}
+				
+				if(callGenes) {
+					callGenes(clust, gCallerT, bs);
+				}else if(gffMap!=null) {
+					annotate(clust, gffMap, bs);
+				}
 				synchronized(bins) {
 					bins.add(bs);
 				}
@@ -718,6 +1117,7 @@ public class GradeBins implements Accumulator<GradeBins.ProcessThread> {
 		private final ArrayList<BinStats> bins;
 		private final int tid;
 		private final int threads;
+		private final GeneCaller gCallerT;
 		boolean success=false;
 		
 	}
@@ -755,8 +1155,19 @@ public class GradeBins implements Accumulator<GradeBins.ProcessThread> {
 	private String tax=null;
 	private String ref=null;
 	private String hist=null;
+	private String contamHist=null;
+	private String ccplot=null;
 	private String checkMFile=null;
 	private String eukCCFile=null;
+	private String camiFile=null;
+	private String gtdbFile=null;
+	private static String cov=null;
+	private static String gffFile=null;
+	private static String imgMapFile=null;
+	private static String spectraFile=null;
+	private static HashMap<String, ArrayList<GffLine>> gffMap;
+	private static HashMap<String, FloatList> covMap;
+	
 	private String report=null;
 	private LongList sizes=new LongList();
 	private ArrayList<BinStats> bins=new ArrayList<BinStats>();
@@ -769,9 +1180,27 @@ public class GradeBins implements Accumulator<GradeBins.ProcessThread> {
 	private	static IntHashMap countMap;
 	private static HashMap<String, CCLine> checkMMap;
 	private static HashMap<String, CCLine> eukCCMap;
+	private static HashMap<String, Integer> camiMap;
+//	private static HashMap<String, GTDBLine> gtdbMap;
+	private static HashMap<String, Lineage> gtdbMap;
+
+	private static IntHashMap[] levelMaps;
+	private static IntHashMap[] levelMapsHQ;
+	private static IntHashMap[] levelMapsMQ;
+
+//	private static ArrayList<HashMap<String, LongM>> levelMaps;
+//	private static ArrayList<HashMap<String, LongM>> levelMapsHQ;
+//	private static ArrayList<HashMap<String, LongM>> levelMapsMQ;
+
+	private static boolean runQuickClade=false;
+	private static CladeIndex cladeIndex=null;
+	private static boolean useTree=false;
+	
+	private static boolean callGenes=false;
+	private static boolean useRNA=false;
 	
 	/*--------------------------------------------------------------*/
-
+	
 	private static long maxReads=-1;
 	private long readsProcessed=0, basesProcessed=0;
 	private long totalSize=0, totalContigs=0;

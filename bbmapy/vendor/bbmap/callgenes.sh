@@ -3,11 +3,11 @@
 usage(){
 echo "
 Written by Brian Bushnell
-Last modified December 5, 2024
+Last modified May 4, 2025
 
 Description:  Finds orfs and calls genes in unspliced prokaryotes.
 This includes bacteria, archaea, viruses, and mitochondria.
-Can also predict 16S, 23S, 5S, and tRNAs.
+Can also predict 16S, 18S, 23S, 5S, and tRNAs.
 
 Usage:  callgenes.sh in=contigs.fa out=calls.gff outa=aminos.faa out16S=16S.fa
 

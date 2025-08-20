@@ -32,16 +32,21 @@ public class BinObject {
 //	}
 	
 	private static void initialize() {
-		remapMatrix=makeRemapMatrix(2, 5);
+		remapMatrix=makeRemapMatrix(2, 5, true);
+		//K=1 is ACGTN for use in GC calcs.
+		//K=2 is noncanonical for use in strandedness calcs.
 		canonicalKmers=makeCanonicalKmers();
 		invCanonicalKmers=makeInvCanonicalKmers();
 		gcmapMatrix=makeGCMapMatrix();
 	}
 	
-	private static synchronized int[][] makeRemapMatrix(int mink, int maxk){
+	private static synchronized int[][] makeRemapMatrix(int mink, int maxk, boolean specialCase2){
 		int[][] matrix=new int[maxk+1][];
 		for(int i=mink; i<=maxk; i++) {
 			matrix[i]=makeRemap(i);
+		}
+		if(specialCase2 && 2<=maxk && 2>=mink) {
+			matrix[2]=new int[] {0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15};
 		}
 		return matrix;
 	}
@@ -155,6 +160,27 @@ public class BinObject {
 			}else{len=kmer=0;}
 		}
 		return valid;
+	}
+	
+	public static void countKmersMulti(final byte[] bases, final long[][] counts, int kmax){
+		if(bases==null || bases.length<1){return;}
+		
+		int kmer=0;
+		int len=0;
+		for(int i=0; i<bases.length; i++){
+			byte b=bases[i];
+			int x=AminoAcid.baseToNumberACGTother[b];
+			counts[1][x]++;//monomers user 0,1,2,3 plus 4 for undefined
+			kmer=((kmer<<2)|x);
+			if(x>=0){
+				len++;
+				for(int k=2; k<=kmax && k<=len; k++) {
+					int masked=kmer&masks[k];
+					int canon=remapMatrix[k][masked];
+					counts[k][canon]++;
+				}
+			}else{len=kmer=0;}
+		}
 	}
 	
 	public static int countKmers_quantized(final byte[] bases, final int[] counts, int k){
@@ -344,6 +370,37 @@ public class BinObject {
 		return set.size();
 	}
 	
+	static TaxTree loadTree() {
+		if("auto".equals(treePath)){treePath=TaxTree.defaultTreeFile();}
+		if(treePath!=null) {
+			tree=TaxTree.loadTaxTree(treePath, System.err, false, false);
+		}
+		return tree;
+	}
+	
+	/** Looks for tid_1234 or tid|1234, with any delimiters */
+	public static int parseTaxID(String line) {
+		if(!parseTaxid) {return -1;}
+		String term="tid_";
+		int pos=line.indexOf(term);
+		if(pos<0) {pos=line.indexOf("tid|");}
+		if(pos<0) {return -1;}
+		long id=0;
+		for(int i=pos+4; i<line.length(); i++) {
+			char c=line.charAt(i);
+			if(c<'0' || c>'9') {break;}
+			id=id*10+(c-'0');
+		}
+		assert(id>0 && id<Integer.MAX_VALUE) : id+"\n"+line+"\n";
+		return (int)id;
+	}
+	
+	public static int resolveTaxID(String s) {
+		int tid=parseTaxID(s);
+		if(tid<1 || tree==null) {return tid;}
+		return tree.resolveID(tid);
+	}
+	
 //	public static int k() {return k;}
 ////	public static int gap() {return gap;}
 //
@@ -354,16 +411,19 @@ public class BinObject {
 	
 	private static int quant=1;//Determines how many tetramers to use for comparisons
 	/** Maps a kmer to index in frequency array */
-	public static int[][] remapMatrix=makeRemapMatrix(2, 5);
+	public static int[][] remapMatrix=makeRemapMatrix(2, 5, true);
 	/** Number of canonical kmers; frequency array length */
 	public static int[] canonicalKmers=makeCanonicalKmers();
 	public static float[] invCanonicalKmers=makeInvCanonicalKmers();
 	/** Maps a kmer to index in gc content array */
 	public static int[][] gcmapMatrix=makeGCMapMatrix();
 	
+	private static final int[] masks={0, 3, 15, 63, 255, 1023, 4095};
+	
 	/** Print status messages to this output stream */
 	static PrintStream outstream=System.err;
 	static TaxTree tree=null;
+	static String treePath="auto";
 	
 	static int minClusterSize=50000;
 	static int minContigsPerCluster=1;
@@ -390,6 +450,8 @@ public class BinObject {
 	
 	static boolean loud=false;
 	static boolean verbose;
+	static boolean printStepwiseCC=false;
+	
 	static float sketchDensity=1/100f;
 	static boolean sketchContigs=false;
 	static boolean sketchClusters=false;
@@ -410,17 +472,10 @@ public class BinObject {
 	static CellNet net0small=null;
 	static CellNet net0mid=null;
 	static CellNet net0large=null;
-	
-//	static {setK(4, 0);}
-//	static {
-//		for(int i=0; i<6; i++) {
-//			System.err.println("K="+i);
-//			System.err.println("canonicalKmers="+canonicalKmers[i]);
-//			System.err.println("invCanonicalKmers="+invCanonicalKmers[i]);
-//			System.err.println("remapMatrix="+Arrays.toString(remapMatrix[i]));
-//			System.err.println("gcmapMatrix="+Arrays.toString(gcmapMatrix[i]));
-//		}
-//		assert(false);
-//	}
+
+	static int entropyK=4;
+	static int entropyWindow=150;
+	static boolean calcCladeEntropy=false;//Currently this just affects queries, not ref.
+	static int MIN_LINEAGE_LEVEL_E=0;
 	
 }

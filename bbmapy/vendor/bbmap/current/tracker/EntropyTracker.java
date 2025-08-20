@@ -334,6 +334,19 @@ public class EntropyTracker {
 		return lower/(float)(Long.max(1, upper));
 	}
 	
+	public static float strandedness(long[] counts, int k) {
+		final int mask=~((-1)<<(2*k));
+		assert(mask==counts.length-1);
+		long lower=0, upper=0;
+		for(int kmer=0, limit=counts.length/2; kmer<limit; kmer++) {
+			long a=counts[kmer];
+			long b=counts[mask&(~kmer)];
+			lower+=Math.min(a, b);
+			upper+=Math.max(a, b);
+		}
+		return lower/(float)(Long.max(1, upper));
+	}
+	
 	public static float strandednessK2(int[] counts) {
 		final int mask=15;
 		assert(counts.length==16);

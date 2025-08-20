@@ -181,48 +181,6 @@ public final class ByteBuilder implements Serializable, CharSequence {
 			length++;
 			return this;
 		}
-
-//		final int len=lengthOf(x);
-//		int pos=length+len-1;
-//		while(x>9){
-//			int y=x%100;
-//			x=x/100;
-//			array[pos]=ones100[y];
-//			pos--;
-//			array[pos]=tens100[y];
-//			pos--;
-//		}
-//		while(x>0){
-//			int y=x%10;
-//			x=x/10;
-//			array[pos]=numbers[y];
-//			pos--;
-//		}
-//		length+=len;
-		
-//		final int initial=length;
-//		while(x>9){
-//			int y=x%100;
-//			x=x/100;
-//			array[length]=tens100[y];
-//			length--;
-//			array[length]=ones100[y];
-//			length--;
-//		}
-//		while(x>0){
-//			int y=x%10;
-//			x=x/10;
-//			array[length]=numbers[y];
-//			length++;
-//		}
-//
-//		for(int i=initial, j=length-1; i<j; i++, j--){
-//			byte temp=array[i];
-//			array[i]=array[j];
-//			array[j]=temp;
-//		}
-		
-
 		
 		int pos=0;
 		while(x>9){
@@ -240,6 +198,7 @@ public final class ByteBuilder implements Serializable, CharSequence {
 			pos++;
 		}
 		
+		assert(pos>0) : pos+", "+x;
 		while(pos>0){
 			pos--;
 			array[length]=numbuffer[pos];
@@ -265,24 +224,6 @@ public final class ByteBuilder implements Serializable, CharSequence {
 			length++;
 			return this;
 		}
-
-//		final int len=lengthOf(x);
-//		int pos=length+len-1;
-//		while(x>9){
-//			int y=(int)(x%100);
-//			x=x/100;
-//			array[pos]=ones100[y];
-//			pos--;
-//			array[pos]=tens100[y];
-//			pos--;
-//		}
-//		while(x>0){
-//			int y=(int)(x%10);
-//			x=x/10;
-//			array[pos]=numbers[y];
-//			pos--;
-//		}
-//		length+=len;
 		
 		int pos=0;
 		while(x>9){
@@ -300,6 +241,7 @@ public final class ByteBuilder implements Serializable, CharSequence {
 			pos++;
 		}
 		
+		assert(pos>0) : x;
 		while(pos>0){
 			pos--;
 			array[length]=numbuffer[pos];
@@ -467,6 +409,13 @@ public final class ByteBuilder implements Serializable, CharSequence {
 		}
 		return this;
 	}
+
+	public ByteBuilder appendt(String x){return append(x).tab();}
+	public ByteBuilder appendt(int x){return append(x).tab();}
+	public ByteBuilder appendt(long x){return append(x).tab();}
+	public ByteBuilder appendt(byte[] x){return append(x).tab();}
+	public ByteBuilder appendt(float x, int decimals){return append(x, decimals).tab();}
+	public ByteBuilder appendt(double x, int decimals){return append(x, decimals).tab();}
 	
 	public ByteBuilder appendln(byte[] x){
 		expand(x.length+1);
@@ -497,6 +446,65 @@ public final class ByteBuilder implements Serializable, CharSequence {
 			length++;
 			last=q;
 		}
+		return this;
+	}
+	
+	public ByteBuilder append(long[] array, char delimiter){
+		if(array==null || array.length<1){return this;}
+		for(int i=0; i<array.length; i++){
+			append(array[i]);
+			append(delimiter);
+		}
+		length--;
+		return this;
+	}
+	
+	public ByteBuilder appendA48(long[] array, char delimiter, byte[] temp){
+		if(array==null || array.length<1){return this;}
+		if(temp==null) {temp=new byte[12];}
+		for(int i=0; i<array.length; i++){
+			appendA48(array[i], temp);
+			append(delimiter);
+		}
+		length--;
+		return this;
+	}
+	
+	public ByteBuilder appendA48(long value, byte[] temp){
+		int i=0;
+		while(value!=0){
+			byte b=(byte)(value&0x3F);
+			temp[i]=b;
+			value=value>>6;
+			i++;
+		}
+		if(i==0){
+			append((byte)'0');
+		}else{
+			for(i--;i>=0;i--){
+				append((char)(temp[i]+48));
+			}
+		}
+		return this;
+	}
+	
+	public ByteBuilder append(int[] array, char delimiter){
+		if(array==null || array.length<1){return this;}
+		for(int i=0; i<array.length; i++){
+			append(array[i]);
+			append(delimiter);
+		}
+		length--;
+		return this;
+	}
+	
+	public ByteBuilder append(float[] array, char delimiter, int decimals){
+		if(array==null || array.length<1){return this;}
+		for(int i=0; i<array.length; i++){
+			append(array[i], decimals);
+			append(delimiter);
+		}
+		length--;
 		return this;
 	}
 	
@@ -626,6 +634,11 @@ public final class ByteBuilder implements Serializable, CharSequence {
 	public void set(int i, byte b){
 		assert(i<length);
 		array[i]=b;
+	}
+	
+	public void set(int i, char b){
+		assert(i<length) : i+", "+b+", "+length;
+		array[i]=(byte)b;
 	}
 	
 	@Override
@@ -782,7 +795,9 @@ public final class ByteBuilder implements Serializable, CharSequence {
 		return this;
 	}
 	
+	/** something */
 	public byte[] array;
+	/** something else */
 	public int length=0;
 	private final byte[] numbuffer=KillSwitch.allocByte1D(40);
 

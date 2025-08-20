@@ -6,23 +6,48 @@ import java.util.Random;
 import shared.Shared;
 import shared.Tools;
 
+/**
+ * Manages a set of machine learning samples for training and evaluation.
+ * 
+ * Provides functionality for:
+ * - Sample generation
+ * - Subset creation
+ * - Performance metric calculations
+ * - ROC curve generation
+ * 
+ * @author Brian Bushnell
+ * @contributor Nepgear
+ * @version 1.0
+ */
 public class SampleSet implements Cloneable {
 	
-	/*--------------------------------------------------------------*/
-	/*----------------            Methods           ----------------*/
-	/*--------------------------------------------------------------*/
-	
-	SampleSet(Matrix m){matrix=m;}
+	/**
+	 * Constructs a SampleSet from a given matrix of input data.
+	 * 
+	 * @param m Matrix containing input, output, and weight data
+	 * @throws AssertionError if matrix weights are null
+	 */
+	SampleSet(Matrix m) {
+		matrix=m;
+		assert(matrix.weights!=null);
+	}
 
+	/** Generates samples using the maximum possible number of inputs. */
 	void makeSamples() {makeSamples(Integer.MAX_VALUE);}
+
+	/**
+	 * Generates samples from the input matrix, limited to a maximum number.
+	 * Categorizes samples as positive or negative based on output midpoint.
+	 * 
+	 * @param max Maximum number of samples to generate
+	 */
 	void makeSamples(final int max) {
 		assert(samples==null);
 		numPositive=numNegative=0;
 		samples=new Sample[Tools.min(max, matrix.inputs.length)];
 		
 		for(int i=0; i<samples.length; i++) {
-			Sample s=new Sample(matrix.inputs[i], matrix.outputs[i], 
-					matrix.weights==null ? 1 : matrix.weights[i], i);
+			Sample s=new Sample(matrix.inputs[i], matrix.outputs[i], matrix.weights[i][0], i);
 			samples[i]=s;
 		}
 		
@@ -36,6 +61,11 @@ public class SampleSet implements Cloneable {
 		shuffle();
 	}
 	
+	/**
+	 * Divides samples into multiple subsets for cross-validation.
+	 * 
+	 * @param numSets Number of subsets to create
+	 */
 	void makeSubsets(int numSets) {
 		subsets=new Subset[numSets];
 		@SuppressWarnings("unchecked")
@@ -53,6 +83,12 @@ public class SampleSet implements Cloneable {
 		currentSubset=0;
 	}
 	
+	/**
+	 * Retrieves the current subset for a given training epoch.
+	 * 
+	 * @param epoch Current training epoch
+	 * @return Current subset of samples
+	 */
 	Subset currentSubset(int epoch) {
 		if(epoch>=nextSubsetEpoch){
 			advanceSubset();
@@ -61,6 +97,7 @@ public class SampleSet implements Cloneable {
 		return subsets[currentSubset];
 	}
 	
+	/** Advances to the next subset, potentially shuffling samples. */
 	private void advanceSubset() {
 		currentSubset=(currentSubset+1)%subsets.length;
 		assert(currentSubset>=0);
@@ -71,6 +108,7 @@ public class SampleSet implements Cloneable {
 		}
 	}
 	
+	/** Randomly shuffles samples using a reproducible seed. */
 	private void shuffle() {
 		final long seed=numShuffles^Long.rotateLeft(shuffleSeed, 17);
 //		System.err.println("Shuffled ("+seed+")");
@@ -87,11 +125,17 @@ public class SampleSet implements Cloneable {
 		numShuffles++;
 	}
 	
+	/** Sorts samples by their predicted value. */
 	public void sortByValue() {
 		Shared.sort(samplesSortedByResult, SampleValueComparator.COMPARATOR);
 //		assert(checkSort());
 	}
 	
+	/**
+	 * Verifies that samples are correctly sorted by value.
+	 * 
+	 * @return true if samples are sorted, false otherwise
+	 */
 	public boolean checkSort() {
 		for(int i=1; i<samplesSortedByResult.length; i++) {
 			if(samplesSortedByResult[i-1].result[0]>samplesSortedByResult[i].result[0]) {
@@ -105,6 +149,12 @@ public class SampleSet implements Cloneable {
 		return true;
 	}
 	
+	/**
+	 * Calculates False Negative Rate for a given cutoff value.
+	 * 
+	 * @param cutoff Threshold for classification
+	 * @return False Negative Rate
+	 */
 	public double calcFNRFromCutoff(final double cutoff) {
 		//Should be sorted
 		int fn=0, tn=0;
@@ -123,6 +173,12 @@ public class SampleSet implements Cloneable {
 		return fn*invSamples;
 	}
 	
+	/**
+	 * Calculates cutoff value based on crossover point.
+	 * 
+	 * @param fpMult False positive multiplier
+	 * @return Calculated cutoff value
+	 */
 	public float calcCutoffFromCrossover(double fpMult) {
 		//Should be sorted
 		int pos=0, neg=numNegative, i=0;
@@ -142,6 +198,12 @@ public class SampleSet implements Cloneable {
 		return 0.5f*(a.result[0]+b.result[0]);
 	}
 	
+	/**
+	 * Calculates False Positive Rate for a given cutoff.
+	 * 
+	 * @param cutoff Threshold for classification
+	 * @return False Positive Rate
+	 */
 	public double calcFPRFromCutoff(final double cutoff) {
 		//Should be sorted
 		int fp=0, tp=0;
@@ -226,6 +288,14 @@ public class SampleSet implements Cloneable {
 		return fp*invSamples;
 	}
 	
+	// Additional methods continue here...
+
+	/**
+	 * Generates Receiver Operating Characteristic (ROC) curve.
+	 * 
+	 * @param bins Number of bins for ROC curve
+	 * @return ROC curve data points
+	 */
 	public float[] calcROC(int bins) {
 		bins=Tools.max(bins, 2);
 //		final double invSamples=1.0/samplesSortedByResult.length;
@@ -253,8 +323,17 @@ public class SampleSet implements Cloneable {
 		Tools.reverseInPlace(roc);
 		return roc;
 	}
-
+	
+	/** Creates a copy of the current sample set. */
 	SampleSet copy() {return copy(Integer.MAX_VALUE, 1f);}
+	
+	/**
+	 * Creates a copy of the sample set with optional size and subset limitations.
+	 * 
+	 * @param maxSamples Maximum number of samples to copy
+	 * @param subsetSizeFraction Fraction of subset size to preserve
+	 * @return Copied sample set
+	 */
 	SampleSet copy(int maxSamples, float subsetSizeFraction) {
 		SampleSet copy=null;
 		try {
@@ -283,6 +362,7 @@ public class SampleSet implements Cloneable {
 		return copy;
 	}
 	
+	/** Resets the sample set to its initial state. */
 	void reset() {
 		currentSubset=0;
 		numShuffles=0;
@@ -294,6 +374,11 @@ public class SampleSet implements Cloneable {
 		}
 	}
 
+	/**
+	 * Returns the maximum size of a subset.
+	 * 
+	 * @return Maximum subset size
+	 */
 	public int maxSubsetSize() {
 		return subsets==null || subsets.length<1 || subsets[0].samples==null ? 0 : subsets[0].samples.length;
 	}

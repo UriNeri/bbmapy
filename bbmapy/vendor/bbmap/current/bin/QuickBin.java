@@ -7,6 +7,7 @@ import java.util.concurrent.locks.ReentrantReadWriteLock;
 
 import fileIO.ByteStreamWriter;
 import fileIO.ReadWrite;
+import prok.GeneCaller;
 import shared.Parse;
 import shared.Parser;
 import shared.PreParser;
@@ -87,11 +88,13 @@ public class QuickBin extends BinObject implements Accumulator<QuickBin.ProcessT
 			extout=parser.extout;
 		}
 
+		printStepwiseCC&=validation;
+		GeneTools.quiet=true;
 		validateParams();
 		checkFileExistence(); //Ensure files can be read and written
 		loader.checkInput();
 		
-		BinObject.tree=(sketchContigs || sketchClusters) ? loader.loadTree() : null;
+		BinObject.tree=(sketchContigs || sketchClusters) ? BinObject.loadTree() : null;
 		sketcher=(sketchContigs || sketchClusters || sketchOutput) ? new BinSketcher(16, 2000) : null;
 		binner.sketcher=loader.sketcher=sketcher;
 		Sketch.defaultParams.format=DisplayParams.FORMAT_JSON;
@@ -111,6 +114,7 @@ public class QuickBin extends BinObject implements Accumulator<QuickBin.ProcessT
 		
 		//Set any necessary Parser defaults here
 		//parser.foo=bar;
+		GeneCaller.useIDAligner=true;
 		
 		//Parse each argument
 		for(int i=0; i<args.length; i++){
@@ -162,18 +166,37 @@ public class QuickBin extends BinObject implements Accumulator<QuickBin.ProcessT
 				refineClusters=Parse.parseBoolean(b);
 			}else if(a.equals("residue") || a.equals("processresidue")){
 				processResidue=Parse.parseBoolean(b);
+			}else if(a.equals("recluster") || a.equalsIgnoreCase("reclusterClusters")){
+			    reclusterClusters=Parse.parseBoolean(b);
 			}else if(a.equals("purify") || a.equalsIgnoreCase("purifyClusters")){
 				purifyClusters=Parse.parseBoolean(b);
 			}else if(a.equals("fuse") || a.equalsIgnoreCase("fuseclusters")){
 				fuseClusters=Parse.parseBoolean(b);
 			}else if(a.equals("entropy") || a.equals("calcentropy")){
 				SpectraCounter.calcEntropy=Parse.parseBoolean(b);
+			}else if(a.equals("fastentropy") || a.equals("calcentropyfast")){
+				SpectraCounter.calcEntropyFast=Parse.parseBoolean(b);
+			}else if(a.equalsIgnoreCase("16S") || a.equalsIgnoreCase("call16S")){
+				SpectraCounter.call16S=Parse.parseBoolean(b);
+			}else if(a.equalsIgnoreCase("18S") || a.equalsIgnoreCase("call18S")){
+				SpectraCounter.call18S=Parse.parseBoolean(b);
+			}else if(a.equalsIgnoreCase("ssu")){
+				SpectraCounter.call16S=SpectraCounter.call18S=Parse.parseBoolean(b);
+			}else if(a.equalsIgnoreCase("ssuid") || a.equalsIgnoreCase("minssuid")){
+				Oracle.minSSUID=Float.parseFloat(b);
+			}else if(a.equalsIgnoreCase("loadthreads")){
+				SpectraCounter.loadThreadsOverride=Integer.parseInt(b);
+			}else if(a.equalsIgnoreCase("comparethreads")){
+				Binner.compareThreadsOverride=Integer.parseInt(b);
 			}else if(a.equals("strandedness") || a.equals("calcstrandedness")){
 				SpectraCounter.calcStrandedness=Parse.parseBoolean(b);
 			}else if(a.equals("entropyk")){
 				SpectraCounter.entropyK=Integer.parseInt(b);
 			}else if(a.equals("entropywindow")){
 				SpectraCounter.entropyWindow=Integer.parseInt(b);
+			}else if(a.equals("aligner") || a.equals("idaligner")){
+				GeneCaller.useIDAligner=(b==null || !("f".equals(b) || "false".equals(b)));
+				if(GeneCaller.useIDAligner) {aligner.Factory.setType(b);}
 			}
 			
 			else if(a.equalsIgnoreCase("sketchcontigs")){
@@ -203,6 +226,8 @@ public class QuickBin extends BinObject implements Accumulator<QuickBin.ProcessT
 				minContigsPerCluster=Parse.parseIntKMG(b);
 			}else if(a.equals("validate") || a.equals("validation")){
 				validation=Parse.parseBoolean(b);
+			}else if(a.equalsIgnoreCase("printStepwiseCC") || a.equals("printcc")){
+				printStepwiseCC=Parse.parseBoolean(b);
 			}else if(a.equalsIgnoreCase("followEdges1") || a.equals("e1")){
 				followEdge1Passes=(Tools.startsWithDigit(b) ? Integer.parseInt(b) :
 					Parse.parseBoolean(b) ? 4 : 0);
@@ -366,6 +391,7 @@ public class QuickBin extends BinObject implements Accumulator<QuickBin.ProcessT
 		binList=null;
 		fastComparisonsCreate+=(binner.fastComparisons.get()-fastComp);
 		slowComparisonsCreate+=(binner.slowComparisons.get()-slowComp);
+		if(printStepwiseCC) {printCC(binMap.contigList, 10000, sizeMap);}
 		
 		if(refineClusters) {
 			fastComp=binner.fastComparisons.get();
@@ -374,6 +400,7 @@ public class QuickBin extends BinObject implements Accumulator<QuickBin.ProcessT
 			assert(binMap.isValid());
 			fastComparisonsRefine+=(binner.fastComparisons.get()-fastComp);
 			slowComparisonsRefine+=(binner.slowComparisons.get()-slowComp);
+			if(printStepwiseCC) {printCC(binMap.contigList, 10000, sizeMap);}
 		}
 		
 		if(followEdge2Passes>0 && loader.makePairGraph) {
@@ -402,6 +429,7 @@ public class QuickBin extends BinObject implements Accumulator<QuickBin.ProcessT
 			midComparisonsEdge+=oracle.trimerComparisons;
 			slowComparisonsEdge+=oracle.slowComparisons;
 			netComparisonsEdge+=oracle.netComparisons;
+			if(printStepwiseCC) {printCC(binMap.contigList, 10000, sizeMap);}
 		}
 		
 		if(processResidue) { 
@@ -427,6 +455,7 @@ public class QuickBin extends BinObject implements Accumulator<QuickBin.ProcessT
 			}
 			fastComparisonsRefine+=(binner.fastComparisons.get()-fastComp);
 			slowComparisonsRefine+=(binner.slowComparisons.get()-slowComp);
+			if(printStepwiseCC) {printCC(binMap.contigList, 10000, sizeMap);}
 		}
 		
 		if(fuseClusters) {
@@ -444,11 +473,33 @@ public class QuickBin extends BinObject implements Accumulator<QuickBin.ProcessT
 				binMap.addAll(binList, Binner.minSizeToMerge);
 			}
 			System.err.println("Fused "+total+" clusters.");
+			if(printStepwiseCC) {printCC(binMap.contigList, 10000, sizeMap);}
 		}
 		
 		if(Oracle.bsw!=null) {
 			Oracle.bsw.poisonAndWait();
 			Oracle.bsw=null;
+		}
+		
+		if(reclusterClusters) {
+			t2.start();
+			outstream.println("Reclustering clusters:");
+			fastComp=(binner.fastComparisons.get());
+			slowComp=(binner.slowComparisons.get());
+			int split=binner.recluster(binMap, 
+					Binner.purifyStringency, 10000);
+			fastComparisonsPurify+=(binner.fastComparisons.get()-fastComp);
+			slowComparisonsPurify+=(binner.slowComparisons.get()-slowComp);
+			
+//			if(split>0) {
+//				binMap.clear(true);
+//				binList=Binner.toBinList(contigList, 0);
+//				assert(isValid(binList, false));
+//				binMap.addAll(binList, Binner.minSizeToMerge);
+//			}
+			
+			t2.stop("Split "+split+" clusters:   ");
+			if(printStepwiseCC) {printCC(binMap.contigList, 10000, sizeMap);}
 		}
 		
 		if(purifyClusters) {
@@ -461,6 +512,7 @@ public class QuickBin extends BinObject implements Accumulator<QuickBin.ProcessT
 			fastComparisonsPurify+=(binner.fastComparisons.get()-fastComp);
 			slowComparisonsPurify+=(binner.slowComparisons.get()-slowComp);
 			t2.stop("Removed "+purified+" contigs:   ");
+			if(printStepwiseCC) {printCC(binMap.contigList, 10000, sizeMap);}
 		}
 		ct.stop();
 		
@@ -530,10 +582,12 @@ public class QuickBin extends BinObject implements Accumulator<QuickBin.ProcessT
 		long totalComp=binner.slowComparisons.get();
 		fastComp=binner.fastComparisons.get();
 		long midComp=binner.trimerComparisons.get();
+		long tetComp=binner.tetramerComparisons.get();
 		long netComp=binner.netComparisons.get();
 		float scps=(totalComp/(float)ct.elapsed)*1000000000;
 		float fcps=(fastComp/(float)ct.elapsed)*1000000000;
 		float mcps=(midComp/(float)ct.elapsed)*1000000000;
+		float tcps=(tetComp/(float)ct.elapsed)*1000000000;
 		float ncps=(netComp/(float)ct.elapsed)*1000000000;
 		if(loud) {
 			outstream.println("Initial Fast Comparisons: \t"+fastComparisonsCreate);
@@ -549,7 +603,9 @@ public class QuickBin extends BinObject implements Accumulator<QuickBin.ProcessT
 		}
 		outstream.println("Total Fast Comparisons:   \t"+fastComp+" \t"+Tools.padKMB((long)fcps, 0)+" cps");
 		outstream.println("Total Mid Comparisons:    \t"+midComp+" \t"+Tools.padKMB((long)mcps, 0)+" cps");
-		outstream.println("Total Slow Comparisons:   \t"+totalComp+" \t"+Tools.padKMB((long)scps, 0)+" cps");
+//		outstream.println("Total Mid2 Comparisons:    \t"+tetComp+" \t"+Tools.padKMB((long)tcps, 0)+" cps");
+		outstream.println("Total Slow Comparisons:    \t"+tetComp+" \t"+Tools.padKMB((long)tcps, 0)+" cps");
+//		outstream.println("Total Slow Comparisons:   \t"+totalComp+" \t"+Tools.padKMB((long)scps, 0)+" cps");
 		outstream.println("Total Net Comparisons:    \t"+netComp+" \t"+Tools.padKMB((long)ncps, 0)+" cps");
 		outstream.println();
 
@@ -608,13 +664,19 @@ public class QuickBin extends BinObject implements Accumulator<QuickBin.ProcessT
 		
 		if(validation) {
 			outstream.println();
-			GradeBins.printBinQuality(stats, minClusterSize, outstream);
+			GradeBins.printBinQuality(stats, minClusterSize, false, outstream);
 		}
 		
 		//Throw an exception of there was an error in a thread
 		if(errorState){
 			throw new RuntimeException(getClass().getName()+" terminated in an error state; the output may be corrupt.");
 		}
+	}
+	
+	static void printCC(ArrayList<Contig> contigs, int minSize, IntLongHashMap sizeMap) {
+		ArrayList<Bin> bins=Binner.toBinList(contigs, minSize);
+		String s=GradeBins.toScoreString(bins, minSize, sizeMap);
+		outstream.println(s);
 	}
 	
 	static String formatString(String term, int len, long a, long b) {
@@ -639,14 +701,18 @@ public class QuickBin extends BinObject implements Accumulator<QuickBin.ProcessT
 			
 			ByteStreamWriter chaff=null;
 			if(writeChaff) {
-				chaff=ByteStreamWriter.makeBSW(pattern.replace("%", "chaff"), overwrite, append, true);
+				chaff=ByteStreamWriter.makeBSW(pattern.replaceFirst("%", "chaff"), overwrite, append, true);
 			}
 			
 			final ByteBuilder bb=new ByteBuilder(8192);
 			for(int i=0; i<clusters.size(); i++) {
 				Bin a=clusters.get(i);
 				if(a.size()>=minBases && a.numContigs()>=minContigs) {
-					String fname=pattern.replace("%", Integer.toString(i));
+					String fname=pattern.replaceFirst("%", Integer.toString(i));
+					if(fname.contains("%contam")) {fname=fname.replaceFirst("%contam", String.format("con%.4f", a.contam));}
+					else if(fname.contains("contam%")) {fname=fname.replaceFirst("contam%", String.format("con%.4f", a.contam));}
+					if(fname.contains("%comp")) {fname=fname.replaceFirst("%comp", String.format("com%.4f", a.completeness));}
+					else if(fname.contains("comp%")) {fname=fname.replaceFirst("comp%", String.format("com%.4f", a.completeness));}
 					final ByteStreamWriter bsw=ByteStreamWriter.makeBSW(fname, overwrite, append, true);
 					printBin(a, bsw, bb, -1);
 					bsw.poison();
@@ -936,6 +1002,7 @@ public class QuickBin extends BinObject implements Accumulator<QuickBin.ProcessT
 	boolean clusterByTetramer=true;
 	boolean refineClusters=true;
 	boolean processResidue=true;
+	boolean reclusterClusters=false;
 	boolean purifyClusters=true;
 	boolean fuseClusters=true;
 	int followEdge1Passes=0;

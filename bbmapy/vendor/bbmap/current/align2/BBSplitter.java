@@ -253,7 +253,7 @@ public class BBSplitter {
 	
 	private static void processRef(String b, LinkedHashSet<String> set, HashMap<String,LinkedHashSet<String>> map){
 		
-		ArrayList<String> files=Tools.getFileOrFiles(b, null, true, false, false, false);
+		ArrayList<String> files=(ArrayList<String>)Tools.getFileOrFiles(b, null, true, false, false, false);
 		for(String file : files){
 			String name=file.replace('\\', '/');
 			int x=name.lastIndexOf('/');

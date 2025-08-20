@@ -49,6 +49,8 @@ public class SamLine implements Serializable {
 	 */
 	private static final long serialVersionUID = -4180486051387471116L;
 
+	public SamLine() {}
+	
 	public SamLine(String s){//TODO: Change to LineParser version
 		this(s.split("\t"));
 	}
@@ -2521,9 +2523,31 @@ public class SamLine implements Serializable {
 	public boolean primary(){return (flag&0x100)==0;}
 	public void setPrimary(boolean b){
 		if(b){
-			flag=flag|0x100;
-		}else{
 			flag=flag&~0x100;
+		}else{
+			flag=flag|0x100;
+		}
+	}
+	public void setMapped(boolean b){
+		if(b){
+			flag=flag&~0x4;
+		}else{
+			flag=flag|0x4;
+		}
+	}
+	public void setFirstFragment(boolean b){
+		if(b){
+			flag=flag|0x40;
+		}else{
+			flag=flag&~0x40;
+		}
+	}
+	public void setStrand(int strand){
+		if(strand==1){
+			flag=flag|0x10;
+		}else{
+			assert(strand==0);
+			flag=flag&~0x10;
 		}
 	}
 	
@@ -2696,6 +2720,11 @@ public class SamLine implements Serializable {
 	/*--------------------------------------------------------------*/
 	/*----------------           Fields             ----------------*/
 	/*--------------------------------------------------------------*/
+	
+	public void addOptionalTag(String s) {
+		if(optional==null) {optional=new ArrayList<String>();}
+		optional.add(s);
+	}
 	
 	public String findTag(String prefix) {
 		if(optional==null){return null;}

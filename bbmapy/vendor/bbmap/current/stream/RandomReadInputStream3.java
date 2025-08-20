@@ -2,10 +2,10 @@ package stream;
 
 import java.util.ArrayList;
 
-import align2.RandomReads3;
 import dna.Data;
 import shared.Shared;
 import shared.Tools;
+import synth.RandomReads3;
 
 /**
  * @author Brian Bushnell

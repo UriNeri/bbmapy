@@ -22,6 +22,7 @@ import prok.GeneModel;
 import prok.GeneModelParser;
 import prok.Orf;
 import prok.ProkObject;
+import shared.LineParser4;
 import shared.Parse;
 import shared.Parser;
 import shared.PreParser;
@@ -229,6 +230,8 @@ public class CheckStrand2 implements Accumulator<CheckStrand2.ProcessThread> {
 				outPlus=b;
 			}else if(a.equalsIgnoreCase("outm") || a.equalsIgnoreCase("outminus")){
 				outMinus=b;
+			}else if(a.equalsIgnoreCase("scaffoldReport") || a.equalsIgnoreCase("scafReport")){
+				scaffoldReport=b;
 			}else if(a.equalsIgnoreCase("firstorf")){
 				useFirstORF=Parse.parseBoolean(b);
 			}else if(a.equalsIgnoreCase("minpolya") || a.equalsIgnoreCase("polyalen")
@@ -374,8 +377,9 @@ public class CheckStrand2 implements Accumulator<CheckStrand2.ProcessThread> {
 				SamLine.RNAME_AS_BYTES=false;//Must come before cris starts
 				rangeMap=GffLine.makeRangeMap(gffLines);
 			}
-			if(binlen>0) {
-				binMap=new ConcurrentHashMap<String, ArrayList<LongPair>>();
+			if(binlen>0 || scaffoldReport!=null) {
+				if(binlen<1) {binlen=1000;}
+				binMap=Seq.loadSamHeader(ffin1);
 			}
 		}
 		
@@ -804,6 +808,7 @@ public class CheckStrand2 implements Accumulator<CheckStrand2.ProcessThread> {
 				}
 			}
 			final double[] binStrandedness=binStrandedness();
+			binStrandednessPerSequence(scaffoldReport);
 			
 			final boolean plus=(plusAlignedReads>=minusAlignedReads);
 			final long readsAligned0=plusAlignedReads+minusAlignedReads;
@@ -868,8 +873,9 @@ public class CheckStrand2 implements Accumulator<CheckStrand2.ProcessThread> {
 		double simpleSumNorm=0;
 		long plusBinCount=0;
 		double minorSum=0, majorSum=0, maxMinorSum=0, expectedSum=0;
-		for(ArrayList<LongPair> list : binMap.values()) {
-			for(LongPair p : list) {
+//		int i=0;
+		for(Seq seq : binMap.values()) {
+			for(LongPair p : seq.bins) {
 				if(p!=null && p.a+p.b>0) {
 					float pmRatio=p.a/(float)(p.a+p.b);
 					binsAligned++;
@@ -889,12 +895,57 @@ public class CheckStrand2 implements Accumulator<CheckStrand2.ProcessThread> {
 					}
 				}
 			}
+//			if(i++<10) {System.err.println("i="+i+", name="+seq.name+", majorSum="+majorSum);}
 		}
+		{System.err.println("majorSum="+majorSum);}
 		double strandedness=CheckStrand.strandedness((long)minorSum, (long)majorSum, (long)maxMinorSum, (float)expectedSum);
 		double strandednessN=strandednessSumNorm/binsGT1;
 		double strandednessS=majorSum/(majorSum+minorSum);
 		double strandednessNS=simpleSumNorm/binsGT1;
 		return new double[] {strandedness, strandednessN, strandednessS, strandednessNS};
+	}
+	
+	void binStrandednessPerSequence(String fname) {
+		if(binMap==null || binMap.isEmpty() || fname==null) {return;}
+		ByteStreamWriter bsw=ByteStreamWriter.makeBSW(fname, overwrite, append, true);
+		bsw.println("#Name\tLength\tReads\tStrandednessB\tStrandednessBN\tStrandednessBS\tStrandednessBNS");
+//		int i=0;
+//		long majorSum2=0;
+		for(Seq seq : binMap.values()) {
+			long binsGT1=0;
+			double strandednessSumNorm=0;
+			double simpleSumNorm=0;
+			double minorSum=0, majorSum=0, maxMinorSum=0, expectedSum=0;
+			for(LongPair p : seq.bins) {
+				if(p!=null && p.a+p.b>0) {
+					if(p.a+p.b>=minReads) {
+						float strandedness=CheckStrand.strandedness(p.a, p.b);
+						assert(strandedness>=0 && strandedness<=1.01) : strandedness+", "+p.a+", "+p.b;
+						strandednessSumNorm+=strandedness;
+						binsGT1++;
+						assert(strandednessSumNorm<=binsGT1) : strandednessSumNorm+", "+binsGT1;
+						minorSum+=p.min();
+						majorSum+=p.max();
+//						majorSum2+=p.max();
+						maxMinorSum+=p.sum()/2;
+						expectedSum+=CheckStrand.expectedMinorAlleleCount(p.sum());
+						simpleSumNorm+=p.max()/(double)p.sum();
+					}
+				}
+			}
+//			if(i++<10) {System.err.println("i="+i+", name="+seq.name+", majorSum="+majorSum);}
+			double strandedness=0, strandednessN=0, strandednessS=0, strandednessNS=0;
+			if(majorSum>0) {
+				strandedness=CheckStrand.strandedness((long)minorSum, (long)majorSum, (long)maxMinorSum, (float)expectedSum);
+				strandednessN=strandednessSumNorm/binsGT1;
+				strandednessS=majorSum/(majorSum+minorSum);
+				strandednessNS=simpleSumNorm/binsGT1;
+			}
+			bsw.print(seq.name).tab().print(seq.len).tab().print((long)(majorSum+minorSum));
+			bsw.tab().print(strandedness, 6).tab().print(strandednessN, 6).tab().print(strandednessS, 6).tab().print(strandednessNS, 6).nl();
+		}
+//		{System.err.println("majorSum="+majorSum2);}
+		bsw.poison();
 	}
 	
 	/**
@@ -924,15 +975,15 @@ public class CheckStrand2 implements Accumulator<CheckStrand2.ProcessThread> {
 		}
 	}
 	
-	void incrementBinMap(String gene, ConcurrentHashMap<String, ArrayList<LongPair>> map, int pos, int strand, int amt){
+	void incrementBinMap(String gene, ConcurrentHashMap<String, Seq> map, int pos, int strand, int amt){
 		if(gene==null || map==null) {return;}
-		ArrayList<LongPair> list=map.get(gene);
-		if(list==null) {
-			map.putIfAbsent(gene, new ArrayList<LongPair>());
-			list=map.get(gene);
+		Seq seq=map.get(gene);
+		if(seq==null) {
+			map.putIfAbsent(gene, new Seq(gene, 0));
+			seq=map.get(gene);
 		}
 		int idx=Tools.max(0, pos)/binlen;
-		increment(list, idx, strand, amt);
+		increment(seq.bins, idx, strand, amt);
 	}
 	
 	void increment(ArrayList<LongPair> list, int idx, int strand, int amt) {
@@ -1420,6 +1471,41 @@ public class CheckStrand2 implements Accumulator<CheckStrand2.ProcessThread> {
 	}
 	
 	/*--------------------------------------------------------------*/
+	
+	static class Seq {
+		
+		public Seq(String name_, int len_) {
+			name=name_;
+			len=len_;
+		}
+		
+		String name;
+		int len;
+		ArrayList<LongPair> bins=new ArrayList<LongPair>(1);
+		
+		public static ConcurrentHashMap<String, Seq> loadSamHeader(FileFormat ff){
+			ConcurrentHashMap<String, Seq> map=new ConcurrentHashMap<String, Seq>();
+			ByteFile bf=ByteFile.makeByteFile(ff);
+			LineParser4 lp=new LineParser4("\t:\t:");
+			byte[] line=bf.nextLine();
+			while(line!=null && line.length>0){
+				lp.set(line);
+				if(lp.startsWith("@SQ\t")){
+					Seq seq=new Seq(lp.parseString(2), lp.parseInt(4));
+					map.put(seq.name, seq);
+				}else if(line[0]!='@'){
+					break;
+				}
+				line=bf.nextLine();
+			}
+			bf.close();
+
+			return map;
+		}
+		
+	}
+	
+	/*--------------------------------------------------------------*/
 	/*----------------            Fields            ----------------*/
 	/*--------------------------------------------------------------*/
 
@@ -1437,7 +1523,10 @@ public class CheckStrand2 implements Accumulator<CheckStrand2.ProcessThread> {
 	private String types="CDS,rRNA,tRNA,ncRNA,exon,5S,16S,23S";
 	private ArrayList<GffLine> gffLines=null;
 	
-	private ConcurrentHashMap<String, ArrayList<LongPair>> binMap;
+	private ConcurrentHashMap<String, Seq> binMap;
+	
+	//TODO:
+	//scaffold_name  scaffold_length  scaffold_mapped_reads  scaffold_strandedness
 	
 	/** 
 	 * Map associating with contig names with ordered arrays of nonoverlapping ranges
@@ -1457,6 +1546,8 @@ public class CheckStrand2 implements Accumulator<CheckStrand2.ProcessThread> {
 	private String extin=null;
 	/** Override output file extension */
 	private String extout=null;
+	
+	private String scaffoldReport=null;
 	
 	/** Whether interleaved was explicitly set. */
 	private boolean setInterleaved=false;

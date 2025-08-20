@@ -10,6 +10,7 @@ import sketch.Sketch;
 import sketch.SketchMakerMini;
 import stream.Read;
 import structures.ByteBuilder;
+import structures.FloatList;
 
 public class Contig extends Bin {
 

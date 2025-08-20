@@ -214,8 +214,10 @@ public class Orf extends PFeature {
 	}
 	
 	public boolean isSSU(){return type==r16S || type==r18S;}
+	public boolean is5S(){return type==r5S;}
 	public boolean is16S(){return type==r16S;}
 	public boolean is18S(){return type==r18S;}
+	public boolean is23S(){return type==r23S;}
 	public boolean isCDS(){return type==CDS;}
 	public boolean isRRNA(){return type==r18S || type==r16S || type==r5S || type==r23S;}
 	public boolean isTRNA(){return type==tRNA;}

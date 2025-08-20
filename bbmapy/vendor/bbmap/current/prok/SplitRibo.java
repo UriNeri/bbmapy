@@ -7,6 +7,7 @@ import java.util.concurrent.locks.ReadWriteLock;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 
 import aligner.SingleStateAlignerFlat2;
+import aligner.IDAligner;
 import fileIO.ByteFile;
 import fileIO.FileFormat;
 import fileIO.ReadWrite;
@@ -512,26 +513,14 @@ public class SplitRibo implements Accumulator<SplitRibo.ProcessThread> {
 			if(refs!=null){
 				for(int i=minRef; i<maxRef; i++){
 					Read ref=refs[i];
-					float id=align(r.bases, ref.bases);
+					float id=ssa.align(r.bases, ref.bases);
 					bestID=Tools.max(id,  bestID);
 				}
 			}
 			return bestID;
 		}
 		
-		private float align(byte[] query, byte[] ref){
-			int a=0, b=ref.length-1;
-			int[] max=ssa.fillUnlimited(query, ref, a, b, -9999);
-			if(max==null){return 0;}
-			
-			final int rows=max[0];
-			final int maxCol=max[1];
-			final int maxState=max[2];
-			final float id=ssa.tracebackIdentity(query, ref, a, b, rows, maxCol, maxState, null);
-			return id;
-		}
-		
-		SingleStateAlignerFlat2 ssa=new SingleStateAlignerFlat2();
+		IDAligner ssa=aligner.Factory.makeIDAligner();
 
 		/** Number of reads processed by this thread */
 		protected long readsProcessedT=0;

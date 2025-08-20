@@ -3,7 +3,7 @@
 usage(){
 echo "
 Written by Brian Bushnell
-Last modified March 19, 2025
+Last modified April 11, 2025
 
 Description:  Estimates the strandedness of a library without alignment; 
 intended for RNA-seq data.  Only the reads are required input to determine
@@ -117,7 +117,8 @@ The destination of plus-mapped r1 would be outp, but outm for plus-mapped r2.
 
 Processing parameters:
 ref=<file>      Optional reference (assembly) input.
-gff=<file>      Optional gene annotation file.
+gff=<file>      Optional gene annotation file input.
+scafreport=<file>  Optional per-scaffold strandedness output.
 transcriptome=f Set this to 't' if the reference is a sense-strand 
                 transcriptome (rather than a genome assembly).  This applies
                 to either a reference specified by 'ref' or the reference

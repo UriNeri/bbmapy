@@ -3,7 +3,7 @@
 usage(){
 echo "
 Written by Brian Bushnell
-Last modified April 30, 2019
+Last modified July 10, 2025
 
 Description:  Filters VCF files by position or other attributes.
 Filtering by optional fields (such as allele frequency) require VCF files

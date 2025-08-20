@@ -2,8 +2,8 @@
 
 usage(){
 echo "
-Written by Shijie Yao 
-Last modified May 31, 2018
+Written by Shijie Yao and Brian Bushnell
+Last modified April 25, 2025
 
 Description: DNA Tetramer analysis.
 DNA tetramers are counted for each sub-sequence of window size in the sequence.  
@@ -21,6 +21,9 @@ step/s=INT      Step size (default 500)
 window/w=INT    Window size (default 2kb); <=0 turns windowing off (e.g. short reads)
 short=T/F       Print lines for sequences shorter than window (default F)
 k=INT           Kmer length (default 4)
+gc              Print a GC column in the output.
+float           Output kmer frequencies instead of counts.
+comp            Output GC-compensated kmer frequencies.
 
 Java Parameters:
 -Xmx            This will set Java's memory usage, overriding autodetection.
@@ -48,30 +51,31 @@ popd > /dev/null
 #DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )/"
 CP="$DIR""current/"
 
-z="-Xmx4g"
-z2="-Xms4g"
-set=0
-
 if [ -z "$1" ] || [[ $1 == -h ]] || [[ $1 == --help ]]; then
 	usage
 	exit
 fi
 
 calcXmx () {
-	source "$DIR""/calcmem.sh"
-	setEnvironment
-	parseXmx "$@"
-	if [[ $set == 1 ]]; then
-		return
-	fi
-	freeRam 4000m 84
-	z="-Xmx${RAM}m"
-	z2="-Xms${RAM}m"
+    # Source the new scripts
+    source "$DIR""/memdetect.sh"
+    source "$DIR""/javasetup.sh"
+    
+    # Parse Java arguments with tool-specific defaults
+    # Use auto mode with 42% of available RAM, minimum 1000MB
+    parseJavaArgs "--mem=1000m" "--percent=42" "--mode=auto" "$@"
+    
+    # Set environment paths
+    setEnvironment
+    
+    # Set the Java memory parameters
+    z="-Xmx${RAM}m"
+    z2="-Xms${RAM}m"
 }
 calcXmx "$@"
 
-tetramerfreq () {
-	local CMD="java $EA $EOOM $z -cp $CP jgi.TetramerFrequencies $@"
+tetramerfreq() {
+	local CMD="java $EA $EOOM $XMX -cp $CP jgi.TetramerFrequencies $@"
 	echo $CMD >&2
 	eval $CMD
 }

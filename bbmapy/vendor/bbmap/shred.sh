@@ -3,7 +3,7 @@
 usage(){
 echo "
 Written by Brian Bushnell
-Last modified February 27, 2025
+Last modified May 4, 2025
 Description:  Shreds sequences into shorter, possibly overlapping sequences.
 
 Usage: shred.sh in=<file> out=<file> length=<int>
@@ -62,7 +62,7 @@ calcXmx () {
 calcXmx "$@"
 
 stats() {
-	local CMD="java $EA $EOOM $z -cp $CP jgi.Shred $@"
+	local CMD="java $EA $EOOM $z -cp $CP synth.Shred $@"
 #	echo $CMD >&2
 	eval $CMD
 }

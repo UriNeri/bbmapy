@@ -161,6 +161,98 @@ public final class Vector {
 		for(int i=0; i<a.length; i++) {a[i]+=incr[i];}
 	}
 	
+	public static final float absDifFloat(float[] a, float[] b){
+		if(Shared.SIMD && a.length>=MINLEN32) {return SIMD.absDifFloat(a, b);}
+		assert(a.length==b.length);
+		float sum=0;
+		for(int i=0; i<a.length; i++){
+			sum+=Math.abs(a[i]-b[i]);
+		}
+		return (float)sum;
+	}
+	
+    public static float[] compensate(long[] a, int k, int[] gcmap) {
+    	final float[] aSum=new float[k+1];
+    	final float inv=1f/(k+1);
+    	
+    	for(int i=0; i<a.length; i++) {
+    		int gc=gcmap[i];
+    		aSum[gc]+=a[i];
+    	}
+    	
+    	for(int i=0; i<aSum.length; i++) {
+    		aSum[i]=inv/Math.max(aSum[i], 1);
+    	}
+
+    	float[] comp=new float[a.length];
+    	for(int i=0; i<a.length; i++) {
+        	int gc=gcmap[i];
+    		comp[i]=a[i]*aSum[gc];
+    	}
+    	//This just needs to add to approximately 1.
+//    	assert(Tools.sum(comp)==1) : "k="+k+", "+Tools.sum(comp)+"\n"+Arrays.toString(aSum)+"\n"+Arrays.toString(gcmap)+"\n"+Arrays.toString(a)+"\n";
+    	return comp;
+    }
+	
+    public static float[] compensate(int[] a, int k, int[] gcmap) {
+    	final float[] aSum=new float[k+1];
+    	final float inv=1f/(k+1);
+    	
+    	for(int i=0; i<a.length; i++) {
+    		int gc=gcmap[i];
+    		aSum[gc]+=a[i];
+    	}
+    	
+    	for(int i=0; i<aSum.length; i++) {
+    		aSum[i]=inv/Math.max(aSum[i], 1);
+    	}
+
+    	float[] comp=new float[a.length];
+    	for(int i=0; i<a.length; i++) {
+        	int gc=gcmap[i];
+    		comp[i]=a[i]*aSum[gc];
+    	}
+    	//This just needs to add to approximately 1.
+//    	assert(Tools.sum(comp)==1) : "k="+k+", "+Tools.sum(comp)+"\n"+Arrays.toString(aSum)+"\n"+Arrays.toString(gcmap)+"\n"+Arrays.toString(a)+"\n";
+    	return comp;
+    }
+    
+
+    
+    public static float absDifComp(long[] a, long[] b, int k, int[] gcmap) {
+//    	if(Shared.SIMD && a.length>Vector.MINLEN32) {return SIMD.absDifComp(a, b, k, gcmap);}
+    	float[] af=compensate(a, k, gcmap);
+    	float[] bf=compensate(b, k, gcmap);
+    	float ret=Vector.absDifFloat(af, bf);
+    	return Tools.mid(0, 1, (Float.isFinite(ret) && ret>0 ? ret : 0));
+    }
+    
+    public static float cosineDifference(int[] a, int[] b) {
+    	float inva=1f/Math.max(1, sum(a));
+    	float invb=1f/Math.max(1, sum(b));
+    	float ret=1-cosineSimilarity(a, b, inva, invb);
+    	return (Float.isFinite(ret) && ret>0 ? ret : 0);
+    }
+	
+	public static float cosineSimilarity(int[] a, int[] b, float inva, float invb) {
+		assert(a.length==b.length);
+		if(Shared.SIMD && a.length>=MINLEN32) {return SIMD.cosineSimilarity(a, b, inva, invb);}
+		float dotProduct=0f;
+        float normVec1=0f;
+        float normVec2=0f;
+
+        for (int i=0; i<a.length; i++) {
+        	float ai=a[i]*inva, bi=b[i]*invb;
+            dotProduct+=ai*bi;
+            normVec1+=ai*ai;
+            normVec2+=bi*bi;
+        }
+        
+	    normVec1=Math.max(normVec1, 1e-15f);
+	    normVec2=Math.max(normVec2, 1e-15f);
+        return (float)(dotProduct/(Math.sqrt(normVec1)*Math.sqrt(normVec2)));
+	}
+	
 	/** 
 	 * Performs "a[i]+=b[i]*mult" where a and b are equal-length arrays.
 	 * @param a A vector to increment.

@@ -1086,7 +1086,8 @@ public class CallGenes extends ProkObject {
 	}
 	
 	public static Read fetch(Orf orf, Read source){
-		assert(orf.start>=0 && orf.stop<source.length()) : source.length()+"\n"+orf;
+		assert(orf.start>=0 && orf.stop<source.length() && orf.length()>0) : 
+			source.length()+"\n"+orf.length()+"\n"+orf;
 		if(orf.strand==1){source.reverseComplement();}
 		Read r=fetch(orf, source.bases, source.id);
 		if(orf.strand==1){source.reverseComplement();}

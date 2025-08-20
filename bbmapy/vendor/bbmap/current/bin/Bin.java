@@ -1,7 +1,5 @@
 package bin;
 
-import java.util.Arrays;
-
 import json.JsonObject;
 import shared.Tools;
 import structures.ByteBuilder;
@@ -531,6 +529,8 @@ public abstract class Bin extends BinObject implements Sketchable, Iterable<Cont
 	public FloatList depthList() {
 		return depth;
 	}
+	
+	final boolean hasSSU() {return r16S!=null || r18S!=null;}
 
 	public int numTetramers;
 	public int numPentamers;
@@ -555,6 +555,7 @@ public abstract class Bin extends BinObject implements Sketchable, Iterable<Cont
 	float entropy;
 	float strandedness;
 	float score;
+	public boolean wasReclustered=false;
 	
 	int dest=-1;
 	
@@ -563,5 +564,7 @@ public abstract class Bin extends BinObject implements Sketchable, Iterable<Cont
 	public int labelTaxid;//For validation on labeled data
 	SketchRecord topHit;
 	SketchRecord secondHit;
+	public byte[] r16S;
+	public byte[] r18S;
 	
 }

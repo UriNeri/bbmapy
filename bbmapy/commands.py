@@ -163,6 +163,36 @@ Please contact Brian Bushnell at bbushnell@lbl.gov if you encounter any problems
     args = _pack_args(kwargs)
     return _run_command("adjusthomopolymers.sh", args, capture_output)
 
+def alignrandom(capture_output: bool = False, **kwargs) -> Union[None, Tuple[str, str]]:
+    """
+    Wrapper for alignrandom.sh
+
+    Help message:
+    Written by Brian Bushnell
+Last modified May 30, 2025
+
+Description:  Aligns a query sequence to a reference using BandedAligner.
+The sequences can be any characters, but N is a special case.
+Outputs the identity, rstart, and rstop positions.
+Optionally prints a state space exploration map.
+This map can be fed to visualizealignment.sh to make an image.
+
+Usage:
+alignrandom.sh start mult steps iters buckets
+
+Please contact Brian Bushnell at bbushnell@lbl.gov if you encounter any problems.
+
+    Args:
+        capture_output (bool): If True, capture and return the output instead of printing it.
+        in_file (str): Input file (replaces 'in=' parameter)
+        **kwargs: Other arguments for alignrandom.sh
+
+    Returns:
+        Union[None, Tuple[str, str]]: If capture_output is True, returns (stdout, stderr), else None.
+    """
+    args = _pack_args(kwargs)
+    return _run_command("alignrandom.sh", args, capture_output)
+
 def alltoall(capture_output: bool = False, **kwargs) -> Union[None, Tuple[str, str]]:
     """
     Wrapper for alltoall.sh
@@ -432,6 +462,86 @@ Please contact Brian Bushnell at bbushnell@lbl.gov if you encounter any problems
     """
     args = _pack_args(kwargs)
     return _run_command("a_sample_mt.sh", args, capture_output)
+
+def bandedaligner(capture_output: bool = False, **kwargs) -> Union[None, Tuple[str, str]]:
+    """
+    Wrapper for bandedaligner.sh
+
+    Help message:
+    Written by Brian Bushnell
+Last modified May 4, 2025
+
+Description:  Aligns a query sequence to a reference using BandedAligner.
+The sequences can be any characters, but N is a special case.
+Outputs the identity, rstart, and rstop positions.
+Optionally prints a state space exploration map.
+This map can be fed to visualizealignment.sh to make an image.
+
+Usage:
+bandedaligner.sh <query> <ref>
+bandedaligner.sh <query> <ref> <map>
+bandedaligner.sh <query> <ref> <map> <iterations> <simd>
+
+Parameters:
+query           A literal nucleotide sequence or fasta file.
+ref             A literal nucleotide sequence or fasta file.
+map             Optional output text file for matrix score space.
+                Set to null for benchmarking with no visualization.
+iterations      Optional integer for benchmarking multiple iterations.
+simd            Enable SIMD mode.  Needs a large band to be effective.
+
+Please contact Brian Bushnell at bbushnell@lbl.gov if you encounter any problems.
+
+    Args:
+        capture_output (bool): If True, capture and return the output instead of printing it.
+        in_file (str): Input file (replaces 'in=' parameter)
+        **kwargs: Other arguments for bandedaligner.sh
+
+    Returns:
+        Union[None, Tuple[str, str]]: If capture_output is True, returns (stdout, stderr), else None.
+    """
+    args = _pack_args(kwargs)
+    return _run_command("bandedaligner.sh", args, capture_output)
+
+def bandedplusaligner(capture_output: bool = False, **kwargs) -> Union[None, Tuple[str, str]]:
+    """
+    Wrapper for bandedplusaligner.sh
+
+    Help message:
+    Written by Brian Bushnell
+Last modified May 4, 2025
+
+Description:  Aligns a query sequence to a reference using BandedPlusAligner2.
+The sequences can be any characters, but N is a special case.
+Outputs the identity, rstart, and rstop positions.
+Optionally prints a state space exploration map.
+This map can be fed to visualizealignment.sh to make an image.
+
+Usage:
+bandedplusaligner.sh <query> <ref>
+bandedplusaligner.sh <query> <ref> <map>
+bandedplusaligner.sh <query> <ref> <map> <iterations> <simd>
+
+Parameters:
+query           A literal nucleotide sequence or fasta file.
+ref             A literal nucleotide sequence or fasta file.
+map             Optional output text file for matrix score space.
+                Set to null for benchmarking with no visualization.
+iterations      Optional integer for benchmarking multiple iterations.
+simd            Enable SIMD mode.  Needs a large band to be effective.
+
+Please contact Brian Bushnell at bbushnell@lbl.gov if you encounter any problems.
+
+    Args:
+        capture_output (bool): If True, capture and return the output instead of printing it.
+        in_file (str): Input file (replaces 'in=' parameter)
+        **kwargs: Other arguments for bandedplusaligner.sh
+
+    Returns:
+        Union[None, Tuple[str, str]]: If capture_output is True, returns (stdout, stderr), else None.
+    """
+    args = _pack_args(kwargs)
+    return _run_command("bandedplusaligner.sh", args, capture_output)
 
 def bbcms(capture_output: bool = False, **kwargs) -> Union[None, Tuple[str, str]]:
     """
@@ -1175,6 +1285,8 @@ def bbfakereads(capture_output: bool = False, **kwargs) -> Union[None, Tuple[str
 Last modified February 17, 2015
 
 Description:  Generates fake read pairs from ends of contigs or single reads.
+Specifically for simulating a fake LMP library from long reads or an assembly;
+for synthetic read generation from a reference see randomreads.sh or randomreadsmg.sh.
 
 Usage:        bbfakereads.sh in_file=<file> out=<outfile> out2=<outfile2>
 
@@ -2628,11 +2740,11 @@ def callgenes(capture_output: bool = False, **kwargs) -> Union[None, Tuple[str, 
 
     Help message:
     Written by Brian Bushnell
-Last modified December 5, 2024
+Last modified May 4, 2025
 
 Description:  Finds orfs and calls genes in unspliced prokaryotes.
 This includes bacteria, archaea, viruses, and mitochondria.
-Can also predict 16S, 23S, 5S, and tRNAs.
+Can also predict 16S, 18S, 23S, 5S, and tRNAs.
 
 Usage:  callgenes.sh in_file=contigs.fa out=calls.gff outa=aminos.faa out16S=16S.fa
 
@@ -2998,7 +3110,7 @@ def checkstrand(capture_output: bool = False, **kwargs) -> Union[None, Tuple[str
 
     Help message:
     Written by Brian Bushnell
-Last modified March 19, 2025
+Last modified April 11, 2025
 
 Description:  Estimates the strandedness of a library without alignment; 
 intended for RNA-seq data.  Only the reads are required input to determine
@@ -3112,7 +3224,8 @@ The destination of plus-mapped r1 would be outp, but outm for plus-mapped r2.
 
 Processing parameters:
 ref=<file>      Optional reference (assembly) input.
-gff=<file>      Optional gene annotation file.
+gff=<file>      Optional gene annotation file input.
+scafreport=<file>  Optional per-scaffold strandedness output.
 transcriptome=f Set this to 't' if the reference is a sense-strand 
                 transcriptome (rather than a genome assembly).  This applies
                 to either a reference specified by 'ref' or the reference
@@ -3156,6 +3269,50 @@ Please contact Brian Bushnell at bbushnell@lbl.gov if you encounter any problems
     """
     args = _pack_args(kwargs)
     return _run_command("checkstrand.sh", args, capture_output)
+
+def cladeloader(capture_output: bool = False, **kwargs) -> Union[None, Tuple[str, str]]:
+    """
+    Wrapper for cladeloader.sh
+
+    Help message:
+    Written by Brian Bushnell
+Last modified May 4, 2025
+
+Description:  Loads fasta files and writes clade files.
+
+Usage: cladeloader.sh in_file=contigs.fa out=clades.clade
+
+Parameters:
+in_file=<file,file>  Fasta files with tid in headers.
+out=<file>      Output file.
+maxk=5          Limit max kmer length (range 3-5).
+a48             Output counts in ASCII-48 instead of decimal.
+16s=<file,file> Optional tax-labeled file of 16S sequences.
+18s=<file,file> Optional tax-labeled file of 16S sequences.
+replaceribo     Set true if existing ssu should be replaced by new ones.
+usetree=f       Load a taxonomic tree to generate lineage strings.
+aligner=quantum Options include ssa2, glocal, drifting, banded, crosscut.
+
+Java Parameters:
+-Xmx            This will set Java's memory usage, overriding autodetection.
+                -Xmx20g will specify 20 gigs of RAM, and -Xmx200m will
+                specify 200 megs. The max is typically 85% of physical memory.
+-eoom           This flag will cause the process to exit if an out-of-memory
+                exception occurs.  Requires Java 8u92+.
+-da             Disable assertions.
+
+Please contact Brian Bushnell at bbushnell@lbl.gov if you encounter any problems.
+
+    Args:
+        capture_output (bool): If True, capture and return the output instead of printing it.
+        in_file (str): Input file (replaces 'in=' parameter)
+        **kwargs: Other arguments for cladeloader.sh
+
+    Returns:
+        Union[None, Tuple[str, str]]: If capture_output is True, returns (stdout, stderr), else None.
+    """
+    args = _pack_args(kwargs)
+    return _run_command("cladeloader.sh", args, capture_output)
 
 def clumpify(capture_output: bool = False, **kwargs) -> Union[None, Tuple[str, str]]:
     """
@@ -4330,6 +4487,49 @@ Please contact Brian Bushnell at bbushnell@lbl.gov if you encounter any problems
     args = _pack_args(kwargs)
     return _run_command("crosscontaminate.sh", args, capture_output)
 
+def crosscutaligner(capture_output: bool = False, **kwargs) -> Union[None, Tuple[str, str]]:
+    """
+    Wrapper for crosscutaligner.sh
+
+    Help message:
+    Written by Brian Bushnell
+Last modified May 4, 2025
+
+Description:  Aligns a query sequence to a reference using CrossCutAligner.
+This fully explores the matrix using 4 arrays of roughly length reflen.
+The sequences can be any characters, but N is a special case.
+Outputs the identity, rstart, and rstop positions.
+CrossCut is a nontraditional aligner that fills antidiagonals,
+incurring zero data dependencies between loops.  This allows
+perfect SIMD vectorization.
+
+Usage:
+crosscutaligner.sh <query> <ref>
+crosscutaligner.sh <query> <ref> <map>
+crosscutaligner.sh <query> <ref> <map> <iterations> <simd>
+
+Parameters:
+query           A literal nucleotide sequence or fasta file.
+ref             A literal nucleotide sequence or fasta file.
+map             Optional output text file for matrix score space.
+                Set to null for benchmarking with no visualization.
+                This has not yet been tested and will produce unknown results.
+iterations      Optional integer for benchmarking multiple iterations.
+simd            Use vector instructions.
+
+Please contact Brian Bushnell at bbushnell@lbl.gov if you encounter any problems.
+
+    Args:
+        capture_output (bool): If True, capture and return the output instead of printing it.
+        in_file (str): Input file (replaces 'in=' parameter)
+        **kwargs: Other arguments for crosscutaligner.sh
+
+    Returns:
+        Union[None, Tuple[str, str]]: If capture_output is True, returns (stdout, stderr), else None.
+    """
+    args = _pack_args(kwargs)
+    return _run_command("crosscutaligner.sh", args, capture_output)
+
 def cutgff(capture_output: bool = False, **kwargs) -> Union[None, Tuple[str, str]]:
     """
     Wrapper for cutgff.sh
@@ -4977,6 +5177,85 @@ Please contact Brian Bushnell at bbushnell@lbl.gov if you encounter any problems
     """
     args = _pack_args(kwargs)
     return _run_command("diskbench.sh", args, capture_output)
+
+def driftingaligner(capture_output: bool = False, **kwargs) -> Union[None, Tuple[str, str]]:
+    """
+    Wrapper for driftingaligner.sh
+
+    Help message:
+    Written by Brian Bushnell
+Last modified May 4, 2025
+
+Description:  Aligns a query sequence to a reference using DriftingAligner.
+The sequences can be any characters, but N is a special case.
+Outputs the identity, rstart, and rstop positions.
+Optionally prints a state space exploration map.
+This map can be fed to visualizealignment.sh to make an image.
+
+Usage:
+driftingaligner.sh <query> <ref>
+driftingaligner.sh <query> <ref> <map>
+driftingaligner.sh <query> <ref> <map> <iterations>
+
+Parameters:
+query           A literal nucleotide sequence or fasta file.
+ref             A literal nucleotide sequence or fasta file.
+map             Optional output text file for matrix score space.
+                Set to null for benchmarking with no visualization.
+iterations      Optional integer for benchmarking multiple iterations.
+
+Please contact Brian Bushnell at bbushnell@lbl.gov if you encounter any problems.
+
+    Args:
+        capture_output (bool): If True, capture and return the output instead of printing it.
+        in_file (str): Input file (replaces 'in=' parameter)
+        **kwargs: Other arguments for driftingaligner.sh
+
+    Returns:
+        Union[None, Tuple[str, str]]: If capture_output is True, returns (stdout, stderr), else None.
+    """
+    args = _pack_args(kwargs)
+    return _run_command("driftingaligner.sh", args, capture_output)
+
+def driftingplusaligner(capture_output: bool = False, **kwargs) -> Union[None, Tuple[str, str]]:
+    """
+    Wrapper for driftingplusaligner.sh
+
+    Help message:
+    Written by Brian Bushnell
+Last modified May 4, 2025
+
+Description:  Aligns a query sequence to a reference using DriftingPlusAligner2.
+The sequences can be any characters, but N is a special case.
+Outputs the identity, rstart, and rstop positions.
+Optionally prints a state space exploration map.
+This map can be fed to visualizealignment.sh to make an image.
+
+Usage:
+driftingalignerplus.sh <query> <ref>
+driftingalignerplus.sh <query> <ref> <map>
+driftingalignerplus.sh <query> <ref> <map> <iterations>
+
+Parameters:
+query           A literal nucleotide sequence or fasta file.
+ref             A literal nucleotide sequence or fasta file.
+map             Optional output text file for matrix score space.
+                Set to null for benchmarking with no visualization.
+iterations      Optional integer for benchmarking multiple iterations.
+simd            Add this flag to use simd mode.
+
+Please contact Brian Bushnell at bbushnell@lbl.gov if you encounter any problems.
+
+    Args:
+        capture_output (bool): If True, capture and return the output instead of printing it.
+        in_file (str): Input file (replaces 'in=' parameter)
+        **kwargs: Other arguments for driftingplusaligner.sh
+
+    Returns:
+        Union[None, Tuple[str, str]]: If capture_output is True, returns (stdout, stderr), else None.
+    """
+    args = _pack_args(kwargs)
+    return _run_command("driftingplusaligner.sh", args, capture_output)
 
 def estherfilter(capture_output: bool = False, **kwargs) -> Union[None, Tuple[str, str]]:
     """
@@ -5807,7 +6086,7 @@ def filtervcf(capture_output: bool = False, **kwargs) -> Union[None, Tuple[str, 
 
     Help message:
     Written by Brian Bushnell
-Last modified April 30, 2019
+Last modified July 10, 2025
 
 Description:  Filters VCF files by position or other attributes.
 Filtering by optional fields (such as allele frequency) require VCF files
@@ -6324,13 +6603,53 @@ Please contact Brian Bushnell at bbushnell@lbl.gov if you encounter any problems
     args = _pack_args(kwargs)
     return _run_command("gitable.sh", args, capture_output)
 
+def glocalaligner(capture_output: bool = False, **kwargs) -> Union[None, Tuple[str, str]]:
+    """
+    Wrapper for glocalaligner.sh
+
+    Help message:
+    Written by Brian Bushnell
+Last modified May 4, 2025
+
+Description:  Aligns a query sequence to a reference using GlocalAligner.
+Explores the entire matrix.
+The sequences can be any characters, but N is a special case.
+Outputs the identity, rstart, and rstop positions.
+Optionally prints a state space exploration map.
+This map can be fed to visualizealignment.sh to make an image.
+
+Usage:
+glocalaligner.sh <query> <ref>
+glocalaligner.sh <query> <ref> <map>
+glocalaligner.sh <query> <ref> <map> <iterations>
+
+Parameters:
+query           A literal nucleotide sequence or fasta file.
+ref             A literal nucleotide sequence or fasta file.
+map             Optional output text file for matrix score space.
+                Set to null for benchmarking with no visualization.
+iterations      Optional integer for benchmarking multiple iterations.
+
+Please contact Brian Bushnell at bbushnell@lbl.gov if you encounter any problems.
+
+    Args:
+        capture_output (bool): If True, capture and return the output instead of printing it.
+        in_file (str): Input file (replaces 'in=' parameter)
+        **kwargs: Other arguments for glocalaligner.sh
+
+    Returns:
+        Union[None, Tuple[str, str]]: If capture_output is True, returns (stdout, stderr), else None.
+    """
+    args = _pack_args(kwargs)
+    return _run_command("glocalaligner.sh", args, capture_output)
+
 def gradebins(capture_output: bool = False, **kwargs) -> Union[None, Tuple[str, str]]:
     """
     Wrapper for gradebins.sh
 
     Help message:
     Written by Brian Bushnell
-Last modified April 7, 2025
+Last modified June 20, 2025
 
 Description:  Grades metagenome bins for completeness and contamination.
 The contigs can be labeled with their taxID; in which case the header should
@@ -6348,23 +6667,42 @@ MQ:  >=50% complete and <=10% contam, but not HQ
 LQ:  <50% complete or >10% contam
 VLQ: <20% complete or >5% contam    (subset of LQ)
 
-
 Usage:  gradebins.sh ref=assembly bin*.fa
 or
 gradebins.sh ref=assembly.fa in_file=bin_directory
 or
 gradebins.sh taxin_file=tax.txt in_file=bins
 
-File parameters:
+Input parameters:
 ref=<file>      The original assembly that was binned.
 in_file=<directory>  Location of bin fastas.
 checkm=<file>   Optional CheckM2 quality_report.tsv file or directory.
 eukcc=<file>    Optional EukCC eukcc.csv file or directory.
-hist=<file>     Histogram output.
+cami=<file>     Optional binning file from CAMI which indicates contig TaxIDs.
 taxin_file=<file>    Optional file with taxIDs and sizes (instead of loading ref).
                 Does not need to include taxIDs.  The tax file loads faster.
-taxout=<file>   Generate a tax file from the reference.
+gtdb=<file>     Optional gtdbtk file.
+gff=<file>      Optional gff file.
+imgmap=<file>   Optional IMG map file, for renamed IMG gff input.
+spectra=<file>  Optional path to QuickClade index.
+cov=<file>      Optional path to QuickBin coverage file.
 loadmt=t        Load bins multithreaded.
+
+Output parameters:
+report=<file>   Report on bin size, quality, and taxonomy.
+taxout=<file>   Generate a tax file from the reference (for use with taxin).
+hist=<file>     Cumulative bin size and contamination histogram.
+ccplot=<file>   Per-bin completeness/contam data.
+contamhist=<file> Histogram plotting #bins or bases vs %contam.
+
+Processing parameters:
+userna=f        Require rRNAs and tRNAs for HQ genomes.  This needs either
+                a gff file or the callgenes flag.  Specifically, HQ and
+                subtypes require at least 1 16S, 23S, and 5S, plus 18 tRNAs.
+callgenes=f     Call rRNAs and tRNAs.  Suboptimal for some RNA types.
+aligner=ssa2    Do not change this.
+quickclade=f    Assign taxonomy using QuickClade.
+
 
 Java Parameters:
 -Xmx            This will set Java's memory usage, overriding autodetection.
@@ -6719,6 +7057,74 @@ Please contact Brian Bushnell at bbushnell@lbl.gov if you encounter any problems
     args = _pack_args(kwargs)
     return _run_command("idtree.sh", args, capture_output)
 
+def indelfree(capture_output: bool = False, **kwargs) -> Union[None, Tuple[str, str]]:
+    """
+    Wrapper for indelfree.sh
+
+    Help message:
+    Written by Brian Bushnell
+Last modified July 15, 2025
+
+Description:  Aligns sequences, not allowing indels.
+Brute force mode guarantees all alignments will be found and reported,
+up to the maximum allowed number of substitutions.
+Indexed mode may remove this guarantee (depending on kmer length,
+query length, and number of substitutions) but can be much faster.
+This loads all reads into memory and streams the reference, unlike
+a traditional aligner, so it is designed for a relatively small query set
+and potentially enormous reference set.
+
+Usage:  indelfree.sh in_file=spacers.fa ref=contigs.fa out=mapped.sam
+
+Parameters:
+in_file=<file>       Query input.  These will be stored in memory.
+ref=<file>      Reference input.  These will be streamed.
+out=<file>      Sam output.
+subs=5          Maximum allowed substitutions.
+simd            Enable SIMD alignment.  Only accelerates brute force mode.
+threads=        Set the max number of threads; default is logical cores.
+
+Index Parameters:
+index=t         If true, build a kmer index to accelerate search.
+k=13            Index kmer length (1-15); longer is faster but less sensitive.
+                Very short kmers are slower than brute force mode.
+mm=1            Middle mask length; the number of wildcard bases in the kmer.
+                Must be shorter than k-1; 0 disables middle mask.
+blacklist=2     Blacklist homopolymer kmers up to this repeat length.
+step=1          Only use every Nth query kmer.
+minhits=1       Require this many seed hits to perform alignment.
+minprob=0.9999  Calculate the number of seed hits needed, on a per-query
+                basis, to ensure this probability of finding valid alignments.
+                1 ensures optimality; 0 requires all seed hits; and negative
+                numbers disable this, using the minhits setting only.
+                When enabled, the min hits used for a query is the maximum
+                of minhits and the probabilistic model.
+prescan=t       Count query hits before filling seed location lists.
+list=t          Store seed hits in lists rather than maps.
+                Maps are optimized for shorter kmers and more positive hits.
+
+
+Java Parameters:
+-Xmx            This will set Java's memory usage, overriding autodetection.
+                -Xmx20g will specify 20 gigs of RAM, and -Xmx200m will
+                specify 200 megs. The max is typically 85% of physical memory.
+-eoom           This flag will cause the process to exit if an out-of-memory
+                exception occurs.  Requires Java 8u92+.
+-da             Disable assertions.
+
+Please contact Brian Bushnell at bbushnell@lbl.gov if you encounter any problems.
+
+    Args:
+        capture_output (bool): If True, capture and return the output instead of printing it.
+        in_file (str): Input file (replaces 'in=' parameter)
+        **kwargs: Other arguments for indelfree.sh
+
+    Returns:
+        Union[None, Tuple[str, str]]: If capture_output is True, returns (stdout, stderr), else None.
+    """
+    args = _pack_args(kwargs)
+    return _run_command("indelfree.sh", args, capture_output)
+
 def invertkey(capture_output: bool = False, **kwargs) -> Union[None, Tuple[str, str]]:
     """
     Wrapper for invertkey.sh
@@ -6759,6 +7165,24 @@ Please contact Brian Bushnell at bbushnell@lbl.gov if you encounter any problems
     """
     args = _pack_args(kwargs)
     return _run_command("invertkey.sh", args, capture_output)
+
+def javasetup(capture_output: bool = False, **kwargs) -> Union[None, Tuple[str, str]]:
+    """
+    Wrapper for javasetup.sh
+
+    Help message:
+    No help message found.
+
+    Args:
+        capture_output (bool): If True, capture and return the output instead of printing it.
+        in_file (str): Input file (replaces 'in=' parameter)
+        **kwargs: Other arguments for javasetup.sh
+
+    Returns:
+        Union[None, Tuple[str, str]]: If capture_output is True, returns (stdout, stderr), else None.
+    """
+    args = _pack_args(kwargs)
+    return _run_command("javasetup.sh", args, capture_output)
 
 def kapastats(capture_output: bool = False, **kwargs) -> Union[None, Tuple[str, str]]:
     """
@@ -7855,6 +8279,24 @@ Please contact Brian Bushnell at bbushnell@lbl.gov if you encounter any problems
     args = _pack_args(kwargs)
     return _run_command("matrixtocolumns.sh", args, capture_output)
 
+def memdetect(capture_output: bool = False, **kwargs) -> Union[None, Tuple[str, str]]:
+    """
+    Wrapper for memdetect.sh
+
+    Help message:
+    No help message found.
+
+    Args:
+        capture_output (bool): If True, capture and return the output instead of printing it.
+        in_file (str): Input file (replaces 'in=' parameter)
+        **kwargs: Other arguments for memdetect.sh
+
+    Returns:
+        Union[None, Tuple[str, str]]: If capture_output is True, returns (stdout, stderr), else None.
+    """
+    args = _pack_args(kwargs)
+    return _run_command("memdetect.sh", args, capture_output)
+
 def mergebarcodes(capture_output: bool = False, **kwargs) -> Union[None, Tuple[str, str]]:
     """
     Wrapper for mergebarcodes.sh
@@ -7975,7 +8417,7 @@ def mergeribo(capture_output: bool = False, **kwargs) -> Union[None, Tuple[str, 
 
     Help message:
     Written by Brian Bushnell
-Last modified January 28, 2020
+Last modified May 15, 2025
 
 Description:  Merges files of SSU sequences to keep one per taxID.
 By default, a consensus is generated per TaxID, then the sequence
@@ -7987,7 +8429,7 @@ Third, in 'consensus' mode, that consensus is simply output.
 In 'best' mode (default), all sequences are aligned again to the new consensus,
 and the best-matching is output.
 
-Usage:  mergeribo.sh in_file=<file,file> out=<file> 16S
+Usage:  mergeribo.sh in_file=<file,file> out=<file>
 
 Standard parameters:
 in_file=<file,file>  Comma-delimited list of files.
@@ -7998,6 +8440,7 @@ overwrite=f     (ow) Set to false to force the program to abort rather than
 showspeed=t     (ss) Set to 'f' to suppress display of processing speed.
 ziplevel=2      (zl) Set to 1 (lowest) through 9 (max) to change compression
                 level; lower compression is faster.
+fastawrap=70    4000 is recommended to minimize filesize.
 
 Processing parameters:
 alt=<file>      Lower priority data.  Only used if there is no SSU associated
@@ -8014,6 +8457,9 @@ minlen=1        Ignore sequences shorter than this.
 maxlen=4000     Ignore sequences longer than this.
 16S=t           Align to 16S consensus to pick the seed. Mutually exclusive.
 18S=f           Align to 18S consensus to pick the seed. Mutually exclusive.
+level=          If specified with a term like 'species' or 'genus', nodes
+                will be promoted to that level, minimum, before consensus.
+dada2=f         Output headers in dada2 format.
 
 Java Parameters:
 -Xmx            This will set Java's memory usage, overriding autodetection.
@@ -8308,9 +8754,10 @@ def mutate(capture_output: bool = False, **kwargs) -> Union[None, Tuple[str, str
 
     Help message:
     Written by Brian Bushnell
-Last modified August 6, 2019
+Last modified May 25, 2025
 
 Description:  Creates a mutant version of a genome.
+Also produces a VCF listing the added mutations.
 
 Usage:  mutate.sh in_file=<input file> out=<output file> id=<identity>
 
@@ -8324,10 +8771,12 @@ ziplevel=2      (zl) Set to 1 (lowest) through 9 (max) to change compression
                 level; lower compression is faster.
 
 Processing parameters:
-subrate=0       Substitution rate, 0 to 1.     
-indelrate=0     Indel rate, 0 to 1.
+subrate=0       Substitution rate, 0 to 1.
+insrate=0       Insertion rate, 0 to 1.
+delrate=0       Deletion rate, 0 to 1.
+indelrate=0     Sets ins and del rate each to half of this value.
 maxindel=1      Max indel length.
-indelspacing=10 Minimum distance between subsequent indels.
+indelspacing=3  Minimum distance between subsequent indels.
 id=1            Target identity, 0 to 1; 1 means 100%.
                 If this is used it will override subrate and indelrate;
                 99% of the mutations will be substitutions, and 1% indels.
@@ -8347,6 +8796,9 @@ nohomopolymers=f  If true, prevent indels in homopolymers that lead to
                 AC or deleting T from TTTT.  This is mainly for grading 
                 purposes.  It does not fully solve the problem, but greatly
                 improves concordance (reducing disagreements by 70%).
+                NOTE! nohomopolymers is temporarily disabled.
+pad=0           Add this many random bases to the ends of input sequences.
+                Padleft and padright may also be specified independently.
 
 Java Parameters:
 -Xmx            This will set Java's memory usage, overriding autodetection.
@@ -9477,13 +9929,91 @@ Please contact Brian Bushnell at bbushnell@lbl.gov if you encounter any problems
     args = _pack_args(kwargs)
     return _run_command("processspeed.sh", args, capture_output)
 
+def quabblealigner(capture_output: bool = False, **kwargs) -> Union[None, Tuple[str, str]]:
+    """
+    Wrapper for quabblealigner.sh
+
+    Help message:
+    Written by Brian Bushnell
+Last modified May 24, 2025
+
+Description:  Aligns a query sequence to a reference using QuabbleAligner.
+The sequences can be any characters, but N is a special case.
+Outputs the identity, rstart, and rstop positions.
+Optionally prints a state space exploration map.
+This map can be fed to visualizealignment.sh to make an image.
+
+Usage:
+quabblealigner.sh <query> <ref>
+quabblealigner.sh <query> <ref> <map>
+quabblealigner.sh <query> <ref> <map> <iterations>
+
+Parameters:
+query           A literal nucleotide sequence or fasta file.
+ref             A literal nucleotide sequence or fasta file.
+map             Optional output text file for matrix score space.
+                Set to null for benchmarking with no visualization.
+iterations      Optional integer for benchmarking multiple iterations.
+
+Please contact Brian Bushnell at bbushnell@lbl.gov if you encounter any problems.
+
+    Args:
+        capture_output (bool): If True, capture and return the output instead of printing it.
+        in_file (str): Input file (replaces 'in=' parameter)
+        **kwargs: Other arguments for quabblealigner.sh
+
+    Returns:
+        Union[None, Tuple[str, str]]: If capture_output is True, returns (stdout, stderr), else None.
+    """
+    args = _pack_args(kwargs)
+    return _run_command("quabblealigner.sh", args, capture_output)
+
+def quantumaligner(capture_output: bool = False, **kwargs) -> Union[None, Tuple[str, str]]:
+    """
+    Wrapper for quantumaligner.sh
+
+    Help message:
+    Written by Brian Bushnell
+Last modified May 4, 2025
+
+Description:  Aligns a query sequence to a reference using QuantumAligner.
+The sequences can be any characters, but N is a special case.
+Outputs the identity, rstart, and rstop positions.
+Optionally prints a state space exploration map.
+This map can be fed to visualizealignment.sh to make an image.
+
+Usage:
+quantumaligner.sh <query> <ref>
+quantumaligner.sh <query> <ref> <map>
+quantumaligner.sh <query> <ref> <map> <iterations>
+
+Parameters:
+query           A literal nucleotide sequence or fasta file.
+ref             A literal nucleotide sequence or fasta file.
+map             Optional output text file for matrix score space.
+                Set to null for benchmarking with no visualization.
+iterations      Optional integer for benchmarking multiple iterations.
+
+Please contact Brian Bushnell at bbushnell@lbl.gov if you encounter any problems.
+
+    Args:
+        capture_output (bool): If True, capture and return the output instead of printing it.
+        in_file (str): Input file (replaces 'in=' parameter)
+        **kwargs: Other arguments for quantumaligner.sh
+
+    Returns:
+        Union[None, Tuple[str, str]]: If capture_output is True, returns (stdout, stderr), else None.
+    """
+    args = _pack_args(kwargs)
+    return _run_command("quantumaligner.sh", args, capture_output)
+
 def quickbin(capture_output: bool = False, **kwargs) -> Union[None, Tuple[str, str]]:
     """
     Wrapper for quickbin.sh
 
     Help message:
     Written by Brian Bushnell
-Last modified April 7, 2025
+Last modified June 23, 2025
 
 Description:  Bins contigs using coverage and kmer frequencies.
 If reads or covstats are provided, coverage will be calculated from those;
@@ -9491,28 +10021,27 @@ otherwise, it will be parsed from contig headers.  Coverage can be parsed
 from Spades or Tadpole contig headers; alternatively, renamebymapping.sh
 can be used to annotate the headers with coverage from multiple sam files.
 Any number of sam files may be used (from different samples of the same
-environment, usually).  The more sam files, the more accurate, though
-some stringency (depthratio and maxcovariance) may need to be relaxed
-with large numbers of sam files (more than 4).  Ideally, sam files will
-be generated from paired reads like this:
+environment, usually).  The more sam files, the more accurate.  Ideally,
+sam files will be generated from paired reads like this:
 bbmap.sh ref=contigs.fa in_file=reads.fq ambig=random mateqtag minid=0.9 maxindel=10 out=mapped.sam
 For PacBio-only metagenomes, it is best to generate synthetic paired 
-reads from the PacBio CCS reads, and align those.
+reads from the PacBio CCS reads and align them:
+randomreadsmg.sh in_file=ccs.fa out=synth.fq depth=10 variance=0 paired length=250 avginsert=600 
 
-Usage:  quickbin.sh in_file=contigs.fa out=bins/bin_%.fa *.sam covout=cov.txt
+Usage:  
+quickbin.sh in_file=contigs.fa out=bins *.sam covout=cov.txt
 or
-quickbin.sh in_file=contigs.fa out=bins/bin_%.fa cov=cov.txt
+quickbin.sh in_file=contigs.fa out=bins cov=cov.txt
 or
 quickbin.sh contigs.fa out=bins *.sam
 
 File parameters:
-in_file=<file>       Assembly input; only required parameter.  Files named *.fa
-                or *.fasta do not need 'in_file='.
+in_file=<file>       Assembly input.  A file named *.fa does not need 'in_file='.
 reads=<file>    Read input (sam or bam).  Multiple sam files may be used,
                 comma-delimited, or as plain arguments without 'reads='.
                 Multiple files will be assumed to be independent samples.
 covout=<file>   Coverage file summarizing sam files; allows rerunning
-                QuickBin faster.
+                QuickBin much faster.
 cov=<file>      Cov file generated by QuickBin via 'covout'; can be used
                 instead of sam/bam.  Files named cov*.txt do not need 'cov='
 out=<pattern>   Output pattern.  If this contains a % symbol, like bin%.fa,
@@ -9520,11 +10049,11 @@ out=<pattern>   Output pattern.  If this contains a % symbol, like bin%.fa,
                 be written to the same file, with the name modified to
                 indicate their bin number.  A term without a '.' symbol
                 like 'out=output' will be considered a directory.
+chaff           Enable to write small clusters to a shared file.
 
 Size parameters:
 mincluster=50k  (mcs) Minimum output cluster size in base pairs; smaller 
                 clusters will share a residual file if chaff=t.
-chaff=f         Set to 't' to write small clusters to a shared file.
 mincontig=100   Don't load contigs smaller than this; reduces memory usage.
 minseed=3000    Minimum contig length to create a new cluster; reducing this
                 can increase speed dramatically for large metagenomes,
@@ -9533,6 +10062,9 @@ minseed=3000    Minimum contig length to create a new cluster; reducing this
                 1 sample will run slowly if this is below 2000; with 
                 at least 3 samples the speed should not be affected much.
 minresidue=200  Discard unclustered contigs shorter than this; reduces memory.
+dumpsequence    (TODO) Discard sequence to reduce memory usage.
+dumpheaders     (TODO) Discard headers to reduce memory usage.
+minpentamersize=2k  Increase this to reduce memory usage.
 
 Stringency parameters:
 normal          Default stringency is 'normal'.  All settings, in order of
@@ -9582,6 +10114,11 @@ Other parameters:
 sketchoutput=f        Use SendSketch to identify taxonomy of output clusters.
 validate=f            If contig headers have a term such as 'tid_1234', this
                       will be parsed and used to evaluate correctness.
+printcc=f             Print completeness/contam after each step.
+callssu=f             Call 16S and 18S genes; do not merge clusters with
+                      incompatible SSU sequence.
+minssuid=0.98         SSUs with identity below this are incompatible.
+aligner=quantum       Options include ssa2, glocal, drifting, banded, crosscut.
 
 Java Parameters:
 -Xmx            This will set Java's memory usage, overriding autodetection.
@@ -9603,6 +10140,100 @@ Please contact Brian Bushnell at bbushnell@lbl.gov if you encounter any problems
     """
     args = _pack_args(kwargs)
     return _run_command("quickbin.sh", args, capture_output)
+
+def quickclade(capture_output: bool = False, **kwargs) -> Union[None, Tuple[str, str]]:
+    """
+    Wrapper for quickclade.sh
+
+    Help message:
+    Written by Brian Bushnell
+Last modified May 4, 2025
+
+Description:  Assigns taxonomy to query sequences by comparing kmer
+frequencies to those in a reference database.  Developed for taxonomic
+assignment of metagenomic bins, but it can also run on a per-sequence basis.
+QuickClade is extremely fast and uses little memory.  However, the accuracy
+declines for incomplete genomes.  The recommended minimum sequence length
+is not yet known, but lower values of k5dif are more likely to be correct
+to a lower taxonomic level.  k5dif represents the sum of the absolute values
+of the differences between the 5-mer frequency spectra, so the range is 0-1.
+Because no marker genes are used, QuickClade should perform similarly for any
+clade in the reference dataset.
+While the default reference is taxonomically labeled, you can use whatever
+you want as a reference, with or without taxonomic labels.
+
+Usage Examples:
+quickclade.sh query1.fa query2.fa query3.fa
+or
+quickclade.sh bins
+or
+quickclade.sh contigs.fa percontig out=results.tsv usetree
+
+
+File Parameters:
+in_file=<file,file>  Query files or directories.  Loose file or directory names are
+                also permitted.  Input can be fasta, fastq, or spectra files;
+                spectra files are made by cladeloader.sh.
+ref=<file,file> Reference files; the current default is:
+                /clusterfs/jgi/groups/gentech/homes/bbushnell/clade/refseq_main.spectra.gz
+                It is plaintext, human-readable, and pretty small.
+out=stdout      Set to a file to redirect output.  Only the query results will
+                be written here; progress messages will still go to stderr.
+
+Basic Parameters:
+percontig       Run one query per contig instead of per file.
+minlen=0        Ignore sequences shorter than this in percontig mode.
+hits=1          Print this many top hits per query.
+steps=7         Only search up to this many GC intervals (of 0.01) away from
+                the query GC.
+oneline         Print results one line per query, tab-delimited.
+callssu=f       Call 16S and 18S for alignment to reference SSU.
+                This will affect the top hit ordering only if hits>1.
+
+Advanced Parameters (mainly for benchmarking):
+printmetrics    Output accuracy statistics; mainly useful for labeled data.
+                Labeled data should have 'tid_1234' or similar in the header.
+                Works best with 'usetree'.
+printqtid       Print query TaxID.
+banself         Ignore records with the same TaxID as the query.  Makes the
+                program behave like that organism is not in the reference.
+simd            Use vector instructions to accelerate comparisons.
+maxk=5          Can be set to 4 or 3 to restrict kmer frequency comparisons
+                to smaller kmers.  This may improve accuracy for small
+                sequences/bins, but slightly reduces accuracy for large
+                sequences/bins.
+ccm=1.0         Threshold for using pentamers; lower is faster.
+ccm2=1.5        Threshold for using tetramers.
+gcdif=0.07      Initial maximum GC difference.
+strdif=0.10     Initial maximum strandedness difference.
+gcmult=0.5      Max GC difference as a fraction of best 5-mer difference.
+strmult=1.2     Max strandedness difference as a fraction of best 5-mer diff.
+ee=t            Early exit; increases speed.
+entropy         Calculate entropy for queries.  Slow; negligible utility.
+heap=1          Number of intermediate comparisons to store.
+usetree         Load a taxonomic tree for better grading for labeled data.
+aligner=quantum Options include ssa2, glocal, drifting, banded, crosscut.
+Distance Metrics:
+abs             Use absolute difference of kmer frequencies.
+cos             Use 1-cosine similarity of kmer frequencies.
+euc             Use Euclidian distance.
+hel             Use Hellinger distance.
+abscomp         GC-compensated version of abs (default).
+Note:  The distance metric strongly impacts ccm, gcmult, and strmult.
+       Defaults are optimized for abscomp.
+
+Please contact Brian Bushnell at bbushnell@lbl.gov if you encounter any problems.
+
+    Args:
+        capture_output (bool): If True, capture and return the output instead of printing it.
+        in_file (str): Input file (replaces 'in=' parameter)
+        **kwargs: Other arguments for quickclade.sh
+
+    Returns:
+        Union[None, Tuple[str, str]]: If capture_output is True, returns (stdout, stderr), else None.
+    """
+    args = _pack_args(kwargs)
+    return _run_command("quickclade.sh", args, capture_output)
 
 def randomgenome(capture_output: bool = False, **kwargs) -> Union[None, Tuple[str, str]]:
     """
@@ -9792,12 +10423,17 @@ def randomreadsmg(capture_output: bool = False, **kwargs) -> Union[None, Tuple[s
 
     Help message:
     Written by Brian Bushnell
-Last modified April 7, 2025
+Last modified July 15, 2025
 
 Description:  Generates synthetic reads from a set of fasta assemblies.
-Each assembly is assigned a random coverage level.
+Each assembly is assigned a random coverage level, with optional custom 
+coverage for specific genomes.  Reads headers will contain the TaxID
+of the originating genome, if the filename starts with 'tid_x_',
+where x is a positive integer.
 
 Usage:  randomreadsmg.sh *.fa out=reads.fq.gz
+or
+randomreadsmg.sh ecoli.fa=40 mruber.fa=0.1 phix.fa=10 out=reads.fq.gz
 
 File parameters:
 in_file=<file,file>  Assembly input.  Can be a single file, a directory of files,
@@ -9807,18 +10443,83 @@ out=<file>      Synthetic read output destination.
 out2=<file>     Read 2 output if twin files are desired for paired reads.
 
 Processing parameters:
-paired=true     Generate paired reads.
 mindepth=1      Minimum assembly average depth.
 maxdepth=256    Maximum assembly average depth.
 depth=          Sets minimum and maximum to the same level.
+reads=-1        If positive, ignore depth and make this many reads per contig.
 variance=0.5    Coverage within an assembly will vary by up to this much;
                 one region can be up to this fraction deeper than another.
 mode=min4       Random depth distribution; can be min4, exp, root, or linear.
-length=150      Read length.
-avginsert=300   Average insert size; only affects paired reads.
-threads=        Set the number of threads; default is logical core count.
+cov_x=          Set a custom coverage level for the file named x.
+                x can alternatively be the taxID if the filename starts
+                with tid_x_; e.g. cov_foo.fa=5 for foo.fa, or cov_7=5
+                for file tid_7_foo.fa
+<file>=x        Alternate way to set custom depth; file will get depth x.
+threads=        Set the max number of threads; default is logical core count.
+                By default each input file uses 1 thread.  This flag will
+                also force multithreaded processing when there is exactly 1
+                input file, increasing speed for a complex simulation.
 seed=-1         If positive, use the specified RNG seed.  This will cause
                 deterministic output if threads=1.
+
+Artifact parameters
+pcr=0.0         Add PCR duplicates at this rate (0-1).
+randomkmer=f    Bias read start sites with random kmer priming.
+kprime=6        Length for random kmer priming.
+kpower=0.5      Raise linear primer distribution to this power (>0).
+                Higher powers increase priming bias.
+minkprob=0.1    Minimum primer kmer probability.
+
+Platform parameters
+illumina        Use Illumina length and error mode (default).
+pacbio          Use PacBio length and error mode.
+ont             Use ONT length and error mode.
+paired=true     Generate paired reads in Illumina mode.
+length=150      Read length; default is 150 for Illumina mode.
+avginsert=300   Average insert size; only affects paired reads.
+
+Long read parameters
+minlen=1000     Minimum read length for PacBio/ONT modes.
+meanlen=15000   Mean read length for PacBio/ONT modes.
+maxlen=100000   Max read length for PacBio/ONT modes.
+tailfactor=0.2  Controls heavy tail for ONT length distribution.
+pbsigma=0.5     Log-normal standard deviation for PacBio length distribution.
+
+Error parameters (all platforms)
+adderrors=f     Set to true to add model-specific errors.
+subrate=0.0     Add substitutions at this rate, independent of platform models.
+indelrate=0.0   Add length-1 indels at this rate, independent of platform models.
+
+Illumina-specific parameters
+qavg=25         Average quality score, for generating Illumina errors.
+qrange=0        Quality score range (+/- this much).
+addadapters     Add adapter sequence to paired reads with insert
+                size shorter than read length.
+adapter1=       Optionally specify a custom R1 adapter (as observed in R1).
+adapter2=       Optionally specify a custom R2 adapter (as observed in R2).
+
+Long-read error parameters
+Note: These may be overriden for any platform, including Illumina.
+srate=-1        Substitution rate; default 0.0025 ONT / 0.00015 PB.
+irate=-1        Insertion rate; default 0.0055 ONT / 0.000055 PB.
+drate=-1        Deletion rate; default 0.0045 ONT / 0.000045 PB.
+hrate=-1        Homopolymer error boost; default 0.02 ONT / 0.000015 PB.
+                The indel chance increases this much per homopolymer base.
+
+Coverage variation parameters (only used with 'sinewave' flag):
+sinewave        Enable realistic coverage variation within contigs.
+numwaves=4      Number of sine waves to combine; more waves create more 
+                complex coverage patterns with irregular peaks and valleys.
+waveamp=0.70    Controls the maximum variation in coverage due to the sine 
+                waves.  Higher values (0-1) create more dramatic differences 
+                between high and low coverage regions.
+oribias=0.25    Strength of the origin of replication bias. Controls the max
+                linear decrease in coverage from start to end of contigs.
+minprob=0.10    Sets the minimum coverage probability as a fraction of target.
+                Makes it improbable for regions have coverage that drops 
+                below this level, preventing assembly gaps.
+minperiod=2k    Minimum sine wave period, in bp.
+maxperiod=80k   Maximum sine wave period, in bp.
 
 Java Parameters:
 -Xmx            This will set Java's memory usage, overriding autodetection.
@@ -10730,6 +11431,56 @@ Please contact Brian Bushnell at bbushnell@lbl.gov if you encounter any problems
     """
     args = _pack_args(kwargs)
     return _run_command("renameimg.sh", args, capture_output)
+
+def renameref(capture_output: bool = False, **kwargs) -> Union[None, Tuple[str, str]]:
+    """
+    Wrapper for renameref.sh
+
+    Help message:
+    Written by Isla and Brian Bushnell
+Last modified July 15, 2025
+
+Description:  Converts reference sequence names in genomics files,
+supporting SAM, BAM, FASTA, VCF, and GFF.  Updates reference names in headers
+and data records according to a mapping file.  Useful for converting between
+reference naming conventions (e.g. HG19 <-> GRCh37).
+Sequence names not in the mapping file are kept as-is.  Name mapping will
+first be attempted using the full header, and secondly using the prefix
+of the original name up to the first whitespace.
+
+Usage:
+renameref.sh in_file=<input file> out=<output file> mapping=<ref_mapping.tsv>
+
+Examples:
+renameref.sh in_file=aligned.sam out=converted.sam mapping=hg19_to_grch37.tsv
+renameref.sh in_file=data.sam out=renamed.sam mapping=refs.tsv strict=true
+
+Parameters:
+in_file=<file>       Input file to process
+out=<file>      Output file with converted reference names  
+map=<file>      Tab-delimited file with old_name<tab>new_name mappings
+invert=<bool>   Reverse the order of names in the map file.
+strict=<bool>   Crash on unknown references (default: false)
+verbose=<bool>  Print detailed progress information (default: false)
+
+Mapping file format:
+chr1	1
+chr2	2
+chrX	X
+chrM	MT
+
+Please contact Brian Bushnell at bbushnell@lbl.gov if you encounter any problems.
+
+    Args:
+        capture_output (bool): If True, capture and return the output instead of printing it.
+        in_file (str): Input file (replaces 'in=' parameter)
+        **kwargs: Other arguments for renameref.sh
+
+    Returns:
+        Union[None, Tuple[str, str]]: If capture_output is True, returns (stdout, stderr), else None.
+    """
+    args = _pack_args(kwargs)
+    return _run_command("renameref.sh", args, capture_output)
 
 def repair(capture_output: bool = False, **kwargs) -> Union[None, Tuple[str, str]]:
     """
@@ -11770,7 +12521,7 @@ def shred(capture_output: bool = False, **kwargs) -> Union[None, Tuple[str, str]
 
     Help message:
     Written by Brian Bushnell
-Last modified February 27, 2025
+Last modified May 4, 2025
 Description:  Shreds sequences into shorter, possibly overlapping sequences.
 
 Usage: shred.sh in_file=<file> out=<file> length=<int>
@@ -13742,6 +14493,83 @@ Please contact Brian Bushnell at bbushnell@lbl.gov if you encounter any problems
     args = _pack_args(kwargs)
     return _run_command("taxtree.sh", args, capture_output)
 
+def testaligners(capture_output: bool = False, **kwargs) -> Union[None, Tuple[str, str]]:
+    """
+    Wrapper for testaligners.sh
+
+    Help message:
+    Written by Brian Bushnell
+Last modified May 18, 2025
+
+Description:  Aligns a query sequence to a reference using multiple aligners.
+Outputs the identity, rstart and rstop positions, time, and #loops.
+
+Usage:
+testaligners.sh <query> <ref>
+testaligners.sh <query> <ref> <iterations> <threads> <simd>
+
+Parameters:
+query           A literal nucleotide sequence or fasta file.
+ref             A literal nucleotide sequence or fasta file.
+iterations      Optional integer for benchmarking multiple iterations.
+threads         Number of parallel instances to use.
+simd            Enable SIMD operations; requires AVX-256 and Java 17+.
+
+Please contact Brian Bushnell at bbushnell@lbl.gov if you encounter any problems.
+
+    Args:
+        capture_output (bool): If True, capture and return the output instead of printing it.
+        in_file (str): Input file (replaces 'in=' parameter)
+        **kwargs: Other arguments for testaligners.sh
+
+    Returns:
+        Union[None, Tuple[str, str]]: If capture_output is True, returns (stdout, stderr), else None.
+    """
+    args = _pack_args(kwargs)
+    return _run_command("testaligners.sh", args, capture_output)
+
+def testaligners2(capture_output: bool = False, **kwargs) -> Union[None, Tuple[str, str]]:
+    """
+    Wrapper for testaligners2.sh
+
+    Help message:
+    Written by Brian Bushnell
+Last modified May 31, 2025
+
+Description:  Tests multiple aligners using random sequences.
+The sequences have variable pairwise ANI, and each
+ANI level is tested multiple times for average accuracy
+and loop count.
+Outputs the identity, rstart and rstop positions, time, and #loops.
+Note that the 'design' ANI is approximate and will not match
+the measured ANI.
+
+Usage:
+testaligners2.sh iterations=30 maxani=100 minani=90 step=2
+
+Parameters:
+length=40k      Length of sequences.
+iterations=32   Iterations to average; higher is more accurate.
+maxani=80       Max ANI to model.
+minani=30       Min ANI to model.
+step=2          ANI step size.
+sinewaves=0     Sinewave count to model variable conservation.
+threads=        Parallel alignments; default is logical cores.
+simd            Enable SIMD operations; requires AVX-256 and Java 17+.
+
+Please contact Brian Bushnell at bbushnell@lbl.gov if you encounter any problems.
+
+    Args:
+        capture_output (bool): If True, capture and return the output instead of printing it.
+        in_file (str): Input file (replaces 'in=' parameter)
+        **kwargs: Other arguments for testaligners2.sh
+
+    Returns:
+        Union[None, Tuple[str, str]]: If capture_output is True, returns (stdout, stderr), else None.
+    """
+    args = _pack_args(kwargs)
+    return _run_command("testaligners2.sh", args, capture_output)
+
 def testfilesystem(capture_output: bool = False, **kwargs) -> Union[None, Tuple[str, str]]:
     """
     Wrapper for testfilesystem.sh
@@ -13925,8 +14753,8 @@ def tetramerfreq(capture_output: bool = False, **kwargs) -> Union[None, Tuple[st
     Wrapper for tetramerfreq.sh
 
     Help message:
-    Written by Shijie Yao 
-Last modified May 31, 2018
+    Written by Shijie Yao and Brian Bushnell
+Last modified April 25, 2025
 
 Description: DNA Tetramer analysis.
 DNA tetramers are counted for each sub-sequence of window size in the sequence.  
@@ -13944,6 +14772,9 @@ step/s=INT      Step size (default 500)
 window/w=INT    Window size (default 2kb); <=0 turns windowing off (e.g. short reads)
 short=T/F       Print lines for sequences shorter than window (default F)
 k=INT           Kmer length (default 4)
+gc              Print a GC column in the output.
+float           Output kmer frequencies instead of counts.
+comp            Output GC-compensated kmer frequencies.
 
 Java Parameters:
 -Xmx            This will set Java's memory usage, overriding autodetection.
@@ -14044,7 +14875,7 @@ def train(capture_output: bool = False, **kwargs) -> Union[None, Tuple[str, str]
 
     Help message:
     Written by Brian Bushnell
-Last modified Jan 25, 2024
+Last modified July 15, 2025
 
 Description:  Trains or evaluates neural networks.
 
@@ -14378,6 +15209,83 @@ out=<file>      Output GFF file.
     args = _pack_args(kwargs)
     return _run_command("vcf2gff.sh", args, capture_output)
 
+def visualizealignment(capture_output: bool = False, **kwargs) -> Union[None, Tuple[str, str]]:
+    """
+    Wrapper for visualizealignment.sh
+
+    Help message:
+    Shell script written by Brian Bushnell
+Java code written by Claude.
+Last modified May 4, 2025
+
+Description:  Converts a text exploration map from some aligners to an image.
+Supports Quantum, Banded, Drifting, Glocal, WaveFront, and MSA9. 
+
+Usage:
+visualizealignment.sh <map>
+or
+visualizealignment.sh <map> <image>
+
+Parameters:
+map             Text file of score-space from an aligner.
+image           Output name, context sensitive; supports png, bmp, jpg.
+                Image name is optional; if absent, .txt will be replaced
+                by .png in the input filename.
+
+Please contact Brian Bushnell at bbushnell@lbl.gov if you encounter any problems.
+
+    Args:
+        capture_output (bool): If True, capture and return the output instead of printing it.
+        in_file (str): Input file (replaces 'in=' parameter)
+        **kwargs: Other arguments for visualizealignment.sh
+
+    Returns:
+        Union[None, Tuple[str, str]]: If capture_output is True, returns (stdout, stderr), else None.
+    """
+    args = _pack_args(kwargs)
+    return _run_command("visualizealignment.sh", args, capture_output)
+
+def wavefrontaligner(capture_output: bool = False, **kwargs) -> Union[None, Tuple[str, str]]:
+    """
+    Wrapper for wavefrontaligner.sh
+
+    Help message:
+    Written by Brian Bushnell
+Last modified April 30, 2025
+
+Description:  Aligns a query sequence to a reference using WaveFrontAligner.
+The implementation is designed for visualization and is thus very inefficient,
+and purely for academic use.
+The sequences can be any characters, but N is a special case.
+Outputs the identity, rstart, and rstop positions.
+Optionally prints a state space exploration map.
+This map can be fed to visualizealignment.sh to make an image.
+
+Usage:
+wavefrontaligner.sh <query> <ref>
+wavefrontaligner.sh <query> <ref> <map>
+wavefrontaligner.sh <query> <ref> <map> <iterations>
+
+Parameters:
+query           A literal nucleotide sequence or fasta file.
+ref             A literal nucleotide sequence or fasta file.
+map             Optional output text file for matrix score space.
+                Set to null for benchmarking with no visualization.
+iterations      Optional integer for benchmarking multiple iterations.
+
+Please contact Brian Bushnell at bbushnell@lbl.gov if you encounter any problems.
+
+    Args:
+        capture_output (bool): If True, capture and return the output instead of printing it.
+        in_file (str): Input file (replaces 'in=' parameter)
+        **kwargs: Other arguments for wavefrontaligner.sh
+
+    Returns:
+        Union[None, Tuple[str, str]]: If capture_output is True, returns (stdout, stderr), else None.
+    """
+    args = _pack_args(kwargs)
+    return _run_command("wavefrontaligner.sh", args, capture_output)
+
 def webcheck(capture_output: bool = False, **kwargs) -> Union[None, Tuple[str, str]]:
     """
     Wrapper for webcheck.sh
@@ -14422,6 +15330,85 @@ Please contact Brian Bushnell at bbushnell@lbl.gov if you encounter any problems
     """
     args = _pack_args(kwargs)
     return _run_command("webcheck.sh", args, capture_output)
+
+def wobblealigner(capture_output: bool = False, **kwargs) -> Union[None, Tuple[str, str]]:
+    """
+    Wrapper for wobblealigner.sh
+
+    Help message:
+    Written by Brian Bushnell
+Last modified May 24, 2025
+
+Description:  Aligns a query sequence to a reference using WobbleAligner.
+The sequences can be any characters, but N is a special case.
+Outputs the identity, rstart, and rstop positions.
+Optionally prints a state space exploration map.
+This map can be fed to visualizealignment.sh to make an image.
+
+Usage:
+wobblealigner.sh <query> <ref>
+wobblealigner.sh <query> <ref> <map>
+wobblealigner.sh <query> <ref> <map> <iterations>
+
+Parameters:
+query           A literal nucleotide sequence or fasta file.
+ref             A literal nucleotide sequence or fasta file.
+map             Optional output text file for matrix score space.
+                Set to null for benchmarking with no visualization.
+iterations      Optional integer for benchmarking multiple iterations.
+
+Please contact Brian Bushnell at bbushnell@lbl.gov if you encounter any problems.
+
+    Args:
+        capture_output (bool): If True, capture and return the output instead of printing it.
+        in_file (str): Input file (replaces 'in=' parameter)
+        **kwargs: Other arguments for wobblealigner.sh
+
+    Returns:
+        Union[None, Tuple[str, str]]: If capture_output is True, returns (stdout, stderr), else None.
+    """
+    args = _pack_args(kwargs)
+    return _run_command("wobblealigner.sh", args, capture_output)
+
+def wobbleplusaligner(capture_output: bool = False, **kwargs) -> Union[None, Tuple[str, str]]:
+    """
+    Wrapper for wobbleplusaligner.sh
+
+    Help message:
+    Written by Brian Bushnell
+Last modified May 24, 2025
+
+Description:  Aligns a query sequence to a reference using WobblePlusAligner3.
+The sequences can be any characters, but N is a special case.
+Outputs the identity, rstart, and rstop positions.
+Optionally prints a state space exploration map.
+This map can be fed to visualizealignment.sh to make an image.
+
+Usage:
+wobbleplusaligner.sh <query> <ref>
+wobbleplusaligner.sh <query> <ref> <map>
+wobbleplusaligner.sh <query> <ref> <map> <iterations> <simd>
+
+Parameters:
+query           A literal nucleotide sequence or fasta file.
+ref             A literal nucleotide sequence or fasta file.
+map             Optional output text file for matrix score space.
+                Set to null for benchmarking with no visualization.
+iterations      Optional integer for benchmarking multiple iterations.
+simd            Add this flag to use simd mode.
+
+Please contact Brian Bushnell at bbushnell@lbl.gov if you encounter any problems.
+
+    Args:
+        capture_output (bool): If True, capture and return the output instead of printing it.
+        in_file (str): Input file (replaces 'in=' parameter)
+        **kwargs: Other arguments for wobbleplusaligner.sh
+
+    Returns:
+        Union[None, Tuple[str, str]]: If capture_output is True, returns (stdout, stderr), else None.
+    """
+    args = _pack_args(kwargs)
+    return _run_command("wobbleplusaligner.sh", args, capture_output)
 
 def Xcalcmem(capture_output: bool = False, **kwargs) -> Union[None, Tuple[str, str]]:
     """

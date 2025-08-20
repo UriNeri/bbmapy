@@ -6,10 +6,51 @@ import shared.Tools;
 
 /**
  * Based on SSAFlat, but with previous state pointers removed. */
-public final class SingleStateAlignerFlat2 implements Aligner {
-	
+public final class SingleStateAlignerFlat2 implements Aligner, IDAligner {
+
+	/** Main() passes the args and class to Test to avoid redundant code */
+	public static <C extends IDAligner> void main(String[] args) throws Exception {
+	    StackTraceElement[] stackTrace = Thread.currentThread().getStackTrace();
+		@SuppressWarnings("unchecked")
+		Class<C> c=(Class<C>)Class.forName(stackTrace[(stackTrace.length<3 ? 1 : 2)].getClassName());
+		Test.testAndPrint(c, args);
+	}
 	
 	public SingleStateAlignerFlat2(){}
+
+	@Override
+	public final String name() {return "SSA2";}
+	@Override
+	public long loops() {return -1;}
+	@Override
+	public void setLoops(long x) {};//Not supported
+	@Override
+	public final float align(byte[] a, byte[] b) {return align(a, b, null, 0, b.length-1, -9999);}
+	@Override
+	public final float align(byte[] a, byte[] b, int[] pos) {return align(a, b, pos, 0, b.length-1, -9999);}
+	@Override
+	public final float align(byte[] a, byte[] b, int[] posVector, int minScore) {return align(a, b, null, 0, b.length-1, minScore);}
+	@Override
+	public final float align(byte[] a, byte[] b, int[] pos, int from, int to) {return align(a, b, pos, from, to, -9999);}
+	public float align(byte[] q, byte[] r, int[] pos, int from, int to, int minScore) {
+		if(q.length>r.length && pos==null) {byte[] s=q; q=r; r=s;}
+		assert(q.length<=r.length);
+		int[] max=fillUnlimited(q, r, from, to, minScore);
+		if(max==null){return 0;}
+
+		final int rows=max[0];
+		final int maxCol=max[1];
+		final int maxState=max[2];
+		final float id=tracebackIdentity(q, r, from, to, rows, maxCol, maxState, null);
+		if(pos!=null) {
+			final int[] score=score(q, r, from, to, rows, maxCol, maxState);
+			final int rstart=Tools.max(score[1], from);
+			final int rstop=Tools.min(score[2], to);
+			pos[0]=rstart;
+			pos[1]=rstop;
+		}
+		return id;
+	}
 	
 	private void prefillTopRow(){
 		final int[] header=packed[0];
@@ -90,6 +131,7 @@ public final class SingleStateAlignerFlat2 implements Aligner {
 	@Override
 	public final int[] fillUnlimited(byte[] read, byte[] ref, int refStartLoc, int refEndLoc, int minScore){
 		initialize(read.length, refEndLoc-refStartLoc+1);
+		assert(columns<=ref.length) : "columns="+columns+", ref.length="+ref.length+", arg2="+(refEndLoc-refStartLoc+1);
 		
 		//temporary, for finding a bug
 		if(rows>maxRows || columns>maxColumns){
@@ -101,6 +143,7 @@ public final class SingleStateAlignerFlat2 implements Aligner {
 		
 		assert(refStartLoc>=0) : "Check that values are in-bounds before calling this function: "+refStartLoc;
 		assert(refEndLoc<ref.length) : "Check that values are in-bounds before calling this function: "+refEndLoc+", "+ref.length;
+		
 		
 		final int refOffset=refStartLoc-1;
 		for(int row=1; row<=rows; row++){
@@ -131,7 +174,6 @@ public final class SingleStateAlignerFlat2 implements Aligner {
 				
 				packed[row][col]=score;
 			}
-			//iterationsUnlimited+=columns;
 		}
 		
 
@@ -438,20 +480,6 @@ public final class SingleStateAlignerFlat2 implements Aligner {
 		return sb.toString();
 	}
 	
-//	public static int calcDelScore(int len){
-//		if(len<=0){return 0;}
-//		int score=POINTS_DEL;
-//		if(len>1){
-//			score+=(len-1)*POINTS_DEL2;
-//		}
-//		return score;
-//	}
-	
-//	public int maxScoreByIdentity(int len, float identity){
-//		assert(identity>=0 && identity<=1);
-//		return (int)(len*(identity*POINTS_MATCH+(1-identity)*POINTS_SUB));
-//	}
-	
 	@Override
 	public int minScoreByIdentity(int len, float identity){
 		assert(identity>=0 && identity<=1);
@@ -461,32 +489,6 @@ public final class SingleStateAlignerFlat2 implements Aligner {
 		int c=(int)(len*(1*POINTS_MATCH+((1/(Tools.max(identity, 0.000001f)))-1)*POINTS_DEL));
 		return Tools.min(a, b, c);
 	}
-	
-	private static int calcDelScore(int len){
-		if(len<=0){return 0;}
-		int score=POINTS_DEL*len;
-		return score;
-	}
-//	
-//	public static int calcInsScore(int len){
-//		if(len<=0){return 0;}
-//		int score=POINTS_INS;
-//		
-//		if(len>1){
-//			score+=(len-1)*POINTS_INS2;
-//		}
-//		return score;
-//	}
-//	
-//	private static int calcInsScoreOffset(int len){
-//		if(len<=0){return 0;}
-//		int score=POINTS_INS;
-//		
-//		if(len>1){
-//			score+=(len-1)*POINTS_INS2;
-//		}
-//		return score;
-//	}
 	
 	@Override
 	public int rows(){return rows;}
@@ -515,19 +517,10 @@ public final class SingleStateAlignerFlat2 implements Aligner {
 	public static final int POINTS_INS=-121;
 	public static final int POINTS_DEL=-111;
 	
-//	public static final int POINTS_NOREF=-150000;
-//	public static final int POINTS_MATCH=100;
-//	public static final int POINTS_SUB=-100;
-//	public static final int POINTS_INS=-100;
-//	public static final int POINTS_DEL=-100;
-	
 	public static final int BAD=MIN_SCORE-1;
 	
 	private int rows;
 	private int columns;
-
-//	public long iterationsLimited=0;
-//	public long iterationsUnlimited=0;
 
 	public boolean verbose=false;
 	public boolean verbose2=false;

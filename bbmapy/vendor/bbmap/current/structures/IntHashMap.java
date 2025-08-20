@@ -227,7 +227,7 @@ public final class IntHashMap extends AbstractIntHashMap implements Serializable
 		for(int i=0; i<keys.length; i++){
 			if(keys[i]==old){
 				keys[i]=invalid;
-//				assert(volues[i]==0); //TODO: slow
+//				assert(values[i]==0); //TODO: slow
 			}
 		}
 	}

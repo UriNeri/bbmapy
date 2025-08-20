@@ -133,6 +133,12 @@ public class DataLoader extends BinObject {
 		
 		else if(a.equalsIgnoreCase("streamContigs")){
 			streamContigs=Parse.parseBoolean(b);
+		}else if(a.equalsIgnoreCase("weights") || a.equalsIgnoreCase("weighted")){
+			if(Tools.isNumeric(b)) {
+				Oracle.printWeightInVector=Integer.parseInt(b);
+			}else {
+				Oracle.printWeightInVector=Parse.parseBoolean(b) ? 1 : 0;
+			}
 		}
 		
 		else if(a.equals("network") || a.equals("netfile") || a.equals("net") || a.equals("nn")){
@@ -560,14 +566,6 @@ public class DataLoader extends BinObject {
 		outstream.println("Weights:    \t"+Arrays.toString(weightCount));
 	}
 	
-	TaxTree loadTree() {
-		if("auto".equals(treePath)){treePath=TaxTree.defaultTreeFile();}
-		if(treePath!=null) {
-			tree=TaxTree.loadTaxTree(treePath, outstream, false, false);
-		}
-		return tree;
-	}
-	
 	HashMap<String, Contig> toMap(Collection<Contig> list){
 		HashMap<String, Contig> map=new HashMap<String, Contig>(list.size());
 		for(Contig c : list) {map.put(c.shortName, c);}
@@ -641,21 +639,6 @@ public class DataLoader extends BinObject {
 //			if(!validation) {c.taxid=tid;}
 //		}
 		return c;
-	}
-	
-	public static int parseTaxID(String line) {
-		if(!parseTaxid) {return -1;}
-		final String term="tid_";
-		int pos=line.indexOf(term);
-		if(pos<0) {return -1;}
-		long id=0;
-		for(int i=pos+4; i<line.length(); i++) {
-			char c=line.charAt(i);
-			if(c<'0' || c>'9') {break;}
-			id=id*10+(c-'0');
-		}
-		assert(id>0 && id<Integer.MAX_VALUE) : id+"\n"+line+"\n";
-		return (int)id;
 	}
 	
 	BloomFilter makeBloomFilter(String in1, String in2) {
@@ -801,6 +784,43 @@ public class DataLoader extends BinObject {
 		for(Contig c : list) {c.setDepth(bf.averageCount(c.bases), sample);}
 		depthCalculated=true;
 		phaseTimer.stopAndPrint();
+	}
+	
+	public static HashMap<String, FloatList> loadCovFile(String fname) {
+		System.err.print("Loading coverage from "+fname+": ");
+		Timer t=new Timer(System.err, false);
+		LineParser1 lp=new LineParser1('\t');
+		ByteFile bf=ByteFile.makeByteFile(fname, true);
+		
+		byte[] line=bf.nextLine();
+		int numDepths=0;
+		for(; Tools.startsWith(line, '#'); line=bf.nextLine()) {
+			if(Tools.startsWith(line, "#Depths")) {
+				numDepths=lp.set(line).parseInt(1);
+			}
+		}
+		assert(numDepths>0) : numDepths;
+		final int edgeStart=3+numDepths;
+		final int samples=numDepths;
+		int loaded=0;
+		
+		HashMap<String, FloatList> map=new HashMap<String, FloatList>();
+		for(; line!=null; line=bf.nextLine()) {
+			lp.set(line);
+			String name=lp.parseString(0);
+			int id=lp.parseInt(1);
+			int size=lp.parseInt(2);
+			int edges=(lp.terms()-edgeStart)/2;
+			FloatList list=new FloatList(samples);
+			for(int i=0; i<samples; i++) {
+				float f=lp.parseFloat(i+3);
+				list.add(f);
+			}
+			map.put(name, list);
+			loaded++;
+		}
+		t.stopAndPrint();
+		return map;
 	}
 	
 	public void loadCovFile(String fname, ArrayList<Contig> contigs, final int maxSamples) {
@@ -950,9 +970,6 @@ public class DataLoader extends BinObject {
 	
 	/** Quit after processing this many input reads; -1 means no limit */
 	private long maxReads=-1;
-	
-	String treePath="auto";
-	TaxTree tree;
 	
 	IntLongHashMap sizeMap;
 	IntHashMap[] graph;

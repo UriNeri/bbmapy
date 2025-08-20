@@ -315,10 +315,15 @@ public class CellNet implements Cloneable, Comparable<CellNet> {
 		BitSet bs=new BitSet(width);
 		int range=(width-1)/edgeBlockSize;
 		for(int made=0; made<toMake;) {
+			final int rand=randy.nextInt(range+1);
+			assert(rand>=0 && rand<=range) : rand+", "+range+", "+edgeBlockSize+", "+made+", "+width;
 			int start=randy.nextInt(range+1)*edgeBlockSize;
+			assert(start>=0) : rand+", "+range+", "+edgeBlockSize+", "+made+", "+width+", "+start;
 			if(start<width && !bs.get(start)) {
 				for(int i=0; i<edgeBlockSize && i+start<width; i++) {
-					bs.set(i+start);
+					int loc=i+start;
+					assert(loc>=0) : rand+", "+range+", "+edgeBlockSize+", "+made+", "+width+", "+start+", "+loc+", "+i;
+					bs.set(loc);
 					made++;
 				}
 			}
@@ -409,6 +414,7 @@ public class CellNet implements Cloneable, Comparable<CellNet> {
 	
 	public void processSample(Sample s, boolean backProp, float weightMult) {
 		//assert(check());
+		weightMult*=s.weight;
 		
 		applyInput(s.in);
 		if(DENSE) {

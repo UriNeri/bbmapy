@@ -126,6 +126,11 @@ public class Parse {
 		return Tools.isDigit(c) || c=='.' || c=='-';
 	}
 	
+	public static boolean isBoolean(String s){
+		if(s==null || s.length()==0){return false;}
+		return "t".equalsIgnoreCase(s) || "f".equalsIgnoreCase(s) || "true".equalsIgnoreCase(s) || "false".equalsIgnoreCase(s);
+	}
+	
 	/**
 	 * Parse this argument.  More liberal than Boolean.parseBoolean.
 	 * Null, t, true, or 1 all yield true.
@@ -273,6 +278,15 @@ public class Parse {
 	public static double parseDouble(final byte[] array, final int a0, final int b){
 		if(Tools.FORCE_JAVA_PARSE_DOUBLE){
 			return Double.parseDouble(new String(array, a0, b-a0));
+		}
+		if(b-a0>1 && b-a0<5) {
+			final byte x=array[a0];
+			if(!Tools.numericMap[x]){
+				if(x == 'N'){return Double.NaN;}
+				if(x == 'I'){return Double.POSITIVE_INFINITY;}
+			}
+			if(x == '-' && array[a0+1] == 'I') 
+				return Double.NEGATIVE_INFINITY;
 		}
 		int a=a0;
 		assert(b>a);
@@ -502,6 +516,16 @@ public class Parse {
 			r=(r*10)+x;
 		}
 		return r*mult;
+	}
+	
+	public static long parseLongA48(byte[] array, int a, int b){
+		if(array.length==0){return 0;}
+		long x=0;
+		for(; a<b; a++) {
+			x<<=6;
+			x|=(((long)array[a])-48);
+		}
+		return x;
 	}
 	
 	/**

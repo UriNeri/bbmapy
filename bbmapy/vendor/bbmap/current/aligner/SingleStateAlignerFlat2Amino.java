@@ -6,10 +6,52 @@ import shared.Tools;
 
 /**
  * Based on SSAFlat, but with previous state pointers removed. */
-public final class SingleStateAlignerFlat2Amino implements Aligner {
+public final class SingleStateAlignerFlat2Amino implements Aligner, IDAligner {
+
+	/** Main() passes the args and class to Test to avoid redundant code */
+	public static <C extends IDAligner> void main(String[] args) throws Exception {
+	    StackTraceElement[] stackTrace = Thread.currentThread().getStackTrace();
+		@SuppressWarnings("unchecked")
+		Class<C> c=(Class<C>)Class.forName(stackTrace[(stackTrace.length<3 ? 1 : 2)].getClassName());
+		Test.testAndPrint(c, args);
+	}
 	
 	
 	public SingleStateAlignerFlat2Amino(){}
+
+	@Override
+	public final String name() {return "SSA2Amino";}
+	@Override
+	public long loops() {return -1;}
+	@Override
+	public void setLoops(long x) {};//Not supported
+	@Override
+	public final float align(byte[] a, byte[] b) {return align(a, b, null, 0, b.length-1, -9999);}
+	@Override
+	public final float align(byte[] a, byte[] b, int[] pos) {return align(a, b, pos, 0, b.length-1, -9999);}
+	@Override
+	public final float align(byte[] a, byte[] b, int[] posVector, int minScore) {return align(a, b, null, 0, b.length-1, minScore);}
+	@Override
+	public final float align(byte[] a, byte[] b, int[] pos, int from, int to) {return align(a, b, pos, from, to, -9999);}
+	public float align(byte[] q, byte[] r, int[] pos, int from, int to, int minScore) {
+		if(q.length>r.length && pos==null) {byte[] s=q; q=r; r=s;}
+		assert(q.length<=r.length);
+		int[] max=fillUnlimited(q, r, from, to, minScore);
+		if(max==null){return 0;}
+
+		final int rows=max[0];
+		final int maxCol=max[1];
+		final int maxState=max[2];
+		final float id=tracebackIdentity(q, r, from, to, rows, maxCol, maxState, null);
+		if(pos!=null) {
+			final int[] score=score(q, r, from, to, rows, maxCol, maxState);
+			final int rstart=Tools.max(score[1], from);
+			final int rstop=Tools.min(score[2], to);
+			pos[0]=rstart;
+			pos[1]=rstop;
+		}
+		return id;
+	}
 	
 	private void prefillTopRow(){
 		final int[] header=packed[0];

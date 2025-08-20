@@ -173,3 +173,7 @@ cython_debug/
 .vscode/settings.json
 .vscode/settings.json
 .vscode/settings.json
+
+# pixi environments
+.pixi
+*.egg-info

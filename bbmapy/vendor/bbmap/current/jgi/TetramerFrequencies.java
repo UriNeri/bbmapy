@@ -5,14 +5,12 @@
  */
 package jgi;
 
-import static jgi.Dedupe.maxNmer;
-import static jgi.Dedupe.nmerIndex;
-
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.concurrent.ArrayBlockingQueue;
 
+import bin.BinObject;
 import dna.AminoAcid;
 import fileIO.ByteStreamWriter;
 import fileIO.FileFormat;
@@ -23,6 +21,7 @@ import shared.PreParser;
 import shared.Shared;
 import shared.Timer;
 import shared.Tools;
+import shared.Vector;
 import stream.ConcurrentReadInputStream;
 import stream.Read;
 import structures.ByteBuilder;
@@ -31,6 +30,7 @@ import structures.ListNum;
 /**
  *
  * @author syao
+ * @contributor Brian Bushnell
  * Last updated : 01102018
  */
 public class TetramerFrequencies {
@@ -80,6 +80,14 @@ public class TetramerFrequencies {
 				keepShort=!Parse.parseBoolean(b);
 			} else if (a.equals("keepshort") || a.equals("short")){
 				keepShort=Parse.parseBoolean(b);
+			} else if (a.equalsIgnoreCase("gc")){
+				printGC=Parse.parseBoolean(b);
+			} else if (a.equalsIgnoreCase("float") || a.equals("floats") || a.equals("fraction")){
+				printFloats=Parse.parseBoolean(b);
+			} else if (a.equalsIgnoreCase("gccomp") || a.equals("comp") || a.equals("compensate")
+					|| a.equalsIgnoreCase("gccompensate")|| a.equalsIgnoreCase("gccompensated") 
+					|| a.equals("compensated")){
+				gcCompensate=Parse.parseBoolean(b);
 			} else if (a.equals("k")){
 				k_ = Integer.parseInt(b);
 			} else if(parser.parse(arg, a, b)){
@@ -106,22 +114,20 @@ public class TetramerFrequencies {
 		if (out1==null || out1.equals("")){
 			out1 = "stdout";
 		}
-
-		threads=Tools.max(1, Shared.threads());
+		
+		remap=BinObject.makeRemap(k);
+		canonicalKmers=Tools.max(remap)+1;
+		gcmap=BinObject.gcmap(k, remap);
+		
+		threads=Tools.mid(1, Shared.threads(), 32);
 		inq=new ArrayBlockingQueue<Line>(threads+1);
 		
 		FileFormat ff=FileFormat.testOutput(out1, FileFormat.TEXT, null, true, true, false, true);
 		bsw = new ByteStreamWriter(ff);
 		bsw.start();
-
-		//create and write the output header
-		List<String> head = new ArrayList<String>();
-		head.add("scaffold");
-		head.add("range");
-
-		// the unit tetramer strings in header
-		tetramerGen2(head);
-		bsw.add(new ByteBuilder(String.join("\t", head)).append('\n'), nextID);
+		
+		ByteBuilder header=header().nl();
+		bsw.add(header, nextID);
 		nextID++;
 	}
 
@@ -180,49 +186,6 @@ public class TetramerFrequencies {
 		outstream.println("Reads Processed:    "+readsProcessed+" \t"+Tools.format("%.2fk reads/sec", (readsProcessed/(double)(t.elapsed))*1000000));
 	}
 
-	// TODO: optimize the algorithm ...
-	private void windowedTetramerProfileOpt(byte[] bases, String header){
-		int sidx = 0;
-		int eidx = winSize;
-
-		final int[] counts = new int[maxNmer+1];
-
-		int leadlen = 0;
-		int leadtmer = -1;
-		int endlen = 0;
-		int endtmer = -1;
-
-		int tmer = 0;
-		int len = 0;
-
-		for (int i=0; i<= eidx; i++){
-			int x = AminoAcid.baseToNumber[bases[i]];
-			if (x < 0){
-				tmer = 0;
-				len = 0;
-			} else {
-				tmer = (leadtmer<<2)|x ;   // this can produce -1 vaue if any base in tetramer is N!
-				len++;
-				if (len >= k){
-					int idx = tmerIndex(tmer);
-					counts[idx]++; 
-
-					if( leadtmer==-1){
-						leadtmer = tmer;   
-					} else if(i == eidx){
-
-					}
-
-
-					len--;
-				}   
-			}
-		}
-
-
-
-	}
-
 	private void windowedTetramerProfile(byte[] bases, String header){
 		int sidx = 0;
 		int eidx = winSize<1 ? bases.length : Tools.min(bases.length, winSize);
@@ -236,144 +199,91 @@ public class TetramerFrequencies {
 		}
 	}
 	
-	//Slow version
-	void append(Line line, int[] counts, StringBuilder sb){
-		sb.append(line.header);
-		sb.append('\t');
-		sb.append(line.sidx+1);
-		sb.append('-');
-		sb.append(line.eidx);
-		float mult=1f/(line.length()-k+1);
-		for (int cnt: counts){
-			sb.append('\t');
-			sb.append(Tools.format("%.4f", cnt*mult));
-		}
-		sb.append('\n');
-	}
-	
-	void append(Line line, int[] counts, ByteBuilder bb){
+	void append(Line line, int[] counts, float gc, ByteBuilder bb){
 		bb.append(line.header);
 		bb.tab();
 		bb.append(line.sidx+1);
 		bb.append('-');
 		bb.append(line.eidx);
-		for (int cnt: counts){
-			bb.tab();
-			bb.append(cnt);
+		if(printGC) {
+			bb.tab().append(gc, 4);
+		}
+		if(printFloats) {
+			if(gcCompensate) {
+				float[] freqs=Vector.compensate(counts, k, gcmap);
+				for (float f: freqs){
+					bb.tab();
+					bb.append(f, 5);
+				}
+			}else {
+				long sum=Tools.sum(counts);
+				float inv=1f/Math.max(1, sum);
+				for (int cnt: counts){
+					bb.tab();
+					bb.append(cnt*inv, 5);
+				}
+			}
+		}else {
+			if(gcCompensate) {
+				long sum=Tools.sum(counts);
+				float[] freqs=Vector.compensate(counts, k, gcmap);
+				for (float f: freqs){
+					bb.tab();
+					bb.append(Math.round(f*sum));
+				}
+			}else {
+				for (int cnt: counts){
+					bb.tab();
+					bb.append(cnt);
+				}
+			}
 		}
 		bb.nl();
 	}
 	
 	// factor this out so we can work on reads
-	public int[] tetramerCounter(byte[] bases, int startidx, int endidx, int[] counts){
-		if (counts == null){
-			counts = new int[maxNmer+1];
+	public int[] countKmers(byte[] bases, int startidx, int endidx, int[] counts, float[] gc){
+		final int mask=(1<<(2*k))-1;
+		final int[] acgtn=new int[5];
+		
+		int len=0, kmer=0;
+		for (int i=startidx; i<endidx; i++){
+			int x = AminoAcid.baseToNumberACGTother[bases[i]];
+			acgtn[x]++;
+			kmer=((kmer<<2)|x)&mask;   // this can produce -1 vaue if any base in tetramer is N!
+			if(x<4) {
+				len++;
+				if (len>=k){
+					int idx = remap[kmer];
+					counts[idx]++; 
+				}
+			}else {
+				len=0;
+				kmer=0;
+			}
 		}
 
-		for (int i=startidx; i<=endidx-k; i++){ 
-			int kmer = 0;   // the binary representation of the tetramer in the sliding window
-			for (int j=0; j<k; j++){
-				int x = AminoAcid.baseToNumber[bases[i+j]];
-				kmer= (kmer<<2)|x ;   // this can produce -1 vaue if any base in tetramer is N!
-			}
-
-			// ignore tetramers containing "N" base
-			if (kmer > -1){
-				int idx = tmerIndex(kmer);
-				counts[idx]++; 
-			}
-		}
-
+		int gcCount=acgtn[1]+acgtn[2];
+		int atCount=acgtn[0]+acgtn[3];
+		gc[0]=gcCount/Math.max(1f, (gcCount+atCount));
 		return counts;
 	}
+	
+	public ByteBuilder header() {
+		ByteBuilder bb=new ByteBuilder();
 
-	private int tmerIndex(int tmer){
-		int rtmer = AminoAcid.reverseComplementBinaryFast(tmer, k); 
-		int mtmer = Tools.min(tmer, rtmer);
-		int idx = -1;
-		try{
-			idx = nmerIndex[rtmer];
-		} catch (ArrayIndexOutOfBoundsException e){
-			System.out.printf("ArrayIndexOutOfBoundsException tmer=%d: rtmer=%d; \n", tmer, rtmer);
-			System.exit(-1);
-		}
-		return idx;
-	}
+		bb.append("scaffold");
+		bb.append("\trange");
+		if(printGC) {bb.append("\tGC");}
 
-
-	public List<String> tetramerGen(List<String> tlist){
-		if (tlist == null){
-			tlist = new ArrayList<String>();
-		}
-
-		int[] bases = {0, 1, 2, 3}; // A C G T
-
-		for (int b1 : bases){
-			for (int b2 : bases){
-				for (int b3 : bases){
-					for (int b4 : bases){
-						int tcode = b1;
-						tcode = (tcode<<2)|b2;
-						tcode = (tcode<<2)|b3;
-						tcode = (tcode<<2)|b4;
-						String tmer = AminoAcid.kmerToString(tcode, k).toLowerCase();
-						String rtmer = AminoAcid.kmerToString(AminoAcid.reverseComplementBinaryFast(tcode, k), k).toLowerCase(); 
-
-						if (!tlist.contains(rtmer)){
-							tlist.add(tmer);
-						} 
-					}
-				}
-			} 
-		}
-		// total of 136 unique tetramers
-		return tlist;
-	}
-
-	public List<String> tetramerGen2(List<String> tlist){
-		if (tlist == null){
-			tlist = new ArrayList<String>();
-		}
-
-		final int max=(1<<(2*k))-1;
-
-		for(int i=0; i<=max; i++){
-			final int a=i, b=AminoAcid.reverseComplementBinaryFast(i, k);
-			int min=Tools.min(a, b);
-			if(min==a){
-				tlist.add(AminoAcid.kmerToString(a, k).toLowerCase());
+		final int limit=(1<<(2*k));
+		for(int kmer=0; kmer<limit; kmer++) {
+			if(kmer<=AminoAcid.reverseComplementBinaryFast(kmer, k)) {
+				bb.tab().append(AminoAcid.kmerToString(kmer, k));
 			}
 		}
-		return tlist;
+		return bb;
 	}
-
-	public void printTetramerFromCode(long code){
-		System.out.println(AminoAcid.kmerToString(code, k));
-	}
-
-//	public void printTetramers(byte[] bases, String header){
-//		int sidx = 0;
-//		int eidx = winSize;
-//
-//		while (true){
-//			if (eidx > bases.length){
-//				break;
-//			}
-//			System.out.printf("%s %d-%d\n", header, sidx+1, eidx);
-//
-//			// count tetramer here
-//			for (int i=sidx; i<eidx-k; i++){
-//				char[] tetramer = new char[k];
-//				for (int j=0; j<k; j++){
-//					tetramer[j] = (char)bases[i+j];
-//				}
-//				System.out.println(new String(tetramer));
-//			}
-//
-//			sidx+=step;
-//			eidx+=step;
-//		}
-//	}
 
 	public static void printHelp(){
 		List<String> helplist = new ArrayList<String>();
@@ -470,9 +380,9 @@ public class TetramerFrequencies {
 			ByteBuilder bb=new ByteBuilder(512);
 			for(int i=0; i<windowsPerLine && line.eidx<=line.bases.length; i++){
 				Arrays.fill(counts, 0);
-				tetramerCounter(line.bases, line.sidx, line.eidx, counts);
+				countKmers(line.bases, line.sidx, line.eidx, counts, gc);
 				if(keepShort || line.length()>=winSize){
-					append(line, counts, bb);
+					append(line, counts, gc[0], bb);
 				}
 				line.sidx+=step;
 				line.eidx+=step;
@@ -480,7 +390,8 @@ public class TetramerFrequencies {
 			bsw.add(bb, line.id);
 		}
 		
-		private final int[] counts=new int[maxNmer+1];
+		private final int[] counts=new int[canonicalKmers];
+		private final float[] gc=new float[1];
 	}
 	
 	private class Line {
@@ -527,8 +438,14 @@ public class TetramerFrequencies {
 	private long maxReads=-1;
 	int step = 500;
 	private int winSize = 2000;
-	private final int k;
 	private boolean keepShort=false;
+	private boolean printGC=false;
+	private boolean printFloats=false;
+	private boolean gcCompensate=false;
+	private final int k;
+	private final int[] remap;
+	private final int[] gcmap;
+	private final int canonicalKmers;
 
 	/*--------------------------------------------------------------*/
 

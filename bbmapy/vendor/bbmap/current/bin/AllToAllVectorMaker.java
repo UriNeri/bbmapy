@@ -87,6 +87,8 @@ public class AllToAllVectorMaker extends BinObject {
 				maxlen=Parse.parseIntKMG(b);
 			}else if(a.equalsIgnoreCase("printSizeInVector")){
 				Oracle.printSizeInVector=Parse.parseBoolean(b);
+			}else if(a.equalsIgnoreCase("printNetOutputInVector")){
+				Oracle.printNetOutputInVector=Parse.parseBoolean(b);
 			}else if(loader.parse(arg, a, b)){
 				//do nothing
 			}else if(SimilarityMeasures.parse(arg, a, b)){
@@ -160,7 +162,8 @@ public class AllToAllVectorMaker extends BinObject {
 		if(bsw!=null) {//Print header
 			vecBuffer.clear();
 			oracle.toVector(contigs.get(0), contigs.get(1), vecBuffer, true);
-			bsw.print("#dims\t").print(vecBuffer.size-1).tab().println(1);
+			int weights=Oracle.printWeightInVector>0 ? 1 : 0;
+			bsw.print("#dims\t").print(vecBuffer.size-(1+weights)).tab().print(1).tab().println(weights);
 		}
 		ArrayList<ArrayList<Contig>> clusters=new ArrayList<ArrayList<Contig>>(map.values());
 		
@@ -325,7 +328,7 @@ public class AllToAllVectorMaker extends BinObject {
 			IntHashSet used=new IntHashSet(7);
 			Contig a=selectContig(alist, minSize, maxSize, used);
 			if(a==null) {return null;}
-			Cluster b=selectCluster(blist, 2+randy.nextInt(maxClusterContigs-1), minSize, Integer.MAX_VALUE, used);
+			Cluster b=selectCluster(blist, 2+randy.nextInt(maxClusterContigs-1), minSize, Integer.MAX_VALUE, used, 3);
 			if(!passesFilter(a, b)) {return null;}
 			vecBuffer.clear();
 //			System.err.println("size="+a.size()+", "+a.numContigs()+", "+b.size()+", "+b.numContigs());
@@ -334,9 +337,9 @@ public class AllToAllVectorMaker extends BinObject {
 			decluster(b);
 			return fl;
 		}else {
-			Cluster a=selectCluster(alist, 2+randy.nextInt(maxClusterContigs-1), minSize, maxSize, null);
+			Cluster a=selectCluster(alist, 2+randy.nextInt(maxClusterContigs-1), minSize, maxSize, null, 3);
 			if(a==null) {return null;}
-			Cluster b=selectCluster(blist, 2+randy.nextInt(maxClusterContigs-1), minSize, Integer.MAX_VALUE, a.contigSet);
+			Cluster b=selectCluster(blist, 2+randy.nextInt(maxClusterContigs-1), minSize, Integer.MAX_VALUE, a.contigSet, 3);
 			if(!passesFilter(a, b)) {
 				decluster(a);
 				return null;
@@ -376,10 +379,10 @@ public class AllToAllVectorMaker extends BinObject {
 	
 	private Bin selectBin(ArrayList<Contig> list, int maxElements, int minSize, int maxSize, IntHashSet used) {
 		if(maxElements==1) {return selectContig(list, minSize, maxSize, used);}
-		return selectCluster(list, maxElements, minSize, maxSize, used);
+		return selectCluster(list, maxElements, minSize, maxSize, used, 1);
 	}
 	
-	private Cluster selectCluster(ArrayList<Contig> list, int maxElements, int minSize, int maxSize, IntHashSet used) {
+	private Cluster selectCluster(ArrayList<Contig> list, int maxElements, int minSize, int maxSize, IntHashSet used, int tries) {
 		IntHashSet set=new IntHashSet(7);
 		long size=0;
 		for(int i=0; i<100; i++) {
@@ -396,7 +399,12 @@ public class AllToAllVectorMaker extends BinObject {
 				if(randy.nextFloat()<0.05f) {break;}
 			}
 		}
-		if(size<minSize || size>maxSize) {return null;}//fail
+		if(size<minSize || size>maxSize) {//fail
+			if(size<minSize && tries>1 && set.size()>=maxElements) {
+				return selectCluster(list, maxElements+maxClusterContigs, minSize, maxSize, used, tries-1);
+			}
+			return null;
+		}
 		Cluster clust=new Cluster(0);
 		for(int i : set.toArray()) {
 			clust.add(allContigs.get(i));

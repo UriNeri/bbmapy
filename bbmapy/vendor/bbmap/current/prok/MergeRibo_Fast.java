@@ -8,7 +8,7 @@ import java.util.Map.Entry;
 import java.util.concurrent.locks.ReadWriteLock;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 
-import aligner.SingleStateAlignerFlat2;
+import aligner.IDAligner;
 import fileIO.ByteFile;
 import fileIO.FileFormat;
 import fileIO.ReadWrite;
@@ -430,24 +430,12 @@ public class MergeRibo_Fast implements Accumulator<MergeRibo_Fast.ProcessThread>
 		}
 		
 		float align(Read r){
-			float a=(process16S ? align(r.bases, consensus16S) : 0);
-			float b=(process18S ? align(r.bases, consensus18S) : 0);
+			float a=(process16S ? ssa.align(r.bases, consensus16S) : 0);
+			float b=(process18S ? ssa.align(r.bases, consensus18S) : 0);
 			return Tools.max(a, b);
 		}
 		
-		float align(byte[] query, byte[] ref){
-			int a=0, b=ref.length-1;
-			int[] max=ssa.fillUnlimited(query, ref, a, b, -9999);
-			if(max==null){return 0;}
-			
-			final int rows=max[0];
-			final int maxCol=max[1];
-			final int maxState=max[2];
-			final float id=ssa.tracebackIdentity(query, ref, a, b, rows, maxCol, maxState, null);
-			return id;
-		}
-		
-		SingleStateAlignerFlat2 ssa=new SingleStateAlignerFlat2();
+		IDAligner ssa=aligner.Factory.makeIDAligner();
 
 		/** Number of reads processed by this thread */
 		protected long readsProcessedT=0;

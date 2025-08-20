@@ -363,6 +363,10 @@ public final class Tools {
 		}
 		return added&!failed;
 	}
+	
+	public static void fill(byte[][] matrix, byte b) {
+		for(byte[] line : matrix) {Arrays.fill(line, b);}
+	}
 
 	public static void fill(int[] target, int[] source) {
 		for(int i=0; i<target.length; i++){
@@ -832,6 +836,12 @@ public final class Tools {
 		}
 		return count;
 	}
+
+	public static int countGreaterThan(int[] array, int bound) {
+		int gt=0;
+		for(int x : array) {gt+=(x>bound ? 1 : 0);}
+		return gt;
+	}
 	
 	public static boolean isDigitOrSign(int c) {return c<0 ? false : signOrDigitMap[c];}
 	public static boolean isNumeric(int c) {return c<0 ? false : numericMap[c];}
@@ -1190,7 +1200,7 @@ public final class Tools {
 	 * @param any
 	 * @return A list of files
 	 */
-	public static ArrayList<String> getFileOrFiles(String b, ArrayList<String> list, boolean fasta, boolean fastq, boolean sam, boolean any){
+	public static Collection<String> getFileOrFiles(String b, Collection<String> list, boolean fasta, boolean fastq, boolean sam, boolean any){
 		if(list==null){list=new ArrayList<String>();}
 		{
 			File f=new File(b);
@@ -2356,7 +2366,7 @@ public final class Tools {
 
 	public static void fill(long[][] matrix, int x) {
 		for(long[] sub : matrix){
-			Arrays.fill(sub, x);
+			if(sub!=null) {Arrays.fill(sub, x);}
 		}
 	}
 
@@ -2412,7 +2422,7 @@ public final class Tools {
 
 	public static void add(long[][] array, long[][] incr) {
 		for(int i=0; i<array.length; i++){
-			add(array[i], incr[i]);
+			if(array[i]!=null) {add(array[i], incr[i]);}
 		}
 	}
 
@@ -2474,6 +2484,10 @@ public final class Tools {
 		long x=0;
 		for(int i=0; i<array.length(); i++){x+=array.get(i);}
 		return x;
+	}
+	
+	public static float invSum(int[] a) {
+		return 1f/Math.max(1, Vector.sum(a));
 	}
 	
 	public static double mean(int[] array){
@@ -3664,7 +3678,10 @@ public final class Tools {
 	public static final int max(int x, int y, int z, int z2){return max(max(x,y), max(z,z2));}
 	
 	//Median of 3
-	public static final int mid(int x, int y, int z){return x<y ? (x<z ? min(y, z) : x) : (y<z ? min(x, z) : y);}
+//	public static final int mid(int x, int y, int z){return x<y ? (x<z ? min(y, z) : x) : (y<z ? min(x, z) : y);}
+	public static final int mid(int x, int y, int z) {
+	    return Math.max(Math.min(x, y), Math.min(Math.max(x, y), z));
+	}
 
 	public static final char min(char x, char y){return x<y ? x : y;}
 	public static final char max(char x, char y){return x>y ? x : y;}
@@ -3701,7 +3718,7 @@ public final class Tools {
 	public static final float min(float x, float y, float z, float z2){return min(min(x, y), min(z, z2));}
 	public static final float max(float x, float y, float z, float z2){return max(max(x, y), max(z, z2));}
 	public static final float mid(float x, float y, float z){return x<y ? (x<z ? min(y, z) : x) : (y<z ? min(x, z) : y);}
-	
+
 	public static final int min(int[] array, int fromIndex, int toIndex){
 		int min=array[fromIndex];
 		for(int i=fromIndex+1; i<=toIndex; i++){
@@ -3712,6 +3729,22 @@ public final class Tools {
 	
 	public static final int max(int[] array, int fromIndex, int toIndex){
 		int max=array[fromIndex];
+		for(int i=fromIndex+1; i<=toIndex; i++){
+			max=max(max, array[i]);
+		}
+		return max;
+	}
+	
+	public static final long min(long[] array, int fromIndex, int toIndex){
+		long min=array[fromIndex];
+		for(int i=fromIndex+1; i<=toIndex; i++){
+			min=min(min, array[i]);
+		}
+		return min;
+	}
+	
+	public static final long max(long[] array, int fromIndex, int toIndex){
+		long max=array[fromIndex];
 		for(int i=fromIndex+1; i<=toIndex; i++){
 			max=max(max, array[i]);
 		}

@@ -3,7 +3,7 @@
 usage(){
 echo "
 Written by Brian Bushnell
-Last modified April 7, 2025
+Last modified June 20, 2025
 
 Description:  Grades metagenome bins for completeness and contamination.
 The contigs can be labeled with their taxID; in which case the header should
@@ -21,23 +21,42 @@ MQ:  >=50% complete and <=10% contam, but not HQ
 LQ:  <50% complete or >10% contam
 VLQ: <20% complete or >5% contam    (subset of LQ)
 
-
 Usage:  gradebins.sh ref=assembly bin*.fa
 or
 gradebins.sh ref=assembly.fa in=bin_directory
 or
 gradebins.sh taxin=tax.txt in=bins
 
-File parameters:
+Input parameters:
 ref=<file>      The original assembly that was binned.
 in=<directory>  Location of bin fastas.
 checkm=<file>   Optional CheckM2 quality_report.tsv file or directory.
 eukcc=<file>    Optional EukCC eukcc.csv file or directory.
-hist=<file>     Histogram output.
+cami=<file>     Optional binning file from CAMI which indicates contig TaxIDs.
 taxin=<file>    Optional file with taxIDs and sizes (instead of loading ref).
                 Does not need to include taxIDs.  The tax file loads faster.
-taxout=<file>   Generate a tax file from the reference.
+gtdb=<file>     Optional gtdbtk file.
+gff=<file>      Optional gff file.
+imgmap=<file>   Optional IMG map file, for renamed IMG gff input.
+spectra=<file>  Optional path to QuickClade index.
+cov=<file>      Optional path to QuickBin coverage file.
 loadmt=t        Load bins multithreaded.
+
+Output parameters:
+report=<file>   Report on bin size, quality, and taxonomy.
+taxout=<file>   Generate a tax file from the reference (for use with taxin).
+hist=<file>     Cumulative bin size and contamination histogram.
+ccplot=<file>   Per-bin completeness/contam data.
+contamhist=<file> Histogram plotting #bins or bases vs %contam.
+
+Processing parameters:
+userna=f        Require rRNAs and tRNAs for HQ genomes.  This needs either
+                a gff file or the callgenes flag.  Specifically, HQ and
+                subtypes require at least 1 16S, 23S, and 5S, plus 18 tRNAs.
+callgenes=f     Call rRNAs and tRNAs.  Suboptimal for some RNA types.
+aligner=ssa2    Do not change this.
+quickclade=f    Assign taxonomy using QuickClade.
+
 
 Java Parameters:
 -Xmx            This will set Java's memory usage, overriding autodetection.
@@ -65,8 +84,8 @@ popd > /dev/null
 #DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )/"
 CP="$DIR""current/"
 
-z="-Xmx2g"
-z2="-Xms2g"
+z="-Xmx4g"
+z2="-Xms4g"
 set=0
 
 if [ -z "$1" ] || [[ $1 == -h ]] || [[ $1 == --help ]]; then
@@ -82,7 +101,7 @@ calcXmx () {
 calcXmx "$@"
 
 gradeBins() {
-	local CMD="java $EA $EOOM $z -cp $CP bin.GradeBins $@"
+	local CMD="java $EA $EOOM $SIMD $z -cp $CP bin.GradeBins $@"
 	echo $CMD >&2
 	eval $CMD
 }

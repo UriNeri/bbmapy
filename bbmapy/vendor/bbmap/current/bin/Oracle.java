@@ -1,8 +1,10 @@
 package bin;
 
+import aligner.IDAligner;
 import fileIO.ByteStreamWriter;
 import ml.CellNet;
 import shared.Tools;
+import shared.Vector;
 import structures.ByteBuilder;
 import structures.FloatList;
 import tax.TaxTree;
@@ -66,6 +68,7 @@ public class Oracle extends BinObject implements Cloneable {
 		long size=Tools.min(a.size(), b.size());
 		float sizeMult=Binner.sizeAdjustMult(size);
 		float stringency=stringency0*sizeMult;
+		if(a.hasSSU() && b.hasSSU()) {stringency*=2;}
 
 		if(a.maxDepth()==0 || b.maxDepth()==0) {
 			stringency*=0.8f;//Has no effect...?  Maybe it will on coassemblies though.
@@ -155,33 +158,31 @@ public class Oracle extends BinObject implements Cloneable {
 
 		trimerComparisons++;
 		float trimerDif=(countTrimers ? 
-				SimilarityMeasures.cosineDifference(a.trimers, b.trimers) : 0);//TODO: Consider absdif; may be faster
-		if(trimerDif>max3merDif*mult*Binner.cutoffMultA) {return -1;}
-		slowComparisons++;
+				Vector.cosineDifference(a.trimers, b.trimers) : 0);
+//				SimilarityMeasures.cosineDifference(a.trimers, b.trimers) : 0);
 		
-		float tetramerDif=SimilarityMeasures.cosineDifference(a.tetramers, b.tetramers);
-		float pentamerDif=(a.numPentamers<BinObject.minPentamerSizeCompare ||
-				b.numPentamers<BinObject.minPentamerSizeCompare ? Math.min(1, tetramerDif*1.7f) :
-					SimilarityMeasures.cosineDifference(a.pentamers, b.pentamers));
+		//This causes a large speedup by avoiding tetramer calculation
+		//0.75 has no effect, so 0.8 is safe (0.725 causes a slight change) 
+		if(trimerDif>max3merDif*mult*Binner.cutoffMultA ||
+				trimerDif*depthRatio>maxProduct*mult*Binner.cutoffMultB*0.8f) {return -1;}
+
+		tetramerComparisons++;
+		float tetramerDif=Vector.cosineDifference(a.tetramers, b.tetramers);
 		final float product=tetramerDif*depthRatio;
 		float kmerProb=KmerProb.prob(minlen, tetramerDif);
 		kmerProb=1-(1-kmerProb)/mult;
+		if(tetramerDif>max4merDif*mult*Binner.cutoffMultA || 
+				product>maxProduct*mult*Binner.cutoffMultB || kmerProb<0.5f) {return -1;}
+
+		slowComparisons++;
+		float pentamerDif=(a.numPentamers<BinObject.minPentamerSizeCompare ||
+				b.numPentamers<BinObject.minPentamerSizeCompare ? Math.min(1, tetramerDif*1.7f) :
+					Vector.cosineDifference(a.pentamers, b.pentamers));
 		if(BinObject.verbose || verbose2) {
 			System.err.println("D: tetramerDif="+tetramerDif+", max="+(max4merDif*mult)+
 					", product="+product+", max="+(maxProduct*mult));
 		}
-		
-		if(trimerDif>max3merDif*mult*Binner.cutoffMultA || tetramerDif>max4merDif*mult*Binner.cutoffMultA || 
-				pentamerDif>max5merDif*mult*Binner.cutoffMultA || product>maxProduct*mult*Binner.cutoffMultB || 
-				kmerProb<0.5f) {
-//			assert(!sameLabel) : 
-//				"\ntri="+trimerDif+">"+(max3merDif*mult*Binner.cutoffMultA)+
-//				"\ntet="+tetramerDif+">"+(max4merDif*mult*Binner.cutoffMultA)+
-//				"\npent="+pentamerDif+">"+(max5merDif*mult*Binner.cutoffMultA)+
-//				"\nprod="+product+">"+(maxProduct*mult*Binner.cutoffMultA)+
-//				"\ncma="+Binner.cutoffMultA+", cmb="+Binner.cutoffMultB;
-			return -1;
-		}
+		if(pentamerDif>max5merDif*mult*Binner.cutoffMultA) {return -1;}
 		
 		final float similarity=similarity(depthRatio, gcDif, tetramerDif, covariance, kmerProb, 
 				Tools.min(edges1, edges2));
@@ -195,20 +196,18 @@ public class Oracle extends BinObject implements Cloneable {
 		CellNet network=getNetwork(minlen);
 		float mult2=mult;
 		if(network!=null) {
+			final float cutoff=(makingBinMap && Binner.netCutoff1>network.cutoff ? 
+					Binner.netCutoff1 : network.cutoff);
 			netComparisons++;
-//			if(netOutput<network.cutoff) {
-////				return -1;
-//				mult*=Binner.netMultLower;
-//			}else 
+			
 			if(netOutput>Binner.netCutoffUpper) {
 				mult2*=Binner.netMultUpper;
-//				return netOutput;
 			}else if(netOutput<Binner.netCutoffLower) {
 				mult2*=Binner.netMultLower;
 			}
-			float ratio=(netOutput<0.001f ? 0 : netOutput/network.cutoff);
-//			tetramerDif=tetramerDif*network.cutoff/netOutput;
-			mult2=(float)(mult2*ratio*ratio*Math.sqrt(ratio));
+			float ratio=(netOutput<0.001f ? 0 : netOutput/cutoff);
+//			mult2=(float)(mult2*ratio*ratio*Math.sqrt(ratio));
+			mult2=(float)(mult2*ratio*ratio);
 		}
 		if(BinObject.verbose || verbose2) {
 			System.err.println("F: mult="+mult+", tetramerDif="+tetramerDif+", max="+(max4merDif*mult)+
@@ -217,35 +216,36 @@ public class Oracle extends BinObject implements Cloneable {
 		}
 		
 		float ret=netOutput;
-//		assert(ret==similarity);
-//		assert(mult2==mult);
-//		assert(false) : ret+", "+mult;
-//		assert(false) : trimerDif+"<"+maxTrimerDif+", "+tetramerDif+"<"+maxKmerDif+
-//			", "+pentamerDif+"<"+pentamerDif+", "+product+"<"+maxProduct+", "+
-//			kmerProb+">"+minKmerProb;
 		if(trimerDif>max3merDif*mult2 || tetramerDif>max4merDif*mult2 || pentamerDif>max5merDif*mult2 || 
-				product>maxProduct*mult2 || kmerProb<minKmerProb) {
-//			assert(!sameLabel);
-//			assert(sameLabel);
-			ret=-1;
-		}
+				product>maxProduct*mult2 || kmerProb<minKmerProb) {ret=-1;}
 
 		float mult3=(network==null ? mult : mult2*Binner.cutoffMultC);
 		if(gcDif>maxGCDif*mult3 || depthRatio>maxDepthRatio*mult3 || covariance>maxCovariance*mult3) {
-//			assert(!sameLabel);
-//			assert(sameLabel);
 			ret=-1;
 		}
 		
-//		assert(!sameLabel || ret>=0) : a.labelTaxid+", "+b.labelTaxid+", "+ret+", "+canEmitVector(a, b, ret);
 		if(bsw!=null && canEmitVector(a, b, ret)) {
-			if(sameLabel || Math.random()<=negativeEmitProb) {
-				emitVector(a, b, bsw);
-			}
+			if(sameLabel || Math.random()<=negativeEmitProb) {emitVector(a, b, bsw);}
 		}
 		
 		if(Binner.BAN_BAD_MERGES && !sameLabel) {ret=-1;}
+		if(ret>-1 && ssa!=null) {
+			float id=ssuCompatibility(a, b);
+			if(id<minSSUID) {ret=-1;}
+			else if(id<2) {ret+=id;}
+		}
 		return ret;
+	}
+	
+	final float ssuCompatibility(Bin a, Bin b) {
+		if(a.r16S==null && a.r18S==null) {return 2;}
+		if(b.r16S==null && b.r18S==null) {return 2;}
+		if(a.r16S!=null && b.r18S!=null) {return -1;}
+		if(a.r18S!=null && b.r16S!=null) {return -1;}
+		if(a.r16S!=null && b.r16S!=null) {return ssa.align(a.r16S, b.r16S, null, 0);}
+		if(a.r18S!=null && b.r18S!=null) {return ssa.align(a.r18S, b.r18S, null, 0);}
+		assert(false);
+		return 0;
 	}
 	
 	final float runNetwork(Bin a, Bin b, final long minEdges, final long transEdges, final float gcDif, 
@@ -351,12 +351,13 @@ public class Oracle extends BinObject implements Cloneable {
 				b.numPentamers<BinObject.minPentamerSizeCompare);
 		
 //		float euc=(addEuclidian ? SimilarityMeasures.euclideanDistance(a.tetramers, b.tetramers) : 0);
-		float hel=(addHellinger ? SimilarityMeasures.hellingerDistance(a.tetramers, b.tetramers) : 0);
+		final float invA4=Tools.invSum(a.tetramers), invB4=Tools.invSum(b.tetramers);
+		float hel=(addHellinger ? SimilarityMeasures.hellingerDistance(a.tetramers, b.tetramers, invA4, invB4) : 0);
 		float hel3=(addHellinger3 ? SimilarityMeasures.hellingerDistance(a.trimers, b.trimers) : 0);
 		float hel5=(!addHellinger5 ? 0 : !pentamers ? Math.min(1, hel*1.7f) :
 					SimilarityMeasures.hellingerDistance(a.pentamers, b.pentamers));
-		float jsdiv=(addJsDiv ? SimilarityMeasures.jensenShannonDivergence(a.tetramers, b.tetramers) : 0);
-		float absdif=(addAbsDif ? SimilarityMeasures.absDif(a.tetramers, b.tetramers) : 0);
+		float jsdiv=(addJsDiv ? SimilarityMeasures.jensenShannonDivergence(a.tetramers, b.tetramers, invA4, invB4) : 0);
+		float absdif=(addAbsDif ? SimilarityMeasures.absDif(a.tetramers, b.tetramers, invA4, invB4) : 0);
 		float mult=vectorSmallNumberMult;//For making very small numbers bigger
 		float gcComp=(!addGCComp ? 0 : 
 			SimilarityMeasures.cosineDifferenceCompensated(a.tetramers, b.tetramers, 4));
@@ -423,7 +424,36 @@ public class Oracle extends BinObject implements Cloneable {
 //		list.add(0.1f*a.numEdges()/(float)(Tools.max(b.numContigs(), 1)));
 //		list.add(0.1f*b.numEdges()/(float)(Tools.max(b.numContigs(), 1)));
 		list.add(1-similarity);//27
+		if(printNetOutputInVector) {
+			float out1=0, out2=0, out3=0;
+			if(networkSmall!=null) {
+				networkSmall.applyInput(list);
+				out1=networkSmall.feedForward();
+			}
+			if(networkMid!=null && networkMid!=networkSmall) {
+				networkMid.applyInput(list);
+				out2=networkMid.feedForward();
+			}
+			if(networkLarge!=null && networkLarge!=networkMid) {
+				networkLarge.applyInput(list);
+				out3=networkLarge.feedForward();
+			}
+			list.add(out1);
+			list.add(out2);
+			list.add(out3);
+		}
 		if(includeAnswer) {
+			if(printWeightInVector>0) {
+				if(printWeightInVector==1) {
+					list.add(0.125f+sizeProxy);
+				}else if(printWeightInVector==2) {
+					list.add(0.125f+sizeProxy*sizeProxy);
+				}else if(printWeightInVector==3) {
+					list.add(0.125f+(float)Math.sqrt(a.size()/20000f));
+				}else {
+					assert(false) : printWeightInVector;
+				}
+			}
 			assert(a.labelTaxid>0 && b.labelTaxid>0) : a.labelTaxid+", "+b.labelTaxid+", "+a.name();
 			list.add(a.labelTaxid==b.labelTaxid ? 1 : 0);
 		}
@@ -451,6 +481,7 @@ public class Oracle extends BinObject implements Cloneable {
 			clone.networkSmall=(networkSmall==null ? null : networkSmall.copy(false));
 			clone.networkMid=(networkMid==null ? null : networkMid.copy(false));
 			clone.networkLarge=(networkLarge==null ? null : networkLarge.copy(false));
+			clone.ssa=(ssa==null ? null : aligner.Factory.makeIDAligner());
 			return clone;
 		} catch (CloneNotSupportedException e) {
 			throw new RuntimeException(e);
@@ -507,6 +538,7 @@ public class Oracle extends BinObject implements Cloneable {
 	
 	long fastComparisons=0;
 	long trimerComparisons=0;
+	long tetramerComparisons=0;
 	long slowComparisons=0;
 	long netComparisons=0;
 
@@ -525,6 +557,8 @@ public class Oracle extends BinObject implements Cloneable {
 	private CellNet networkSmall;
 	private CellNet networkMid;
 	private CellNet networkLarge;
+	private IDAligner ssa=(SpectraCounter.call16S ? 
+			aligner.Factory.makeIDAligner() : null);
 	
 	int taxlevel=TaxTree.SPECIES;
 	boolean allowNoTaxID=true;
@@ -540,6 +574,9 @@ public class Oracle extends BinObject implements Cloneable {
 	static int maxEmitSize=2000000000;
 	static double negativeEmitProb=1;
 	static boolean printSizeInVector=false;
+	static int printWeightInVector=1;
+	static boolean printNetOutputInVector=false;
+	static float minSSUID=0.98f;
 	boolean verbose2=false;
 	
 	

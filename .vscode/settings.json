@@ -3,5 +3,8 @@
         "vendor**",
         "**vendor",
         "**vendor/*"
+    ],
+    "python.analysis.extraPaths": [
+        "./.pixi/envs/default/lib/python3.13/site-packages"
     ]
 }

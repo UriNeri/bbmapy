@@ -13,6 +13,7 @@ public class Sample implements Comparable<Sample> {
 		weight=weight_;
 		id=id_;
 		positive=(goal[0]>=0.5f);
+		assert(weight>0) : weight;
 	}
 	
 	@Override
@@ -75,10 +76,13 @@ public class Sample implements Comparable<Sample> {
 			float r=result[i];
 			float g=goal[i];
 			float e=calcError(g, r);
+			assert(e>=0);
 			error+=e;
 		}
 		errorMagnitude=(float)error;
+		assert(error>=0);
 		weightedErrorMagnitude=Cell.toWeightedError(error, result[0], goal[0], weightMult);
+		assert(weightedErrorMagnitude>=0);
 	}
 	
 	public synchronized int epoch() {return epoch;}

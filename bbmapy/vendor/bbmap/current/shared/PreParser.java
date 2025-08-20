@@ -67,7 +67,6 @@ public class PreParser {
 
 		PrintStream outstream=((defaultPrintStream == null) ? System.err : defaultPrintStream);
 		boolean help=false, jflag=false, json=false;
-		
 		for(int i=0; i<args.length; i++){
 			String s=args[i];
 			boolean remove=false;

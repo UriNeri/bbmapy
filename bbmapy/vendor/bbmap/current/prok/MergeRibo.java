@@ -27,9 +27,14 @@ import stream.ConcurrentReadOutputStream;
 import stream.FASTQ;
 import stream.FastaReadInputStream;
 import stream.Read;
+import structures.ByteBuilder;
 import structures.IntHashSet;
 import structures.ListNum;
+import tax.CanonicalLineage;
 import tax.GiToTaxid;
+import tax.PrintTaxonomy;
+import tax.TaxNode;
+import tax.TaxTree;
 import template.Accumulator;
 import template.ThreadWaiter;
 import tracker.ReadStats;
@@ -122,6 +127,8 @@ public class MergeRibo implements Accumulator<MergeRibo.ProcessThread> {
 		
 		//Determine how many threads may be used
 		threads=Shared.threads();
+		useTree|=(dada2 || taxLevelE>0);
+		if(useTree) {loadTree();}
 	}
 	
 	/*--------------------------------------------------------------*/
@@ -169,6 +176,16 @@ public class MergeRibo implements Accumulator<MergeRibo.ProcessThread> {
 				Tools.addFiles(b, in);
 			}else if(a.equals("alt")){
 				alt=b;
+			}else if(a.equals("tree")){
+				treePath=b;
+				useTree=(treePath!=null);
+			}else if(a.equals("usetree")){
+				useTree=Parse.parseBoolean(b);
+			}else if(a.equalsIgnoreCase("dada2")){
+				dada2=Parse.parseBoolean(b);
+			}else if(a.equals("level") || a.equals("taxlevel")){
+				taxLevelE=TaxTree.parseLevelExtended(b);
+				if(taxLevelE>0) {useTree=true;}
 			}else if(a.equalsIgnoreCase("process16S") || a.equalsIgnoreCase("16S")){
 				process16S=Parse.parseBoolean(b);
 				process18S=!process16S;
@@ -408,7 +425,7 @@ public class MergeRibo implements Accumulator<MergeRibo.ProcessThread> {
 		//Constructor
 		ProcessThread(final ConcurrentReadInputStream cris_, final int tid_, boolean alt_){
 			cris=cris_;
-			tid=tid_;
+			threadID=tid_;
 			processInput=(cris!=null);
 			altData=alt_;
 		}
@@ -424,7 +441,7 @@ public class MergeRibo implements Accumulator<MergeRibo.ProcessThread> {
 			}else{
 				pickBest();
 			}
-			
+//			assert(false) : processInput;
 			//Do anything necessary after processing
 			
 			//Indicate successful exit status
@@ -433,7 +450,7 @@ public class MergeRibo implements Accumulator<MergeRibo.ProcessThread> {
 		
 		/** Iterate through the reads */
 		void processInner(){
-			if(verbose && tid==0){System.err.println("processInner() for tid="+tid);}
+			if(verbose && threadID==0){System.err.println("processInner() for tid="+threadID);}
 			
 			//Grab the first ListNum of reads
 			ListNum<Read> ln=cris.nextList();
@@ -465,7 +482,7 @@ public class MergeRibo implements Accumulator<MergeRibo.ProcessThread> {
 		}
 		
 		void processInput(ListNum<Read> ln){
-			if(verbose && tid==0){System.err.println("processInput() for tid="+tid);}
+			if(verbose && threadID==0){System.err.println("processInput() for tid="+threadID);}
 
 			//Grab the actual read list from the ListNum
 			final ArrayList<Read> reads=ln.list;
@@ -489,18 +506,44 @@ public class MergeRibo implements Accumulator<MergeRibo.ProcessThread> {
 		}
 		
 		void pickBest(){
-			if(verbose && tid==0){System.err.println("pickBest() for tid="+tid);}
+			if(verbose && threadID==0){System.err.println("pickBest() for tid="+threadID);}
 			for(ArrayList<Ribo> list=queue.poll(); list!=null; list=queue.poll()){
 				Ribo best=pickBest(list);
 				list.clear();
-				synchronized(bestList){
-					bestList.add(best);
+				if(best!=null) {//For example, fails length test or no taxonomy
+					synchronized(bestList){
+						bestList.add(best);
+					}
 				}
 			}
 		}
 		
-		Ribo pickBest(ArrayList<Ribo> list){
-			if(verbose && tid==0){System.err.println("pickBest(list[="+list.size()+"]) for tid="+tid);}
+		/** Get the best sequence and possibly rename it */
+		Ribo pickBest(ArrayList<Ribo> list) {
+			//TODO: Customize all names, not just for dada2 output 
+			Ribo best=pickBestInner(list);
+			if(dada2) {
+//				TaxNode tn=tree.getNode(best.tid);
+////				System.err.println("tid="+best.tid+", node="+tn);
+//				Object id=best.r.id;
+//				if(tn==null) {
+//					id=(best.tid+" No_Node");
+//				}else if(tn.levelExtended==TaxTree.SPECIES_E){
+////					bb.append(best.tid).space().append(tn.name);//Just the "id genus species".
+//					id=PrintTaxonomy.makeTaxLine(tree, tn, TaxTree.SPECIES_E, TaxTree.KINGDOM_E, true, true);	
+//				}else {//Some other level; use the full taxonomy from kingdom to species
+//					id=PrintTaxonomy.makeTaxLine(tree, tn, TaxTree.SPECIES_E, TaxTree.KINGDOM_E, true, true);		
+//				}
+//				best.r.id=id.toString();
+				CanonicalLineage cn=new CanonicalLineage(best.tid, tree);
+				if(cn.levelsDefined<1) {return null;}
+				best.r.id=cn.toString();
+			}
+			return best;
+		}
+		
+		Ribo pickBestInner(ArrayList<Ribo> list){
+			if(verbose && threadID==0){System.err.println("pickBest(list[="+list.size()+"]) for tid="+threadID);}
 			assert(list!=null && list.size()>0);
 			if(list.size()==1){return list.get(0);}
 			Collections.sort(list);
@@ -520,7 +563,7 @@ public class MergeRibo implements Accumulator<MergeRibo.ProcessThread> {
 				best=new Ribo(consensus, base.tid, 1);
 			}else{
 				for(Ribo r : list){
-					float id=align(r.r.bases, consensus.bases);
+					float id=ssa.align(r.r.bases, consensus.bases);
 					r.identity=id;
 					r.product=score(r.length(), r.identity);
 				}
@@ -537,11 +580,17 @@ public class MergeRibo implements Accumulator<MergeRibo.ProcessThread> {
 		 * @return True if the reads should be kept, false if they should be discarded.
 		 */
 		void processRead(final Read r){
-			if(verbose && tid==0){System.err.println("processRead()");}
+			if(verbose && threadID==0){System.err.println("processRead()");}
 			if(r.length()<minlen || r.length()>maxlen){return;}
 			if(maxns>=0 && r.countNocalls()>maxns){return;}
 			Integer key=GiToTaxid.parseTaxidNumber(r.id, '|');
-			if(verbose && tid==0){System.err.println("key="+key);}
+			if(verbose && threadID==0){System.err.println("key="+key);}
+			
+			if(key!=null && key>0 && taxLevelE>0) {
+				int levelID=tree.getIdAtLevelExtended(key, taxLevelE);
+				if(levelID>0 && levelID!=key) {key=levelID;}
+			}
+			
 			if(key==null || key==-1 || (altData && seenTaxID.contains(key))){return;}
 			float id=align(r);
 			if(id<minID){return;}
@@ -559,22 +608,10 @@ public class MergeRibo implements Accumulator<MergeRibo.ProcessThread> {
 		}
 		
 		float align(Read r){
-			float a=(process16S ? align(r.bases, consensus16S) : 0);
-			float b=(process18S ? align(r.bases, consensus18S) : 0);
-			if(verbose && tid==0){System.err.println("Aligned; a="+a+", b="+b);}
+			float a=(process16S ? ssa.align(r.bases, consensus16S) : 0);
+			float b=(process18S ? ssa.align(r.bases, consensus18S) : 0);
+			if(verbose && threadID==0){System.err.println("Aligned; a="+a+", b="+b);}
 			return Tools.max(a, b);
-		}
-		
-		float align(byte[] query, byte[] ref){
-			int a=0, b=ref.length-1;
-			int[] max=ssa.fillUnlimited(query, ref, a, b, -9999);
-			if(max==null){return 0;}
-			
-			final int rows=max[0];
-			final int maxCol=max[1];
-			final int maxState=max[2];
-			final float id=ssa.tracebackIdentity(query, ref, a, b, rows, maxCol, maxState, null);
-			return id;
 		}
 		
 		SingleStateAlignerFlat2 ssa=new SingleStateAlignerFlat2();
@@ -590,7 +627,7 @@ public class MergeRibo implements Accumulator<MergeRibo.ProcessThread> {
 		/** Shared input stream */
 		private final ConcurrentReadInputStream cris;
 		/** Thread ID */
-		final int tid;
+		final int threadID;
 		
 		//Run mode
 		final boolean processInput;
@@ -615,6 +652,8 @@ public class MergeRibo implements Accumulator<MergeRibo.ProcessThread> {
 		}
 		
 		int length(){return r.length();}
+		
+		public String toString() {return "tid="+tid+", header="+r.id;}
 		
 		Read r;
 		int tid;
@@ -642,6 +681,14 @@ public class MergeRibo implements Accumulator<MergeRibo.ProcessThread> {
 		return lengthMult(len)*identity;
 	}
 	
+	private TaxTree loadTree() {
+		if("auto".equals(treePath)){treePath=TaxTree.defaultTreeFile();}
+		if(treePath!=null) {
+			tree=TaxTree.loadTaxTree(treePath, System.err, false, false);
+		}
+		return tree;
+	}
+	
 	/*--------------------------------------------------------------*/
 	/*----------------            Fields            ----------------*/
 	/*--------------------------------------------------------------*/
@@ -664,6 +711,11 @@ public class MergeRibo implements Accumulator<MergeRibo.ProcessThread> {
 	HashMap<Integer, ArrayList<Ribo>> listMap=new HashMap<Integer, ArrayList<Ribo>>(100000);
 	ConcurrentLinkedQueue<ArrayList<Ribo>> queue;
 	
+	private TaxTree tree=null;
+	private String treePath="auto";
+	private boolean useTree=false;
+	private int taxLevelE=-1;
+	private boolean dada2=false;
 	
 	IntHashSet seenTaxID=new IntHashSet(1000000);
 	

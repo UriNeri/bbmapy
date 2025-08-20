@@ -21,12 +21,29 @@ import structures.ByteBuilder;
 import structures.ListNum;
 
 /**
+ * Filters VCF files based on variant quality, type, position, and statistical criteria.
+ * Provides comprehensive filtering capabilities for post-processing variant calls,
+ * with support for both single-threaded and multithreaded operation.
+ * 
+ * Key features:
+ * - Statistical filtering using VarFilter criteria (coverage, quality, strand bias, etc.)
+ * - Position-based filtering using SamFilter criteria (coordinates, contigs)
+ * - Variant type filtering (enable/disable SNPs, indels, junctions)
+ * - Allele splitting for multi-allelic variants
+ * - Quality score histograms for analysis
+ * - Header preservation and metadata extraction
+ * 
  * @author Brian Bushnell
+ * @contributor Isla Winglet
  * @date January 14, 2017
- *
  */
 public class FilterVCF {
 	
+	/**
+	 * Main method for command-line execution.
+	 * 
+	 * @param args Command line arguments
+	 */
 	public static void main(String[] args){
 		Timer t=new Timer();
 		FilterVCF x=new FilterVCF(args);
@@ -36,6 +53,12 @@ public class FilterVCF {
 		Shared.closeStream(x.outstream);
 	}
 	
+	/**
+	 * Constructor that parses command-line arguments and initializes filtering parameters.
+	 * Sets up both variant-specific filtering (VarFilter) and position-specific filtering (SamFilter).
+	 * 
+	 * @param args Command line arguments array
+	 */
 	public FilterVCF(String[] args){
 		
 		{//Preparse block for help, config files, and outstream
@@ -124,7 +147,6 @@ public class FilterVCF {
 			}else{
 				outstream.println("Unknown parameter "+args[i]);
 				assert(false) : "Unknown parameter "+args[i];
-				//				throw new RuntimeException("Unknown parameter "+args[i]);
 			}
 		}
 		
@@ -147,8 +169,6 @@ public class FilterVCF {
 			ByteFile.FORCE_MODE_BF1=true;
 		}
 		
-
-		
 		//Ensure output files can be written
 		if(!Tools.testOutputFiles(overwrite, append, false, out1)){
 			outstream.println((out1==null)+", "+out1);
@@ -165,12 +185,15 @@ public class FilterVCF {
 		ffout1=FileFormat.testOutput(out1, FileFormat.TXT, null, true, overwrite, append, multithreaded);
 		
 		if(ref!=null){ScafMap.loadReference(ref, scafMap, samFilter, true);}
-//		inq=new ArrayBlockingQueue<ListNum<byte[]>>(Shared.threads()+1);
 		
 		//Determine how many threads may be used
 		threads=Tools.min(8, Shared.threads());
 	}
 	
+	/**
+	 * Loads scaffold information from VCF contig header lines into the ScafMap.
+	 * Processes ##contig=<ID=...> lines to build coordinate reference system.
+	 */
 	public void loadHeaderInScafMap(){
 		for(byte[] line : header){
 			if(Tools.startsWith(line, "##contig=<ID=")){
@@ -179,6 +202,11 @@ public class FilterVCF {
 		}
 	}
 	
+	/**
+	 * Converts stored header lines to a formatted string.
+	 * 
+	 * @return Complete VCF header as string
+	 */
 	public String headerToString(){
 		StringBuilder sb=new StringBuilder();
 		for(byte[] line : header){
@@ -190,10 +218,15 @@ public class FilterVCF {
 		return sb.toString();
 	}
 	
-	/** Spawn process threads */
+	/**
+	 * Spawns worker threads for multithreaded VCF processing.
+	 * Each thread processes batches of VCF lines independently.
+	 * 
+	 * @param bf Input ByteFile
+	 * @param bsw Output ByteStreamWriter
+	 * @return List of spawned ProcessThread objects
+	 */
 	private ArrayList<ProcessThread> spawnThreads(ByteFile bf, ByteStreamWriter bsw){
-		
-		//Do anything necessary prior to processing
 		
 		//Fill a list with ProcessThreads
 		ArrayList<ProcessThread> alpt=new ArrayList<ProcessThread>(threads);
@@ -212,16 +245,16 @@ public class FilterVCF {
 		return alpt;
 	}
 	
+	/**
+	 * Waits for all worker threads to complete and aggregates statistics.
+	 * 
+	 * @param alpt List of ProcessThread objects to wait for
+	 */
 	private void waitForFinish(ArrayList<ProcessThread> alpt){
 		//Wait for completion of all threads
 		boolean allSuccess=true;
 		for(ProcessThread pt : alpt){
 			while(pt.getState()!=Thread.State.TERMINATED){
-//				synchronized(pt){
-//					try {
-//						pt.wait(200);
-//					} catch (InterruptedException e) {}
-//				}
 				try {
 					//Attempt a join operation
 					pt.join();
@@ -244,6 +277,14 @@ public class FilterVCF {
 		if(!allSuccess){errorState=true;}
 	}
 	
+	/**
+	 * Processes VCF header section and extracts metadata.
+	 * Handles scaffold definitions, sample names, and statistical metadata
+	 * from the VCF header lines.
+	 * 
+	 * @param bf Input ByteFile
+	 * @param bsw Output ByteStreamWriter (may be null)
+	 */
 	private void processVcfHeader(ByteFile bf, ByteStreamWriter bsw){
 		byte[] line=bf.nextLine();
 
@@ -294,6 +335,14 @@ public class FilterVCF {
 		}
 	}
 	
+	/**
+	 * Single-threaded VCF variant processing.
+	 * Processes each variant line sequentially, applying all filtering criteria
+	 * and optionally splitting multi-allelic variants.
+	 * 
+	 * @param bf Input ByteFile
+	 * @param bsw Output ByteStreamWriter (may be null)
+	 */
 	private void processVcfVarsST(ByteFile bf, ByteStreamWriter bsw){
 		boolean varFormatOK=true;
 		byte[] line=bf.nextLine();
@@ -321,12 +370,16 @@ public class FilterVCF {
 					VCFLine vline=new VCFLine(line);
 					boolean pass=true;
 					
+					// Type-based filtering
 					if(!Var.CALL_DEL && vline.type()==Var.DEL){pass=false;}
 					else if(!Var.CALL_INS && vline.type()==Var.INS){pass=false;}
 					else if(!Var.CALL_SUB && vline.type()==Var.SUB){pass=false;}
 					else if(!Var.CALL_JUNCTION && vline.isJunction()){pass=false;}
 					
+					// Position-based filtering
 					if(pass && samFilter!=null){pass&=samFilter.passesFilter(vline);}
+					
+					// Statistical filtering
 					if(pass && varFilter!=null){
 						Var v=null;
 						
@@ -347,8 +400,9 @@ public class FilterVCF {
 							pass&=vline.qual>=varFilter.minScore;
 						}
 					}
+					
 					if(pass){
-						
+						// Handle variant splitting if requested
 						ArrayList<VCFLine> split=(splitAlleles || splitComplex || splitSubs) ? vline.split(splitAlleles, splitComplex, splitSubs) : null;
 						
 						if(split==null){
@@ -365,6 +419,12 @@ public class FilterVCF {
 							}
 						}
 						
+						/* COMMENTED OUT: Earlier allele splitting implementation
+						 * This was a simpler approach that just split multi-allelic variants
+						 * by comma separation, but didn't handle the auxiliary VCF data correctly.
+						 * The current split() method properly handles FORMAT fields and other
+						 * per-allele information when splitting variants.
+						 */
 //						if(splitAlleles && vline.alt!=null && Tools.indexOf(vline.alt, ',')>0){//This may not split correctly, since the auxiliary data is replicated
 //							String alleles=new String(vline.alt);
 //							String[] split=alleles.split(",");
@@ -381,8 +441,6 @@ public class FilterVCF {
 //							int q=(int)(vline.qual);
 //							scoreHist[Tools.min(scoreHist.length-1, q)]++;
 //						}
-						
-						
 //						if(bsw!=null){bsw.println(line);}
 //						variantLinesOut++;
 //						int q=(int)(vline.qual);
@@ -394,12 +452,23 @@ public class FilterVCF {
 		}
 	}
 	
+	/**
+	 * Multithreaded VCF variant processing.
+	 * Spawns worker threads to process variants in parallel for better performance.
+	 * 
+	 * @param bf Input ByteFile
+	 * @param bsw Output ByteStreamWriter
+	 */
 	private void processVcfVarsMT (ByteFile bf, ByteStreamWriter bsw){
 		ArrayList<ProcessThread> alpt=spawnThreads(bf, bsw);
-//		readBytes(bf);
 		waitForFinish(alpt);
 	}
 	
+	/* COMMENTED OUT: Producer-consumer threading model
+	 * This was an earlier approach that used a separate thread to read bytes
+	 * and distribute them to worker threads via a queue. The current approach
+	 * uses ByteFile.nextList() directly in each thread for simpler coordination.
+	 */
 //	private void readBytes(ByteFile bf){
 //		ListNum<byte[]> ln=bf.nextList();
 //		while(ln!=null){
@@ -409,6 +478,14 @@ public class FilterVCF {
 //		putBytes(POISON_BYTES);
 //	}
 	
+	/**
+	 * Core filtering method that processes an entire VCF file.
+	 * Handles header processing, scaffold map initialization, and variant filtering
+	 * using either single-threaded or multithreaded approach.
+	 * 
+	 * @param ff Input file format
+	 * @param bsw Output ByteStreamWriter
+	 */
 	public void filter(FileFormat ff, ByteStreamWriter bsw){
 		
 		ByteFile bf=ByteFile.makeByteFile(ff);
@@ -425,13 +502,18 @@ public class FilterVCF {
 		}
 		
 		if(scoreHistFile!=null){
-			CallVariants.writeScoreHist(scoreHistFile, scoreHist);
+			CVOutputWriter.writeScoreHist(scoreHistFile, scoreHist);
 		}
 		
 		errorState|=bf.close();
 		if(bsw!=null){errorState|=bsw.poisonAndWait();}
 	}
 	
+	/**
+	 * Main processing method that coordinates the entire filtering workflow.
+	 * 
+	 * @param t Timer for performance measurement
+	 */
 	void process(Timer t){
 		
 		ByteStreamWriter bsw;
@@ -456,14 +538,20 @@ public class FilterVCF {
 	}
 	
 	/*--------------------------------------------------------------*/
+	/*----------------      Threading Support      ----------------*/
+	/*--------------------------------------------------------------*/
 
+	/* COMMENTED OUT: Queue-based threading methods
+	 * These were part of the earlier producer-consumer threading model
+	 * that used an ArrayBlockingQueue to distribute work between threads.
+	 * The current approach is simpler and more efficient.
+	 */
 //	final void putBytes(ListNum<byte[]> list){
 //		while(list!=null){
 //			try {
 //				inq.put(list);
 //				list=null;
 //			} catch (InterruptedException e) {
-//				// TODO Auto-generated catch block
 //				e.printStackTrace();
 //			}
 //		}
@@ -475,25 +563,39 @@ public class FilterVCF {
 //			try {
 //				list=inq.take();
 //			} catch (InterruptedException e) {
-//				// TODO Auto-generated catch block
 //				e.printStackTrace();
 //			}
 //		}
 //		return list;
 //	}
 	
+	/**
+	 * Worker thread for multithreaded VCF processing.
+	 * Each thread processes batches of VCF lines independently and maintains
+	 * thread-local statistics that are aggregated at completion.
+	 */
 	private class ProcessThread extends Thread {
 		
+		/**
+		 * Creates a ProcessThread for VCF line processing.
+		 * 
+		 * @param bf_ Input ByteFile
+		 * @param bsw_ Output ByteStreamWriter
+		 * @param jobIDOffset_ Job ID offset for output ordering
+		 */
 		ProcessThread(ByteFile bf_, ByteStreamWriter bsw_, long jobIDOffset_){
 			bf=bf_;
 			bsw=bsw_;
 			offset=jobIDOffset_;
 		}
 
+		/**
+		 * Main thread execution loop.
+		 * Processes batches of lines from the ByteFile until exhausted.
+		 */
 		@Override
 		public void run(){
 			ListNum<byte[]> ln=bf.nextList();
-//			ListNum<byte[]> ln=takeBytes();
 			while(ln!=null && ln!=POISON_BYTES){
 				ByteBuilder bb=new ByteBuilder(4096);
 				for(byte[] line : ln){
@@ -502,13 +604,17 @@ public class FilterVCF {
 				}
 				if(bsw!=null){bsw.add(bb, ln.id+offset);}
 				ln=bf.nextList();
-//				ln=takeBytes();
 			}
-//			putBytes(POISON_BYTES);
 			success=true;
 			synchronized(this){notify();}
 		}
 
+		/**
+		 * Processes a single VCF line, applying all filtering criteria.
+		 * 
+		 * @param line Raw VCF line bytes
+		 * @param bb ByteBuilder for output accumulation
+		 */
 		void processLine(byte[] line, ByteBuilder bb){
 			linesProcessedT++;
 			bytesProcessedT+=line.length;
@@ -536,63 +642,29 @@ public class FilterVCF {
 				VCFLine vline=new VCFLine(line);
 				pass&=vline.qual>=minScore;
 				
-//				if(pass){
-//					Var v=null;
-//					if(varFormatOK){
-//						try {
-//							v=Var.fromVCF(line, scafMap, true);
-//						} catch (Throwable e) {
-//							System.err.println("WARNING: This VCF file does not support Var format.\n"
-//									+ "Filtering can only be done on location and quality score.\n");
-//							varFormatOK=false;
-//						}
-//					}
-//
-//					if(v!=null){
-//						if(pass && samFilter!=null){pass&=samFilter.passesFilter(v, scafMap);}
-//						if(pass && varFilter!=null){
-//							if(!Var.CALL_DEL && v.type()==Var.DEL){pass=false;}
-//							else if(!Var.CALL_INS && v.type()==Var.INS){pass=false;}
-//							else if(!Var.CALL_SUB && v.type()==Var.SUB){pass=false;}
-//							pass&=varFilter.passesFilter(v, properPairRate,
-//									totalQualityAvg, totalMapqAvg, readLengthAvg, ploidy, scafMap);
-//							assert(false);
-//						}
-//					}else{
-//						VCFLine vline=new VCFLine(line);
-//						if(pass && samFilter!=null){pass&=samFilter.passesFilter(vline);}
-//
-//						if(!Var.CALL_DEL && vline.type()==Var.DEL){pass=false;}
-//						else if(!Var.CALL_INS && vline.type()==Var.INS){pass=false;}
-//						else if(!Var.CALL_SUB && vline.type()==Var.SUB){pass=false;}
-//
-//						pass&=vline.qual>=minScore;
-//					}
-//				}
-				
 				{	
 					if(pass){
+						// Type-based filtering
 						if(!Var.CALL_DEL && vline.type()==Var.DEL){pass=false;}
 						else if(!Var.CALL_INS && vline.type()==Var.INS){pass=false;}
 						else if(!Var.CALL_SUB && vline.type()==Var.SUB){pass=false;}
 						else if(!Var.CALL_JUNCTION && vline.isJunction()){pass=false;}
 					}
 
+					// Position-based filtering
 					if(pass && samFilter!=null){pass&=samFilter.passesFilter(vline);}
 
+					// Statistical filtering
 					if(pass && varFilter!=null){
 						if(varFormatOK){
 							try {
 								
 								final Var v;
 								if(threads>1){
-									//Fast but does not capture everything
-									//								v=Var.fromVCF(line, scafMap, false, false);
-									//Fast multithreaded but slow singlethreaded
-									v=Var.fromVCF(line, scafMap, true, true);
+									// Optimized for multithreaded use - faster parsing
+									v=VcfToVar.fromVCF(line, scafMap, true, true);
 								}else{
-									//Fast singlethreaded but slow multithreaded
-									//Especially with -ea
+									// Optimized for single-threaded use - more thorough but slower
 									v=vline.toVar();
 								}
 								
@@ -609,9 +681,10 @@ public class FilterVCF {
 				}
 				
 				if(pass){
-//					assert(Tools.indexOf(vline.alt, ',')<0) : vline;
-//					assert(false) : vline;
-					if(splitAlleles && vline.alt!=null && Tools.indexOf(vline.alt, ',')>0){//This may not split correctly, since the auxiliary data is replicated
+					// Handle allele splitting for multi-allelic variants
+					if(splitAlleles && vline.alt!=null && Tools.indexOf(vline.alt, ',')>0){
+						// Note: This simple splitting may not handle auxiliary data correctly
+						// The VCFLine.split() method would be more comprehensive
 						String alleles=new String(vline.alt);
 						String[] split=alleles.split(",");
 						for(String allele : split){
@@ -631,11 +704,16 @@ public class FilterVCF {
 			}
 		}
 		
+		/** Input ByteFile */
 		final ByteFile bf;
+		/** Output ByteStreamWriter */
 		final ByteStreamWriter bsw;
+		/** Job ID offset for output ordering */
 		final long offset;
+		/** Whether Var format conversion is working */
 		boolean varFormatOK=true;
 
+		/** Thread-local statistics */
 		long linesProcessedT=0;
 		long headerLinesProcessedT=0;
 		long variantLinesProcessedT=0;
@@ -643,69 +721,112 @@ public class FilterVCF {
 		long bytesProcessedT=0;
 		private long[] scoreHistT=new long[scoreHist.length];
 
+		/** Success flag */
 		boolean success=false;
 	}
 	
 	/*--------------------------------------------------------------*/
+	/*----------------           Fields             ----------------*/
+	/*--------------------------------------------------------------*/
 
+	/** Number of lines processed from input */
 	private long linesProcessed=0;
+	/** Number of header lines processed */
 	private long headerLinesProcessed=0;
+	/** Number of variant lines processed */
 	private long variantLinesProcessed=0;
+	/** Number of header lines written to output */
 	private long headerLinesOut=0;
+	/** Number of variant lines written to output */
 	private long variantLinesOut=0;
+	/** Number of bytes processed from input */
 	private long bytesProcessed=0;
+	/** Histogram of variant quality scores for distribution analysis */
 	private long[] scoreHist=new long[1000];
 	
+	/** Maximum number of lines to process (for testing/debugging) */
 	private long maxLines=Long.MAX_VALUE;
 
+	/** VCF header lines */
 	public ArrayList<byte[]> header=new ArrayList<byte[]>();
+	/** Sample names extracted from VCF header */
 	public ArrayList<String> samples=new ArrayList<String>();
 	
+	/** Filter for SAM/alignment-based criteria */
 	SamFilter samFilter=new SamFilter();
+	/** Filter for variant-specific criteria */
 	VarFilter varFilter=new VarFilter();
 	
 	/*--------------------------------------------------------------*/
-	
-	double minScore=0;
-	
-	public int ploidy=1;
-	public float properPairRate=0;
-	public float totalQualityAvg=30;
-	public float totalMapqAvg=30;
-	public float readLengthAvg=150;
-	
-	final int threads;
-	public boolean multithreaded=false;
-	private long jobIDOffset=0;
-	boolean splitAlleles=false;
-	boolean splitSubs=false;
-	boolean splitComplex=false;
-	
-	//TODO: These should actually be counted if this is enabled,
-	//if counts are -1 rather than 0.
-	boolean countNearby=false;
-	
-//	private final ArrayBlockingQueue<ListNum<byte[]>> inq;
-	
+	/*----------------    Configuration Fields     ----------------*/
 	/*--------------------------------------------------------------*/
 	
+	/** Minimum quality score threshold for simple filtering */
+	double minScore=0;
+	
+	/** Sample ploidy for variant evaluation */
+	public int ploidy=1;
+	/** Proper pair rate from sequencing run */
+	public float properPairRate=0;
+	/** Average total quality from dataset */
+	public float totalQualityAvg=30;
+	/** Average mapping quality from dataset */
+	public float totalMapqAvg=30;
+	/** Average read length from sequencing run */
+	public float readLengthAvg=150;
+	
+	/** Number of processing threads */
+	final int threads;
+	/** Whether to use multithreaded processing */
+	public boolean multithreaded=false;
+	/** Job ID offset for ordered output */
+	private long jobIDOffset=0;
+	/** Whether to split multi-allelic variants into separate lines */
+	boolean splitAlleles=false;
+	/** Whether to split complex substitutions */
+	boolean splitSubs=false;
+	/** Whether to split complex variants */
+	boolean splitComplex=false;
+	
+	/** Whether to count nearby variants for filtering (TODO: implement counting) */
+	boolean countNearby=false;
+	
+	/*--------------------------------------------------------------*/
+	/*----------------         File Fields          ----------------*/
+	/*--------------------------------------------------------------*/
+	
+	/** Primary input VCF filename */
 	private String in1=null;
+	/** Primary output VCF filename */
 	private String out1=null;
+	/** Reference genome filename for variant validation */
 	private String ref=null;
+	/** Score histogram output filename */
 	private String scoreHistFile=null;
 
+	/** Input file format */
 	private final FileFormat ffin1;
+	/** Output file format */
 	private final FileFormat ffout1;
 	
+	/** Scaffold mapping for coordinate resolution */
 	public final ScafMap scafMap=new ScafMap();
 	
 	/*--------------------------------------------------------------*/
+	/*----------------       Static Fields          ----------------*/
+	/*--------------------------------------------------------------*/
 
+	/** Poison pill for ending thread processing */
 	static final ListNum<byte[]> POISON_BYTES=new ListNum<byte[]>(null, -1);
+	/** Output stream for messages */
 	private PrintStream outstream=System.err;
+	/** Verbose output flag */
 	public static boolean verbose=false;
+	/** Error state flag */
 	public boolean errorState=false;
+	/** Overwrite output files flag */
 	private boolean overwrite=true;
+	/** Append to output files flag */
 	private boolean append=false;
 	
 }

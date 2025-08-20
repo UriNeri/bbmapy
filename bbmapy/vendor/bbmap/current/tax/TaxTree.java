@@ -9,9 +9,12 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.regex.Pattern;
 
+import dna.Data;
 import fileIO.ByteFile;
 import fileIO.ReadWrite;
 import fileIO.TextFile;
+import shared.LineParser1;
+import shared.LineParserS1;
 import shared.Parse;
 import shared.Parser;
 import shared.PreParser;
@@ -450,7 +453,13 @@ public class TaxTree implements Serializable{
 				String key=split[2];
 				Integer obj0=levelMap.get(key);
 				Integer obj=levelMapExtended.get(key);
-				assert(obj!=null) : "No level found for "+key+"; line="+Arrays.toString(split);
+				if(obj==null) {
+					if(key.equalsIgnoreCase("cellular root") || key.equalsIgnoreCase("acellular root")) {
+						obj=DOMAIN_E;
+						obj0=DOMAIN;
+					}
+					assert(obj!=null) : "No level found for "+key+"; line="+Arrays.toString(split);
+				}
 				
 				if(obj0==null){
 					obj0=altLevelMap.get(key);
@@ -1650,6 +1659,17 @@ public class TaxTree implements Serializable{
 		return getNode(mergedMap.get(id), true);
 	}
 	
+	public int toLevel(int id) {
+		TaxNode tn=getNode(id);
+		return tn==null ? -1 : tn.level;
+	}
+	
+	public int resolveID(int id) {
+		if(mergedMap==null) {return id;}
+		int x=mergedMap.get(id);
+		return x<0 ? id : x;
+	}
+	
 	/**
 	 * Fetch the node with this TaxID, but don't throw assertions upon failure.
 	 * @param id TaxID
@@ -1898,6 +1918,18 @@ public class TaxTree implements Serializable{
 	}
 
 	/**
+	 * Generate the name to level number map.
+	 */
+	private static HashMap<String, Integer> makeShortLevelMap() {
+		HashMap<String, Integer> map=new HashMap<String, Integer>(31);
+		for(int i=0; i<taxLevelNamesShort.length; i++){
+			map.put(taxLevelNamesShort[i], i);
+			map.put(taxLevelNamesShort[i].toUpperCase(), i);
+		}
+		return map;
+	}
+
+	/**
 	 * Generate the name to extended level number map.
 	 */
 	private static HashMap<String, Integer> makeLevelMapExtended() {
@@ -1950,7 +1982,7 @@ public class TaxTree implements Serializable{
 		for(String[] array : taxLevelNamesExtendedMatrix){
 			String head=array[array.length-1];
 			Integer value=map.get(head);
-			assert(value!=null) : head;
+			assert(value!=null) : head+", "+value+", "+Arrays.toString(array);
 			for(String key : array){
 				if(key!=head){
 					assert(!map.containsKey(key)) : "Map already contains key "+key+": "+Arrays.toString(array);
@@ -2377,6 +2409,7 @@ public class TaxTree implements Serializable{
 
 	/** Get the number for the normal level of this name */
 	public static final int stringToLevel(String s){return altLevelMap.get(s);}
+	public static final int shortStringToLevel(String s){return shortLevelMap.get(s);}
 	public static final boolean levelMapExtendedContains(String s){return levelMapExtended.containsKey(s);}
 	/** Get the number for the extended level of this name */
 	public static final int stringToLevelExtended(String s){return levelMapExtended.get(s);}
@@ -2416,8 +2449,8 @@ public class TaxTree implements Serializable{
 		{"superclass", "subdivision", "division", "subphylum", "phylum"},
 		{"superphylum", "subkingdom", "kingdom"},
 		{"superkingdom"},
-		{"domain"},
-		{"life"}
+		{"realm", "domain"},
+		{"acellular root", "cellular root", "life"}
 	};
 	
 	/** Extended tax level names as a 1D array */
@@ -2467,9 +2500,11 @@ public class TaxTree implements Serializable{
 	public static final int VIRUSES_ID=10239;
 	/** TaxID of Viroids node (now defunct) */
 	public static final int VIROIDS_ID=12884;
-	
+
 	/** Maps normal level names to normal level numbers */
 	private static final HashMap<String, Integer> levelMap=makeLevelMap();
+	/** Maps short level names to normal level numbers */
+	private static final HashMap<String, Integer> shortLevelMap=makeShortLevelMap();
 	/** Maps extended level names to extended level numbers */
 	private static final HashMap<String, Integer> levelMapExtended=makeLevelMapExtended();
 	/** Maps extended level names to normal level numbers */
@@ -2483,8 +2518,11 @@ public class TaxTree implements Serializable{
 			FAMILY_E=stringToLevelExtended("family"), ORDER_E=stringToLevelExtended("order"),
 			CLASS_E=stringToLevelExtended("class"), PHYLUM_E=stringToLevelExtended("phylum"),
 			KINGDOM_E=stringToLevelExtended("kingdom"), SUPERKINGDOM_E=stringToLevelExtended("superkingdom"),
-			DOMAIN_E=stringToLevelExtended("domain"), LIFE_E=stringToLevelExtended("life");
-
+			DOMAIN_E=stringToLevelExtended("domain"), 
+//			CELLULAR_ROOT_E=stringToLevelExtended("cellular root"),
+//			ACELLULAR_ROOT_E=stringToLevelExtended("acellular root"),
+			LIFE_E=stringToLevelExtended("life");
+	
 	/** Map of normal to extended level numbers */
 	private static final int[] levelToExtended=new int[] {
 			NO_RANK_E, SUBSPECIES_E, SPECIES_E, GENUS_E, FAMILY_E,
@@ -2569,7 +2607,12 @@ public class TaxTree implements Serializable{
 
 	/** For setting TAX_PATH, the root to taxonomy files */
 	public static final String defaultTaxPath(){
-		return (Shared.AWS && !Shared.NERSC) ? defaultTaxPathAws : Shared.IGBVM ? defaultTaxPathIGBVM : Shared.DORI ? defaultTaxPathDori : defaultTaxPathNersc;
+		return (Shared.AWS && !Shared.NERSC) ? 
+				defaultTaxPathAws : 
+					Shared.IGBVM ? defaultTaxPathIGBVM : 
+						Shared.DORI ? defaultTaxPathDori : 
+							(Shared.PERLMUTTER || Shared.NERSC) ? defaultTaxPathNersc :
+								Data.ROOT()+"/resources/";
 	}
 
 	/** 16S consensus sequences per TaxID */

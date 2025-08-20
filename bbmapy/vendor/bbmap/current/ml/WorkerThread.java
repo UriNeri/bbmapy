@@ -246,6 +246,7 @@ class WorkerThread extends Thread implements Comparable<WorkerThread> {
 			fpSum+=(!goal && pred) ? 1 : 0;
 			fnSum+=(goal && !pred) ? 1 : 0;
 		}
+		assert(s.errorMagnitude>=0 && s.weightedErrorMagnitude>=0) : s;
 		errorSum+=s.errorMagnitude;
 		weightedErrorSum+=s.weightedErrorMagnitude;
 	}

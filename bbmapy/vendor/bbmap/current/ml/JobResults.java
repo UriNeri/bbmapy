@@ -18,10 +18,12 @@ public class JobResults implements Comparable<JobResults>{
 		tnSum=tnSum_;
 		fpSum=fpSum_;
 		fnSum=fnSum_;
+		assert(errorSum>=0 || epoch==-1) : this;
+		assert(weightedErrorSum>=0 || epoch==-1) : this;
 	}
 	
 	public String toString() {
-		return "jR: e="+epoch+", jid="+jid+", num="+numProcessed+", err="+errorSum+", fn="+fnSum+", fp="+fpSum+", tn="+tnSum+", tp="+tpSum;
+		return "jR: e="+epoch+", jid="+jid+", num="+numProcessed+", err="+errorSum+", wer="+weightedErrorSum+", fn="+fnSum+", fp="+fpSum+", tn="+tnSum+", tp="+tpSum;
 	}
 
 	@Override

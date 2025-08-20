@@ -3,7 +3,7 @@
 usage(){
 echo "
 Written by Brian Bushnell
-Last modified January 28, 2020
+Last modified May 15, 2025
 
 Description:  Merges files of SSU sequences to keep one per taxID.
 By default, a consensus is generated per TaxID, then the sequence
@@ -15,7 +15,7 @@ Third, in 'consensus' mode, that consensus is simply output.
 In 'best' mode (default), all sequences are aligned again to the new consensus,
 and the best-matching is output.
 
-Usage:  mergeribo.sh in=<file,file> out=<file> 16S
+Usage:  mergeribo.sh in=<file,file> out=<file>
 
 Standard parameters:
 in=<file,file>  Comma-delimited list of files.
@@ -26,6 +26,7 @@ overwrite=f     (ow) Set to false to force the program to abort rather than
 showspeed=t     (ss) Set to 'f' to suppress display of processing speed.
 ziplevel=2      (zl) Set to 1 (lowest) through 9 (max) to change compression
                 level; lower compression is faster.
+fastawrap=70    4000 is recommended to minimize filesize.
 
 Processing parameters:
 alt=<file>      Lower priority data.  Only used if there is no SSU associated
@@ -42,6 +43,9 @@ minlen=1        Ignore sequences shorter than this.
 maxlen=4000     Ignore sequences longer than this.
 16S=t           Align to 16S consensus to pick the seed. Mutually exclusive.
 18S=f           Align to 18S consensus to pick the seed. Mutually exclusive.
+level=          If specified with a term like 'species' or 'genus', nodes
+                will be promoted to that level, minimum, before consensus.
+dada2=f         Output headers in dada2 format.
 
 Java Parameters:
 -Xmx            This will set Java's memory usage, overriding autodetection.

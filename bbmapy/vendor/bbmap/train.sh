@@ -3,7 +3,7 @@
 usage(){
 echo "
 Written by Brian Bushnell
-Last modified Jan 25, 2024
+Last modified July 15, 2025
 
 Description:  Trains or evaluates neural networks.
 

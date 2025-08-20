@@ -1190,15 +1190,15 @@ public class CallVariants2 {
 	}
 	
 	public static int fixVars(Read r, VarMap varMap, ScafMap scafMap){
-		return CallVariants.fixVars(r, varMap, scafMap);
+		return AnalyzeVars.fixVars(r, varMap, scafMap);
 	}
 	
 	public static void unfixVars(Read r){
-		CallVariants.unfixVars(r);
+		AnalyzeVars.unfixVars(r);
 	}
 	
 	public static int fixVars(Read r, SamLine sl, VarMap varMap, ScafMap scafMap){
-		return CallVariants.fixVars(r, sl, varMap, scafMap);
+		return AnalyzeVars.fixVars(r, sl, varMap, scafMap);
 	}
 	
 	/*--------------------------------------------------------------*/

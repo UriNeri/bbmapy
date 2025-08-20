@@ -5,6 +5,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 
+import aligner.IDAligner;
 import aligner.SingleStateAlignerFlat2;
 import aligner.SingleStateAlignerFlat3;
 import aligner.SingleStateAlignerFlatFloat;
@@ -869,6 +870,59 @@ public class GeneCaller extends ProkObject {
 	
 	boolean refineByAlignment(Orf orf, byte[] bases, int strand, StatsContainer sc, byte[] consensus, 
 			final int startSlop, final int stopSlop, int recurLimit){
+		if(useIDAligner) {
+			return refineByAlignment_IDA(orf, bases, strand, 
+					sc, consensus, startSlop, stopSlop, recurLimit);
+		}else {
+			return refineByAlignment_SSA(orf, bases, strand, 
+					sc, consensus, startSlop, stopSlop, recurLimit);
+		}
+	}
+	
+	boolean refineByAlignment_IDA(Orf orf, byte[] bases, int strand, StatsContainer sc, byte[] consensus, 
+			final int startSlop, final int stopSlop, int recurLimit){
+		final int start0=orf.start;
+		final int stop0=orf.stop;
+		
+		assert(start0>=0 && start0<bases.length) : start0+", "+stop0;
+		assert(stop0>=0 && stop0<bases.length) : start0+", "+stop0;
+		
+		final float minID=sc.minIdentity();
+		final int padding=Tools.min(alignmentPaddingIDA, 30+sc.lengthAvg/4);
+		final int a=Tools.max(0, orf.start-padding);
+		final int b=Tools.min(bases.length-1, orf.stop+padding);
+		final int reflen=b-a+1;
+		assert(reflen>0) : reflen;
+		if(reflen>10*sc.lengthAvg && reflen>20000){
+			System.err.println("Skipped reflen "+reflen+"/"+sc.lengthAvg+" for "
+					+ "seqlen="+bases.length+", orf="+orf.toString());
+			assert(false);
+			//TODO: Possibly change return to -1, 0, 1 ("can't align")
+			//Should be a limit on window size...
+			//Also consider shrinking matrix after jumbo alignments
+			return false;
+		}
+		assert(a>=0 && b<bases.length) : a+", "+b;
+		IDAligner ida=aligner.Factory.makeIDAligner();
+		int[] pos=new int[2];
+		float id=ida.align(consensus, bases, pos, a, b);
+		if(id<minID){return false;}
+		
+		final int rstart=Tools.max(pos[0], 0);
+		final int rstop=Tools.min(pos[1], bases.length-1);
+		
+		if(Tools.absdif(rstart, start0)>startSlop){orf.start=rstart;}
+		if(Tools.absdif(rstop, stop0)>stopSlop){orf.stop=rstop;}
+		assert(orf.length()>0) : "\nreflen="+reflen+", orflen="+orf.length()+
+			", id"+id+", minid="+minID+", strand="+orf.strand+"\n"+
+			"qlen="+consensus.length+", rlen="+bases.length+", a="+a+", b="+b+"\n"+
+			"pos="+Arrays.toString(pos)+", start0="+start0+", stop0="+stop0+"\n"+orf;
+			//+new String(consensus)+"\n"+new String(bases, a, b-a+1)+"\n";
+		return orf.length()>0;
+	}
+	
+	boolean refineByAlignment_SSA(Orf orf, byte[] bases, int strand, StatsContainer sc, byte[] consensus, 
+			final int startSlop, final int stopSlop, int recurLimit){
 		final int start0=orf.start;
 		final int stop0=orf.stop;
 		
@@ -1380,6 +1434,8 @@ public class GeneCaller extends ProkObject {
 	private static ThreadLocal<SingleStateAlignerFlatFloat> localSSAF=new ThreadLocal<SingleStateAlignerFlatFloat>();
 //	public static int maxAlignmentEndpointDifference=15;
 	public static int alignmentPadding=300;
+	public static int alignmentPaddingIDA=80;//TODO: Recur for edge alignments, and add start hint
+	public static boolean useIDAligner=false;//Quantum/Drifting are fastest
 	
 	public static int breakLimit=12;
 	public static int lookbackPlus=70;

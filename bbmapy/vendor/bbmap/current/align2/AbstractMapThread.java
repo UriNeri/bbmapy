@@ -408,7 +408,16 @@ public abstract class AbstractMapThread extends Thread {
 		return removedTop;
 	}
 	
-	@Override
+//	@Override
+//	public final void run() {
+//		Thread.currentThread().setPriority(Thread.MAX_PRIORITY);
+//		if(SLOW_ALIGN || MAKE_MATCH_STRING){
+//			msa=null;
+//			msa=MSA.makeMSA(ALIGN_ROWS(), ALIGN_COLUMNS(), MSA_TYPE);
+//		}
+//		run2();
+//	}
+	
 	public final void run() {
 		//System.err.println("Waiting on a list... (initial)");
 		

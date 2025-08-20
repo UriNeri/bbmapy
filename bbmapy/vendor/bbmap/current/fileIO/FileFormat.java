@@ -364,7 +364,8 @@ public final class FileFormat {
 		else if(ext.equals("gbff")){r[0]=GBFF;}
 		else if(ext.equals("alm")){r[0]=ALM;}
 		else if(ext.equals("bbnet")){r[0]=BBNET;}
-		else if(ext.equals("tsv")){r[0]=TEXT;}
+		else if(ext.equals("bbvec") || ext.equals("vec")){r[0]=BBVEC;}
+		else if(ext.equals("clade") || ext.equals("spectra")){r[0]=CLADE;}
 		
 		if(comp!=null){
 			r[1]=Tools.find(comp, COMPRESSION_ARRAY);
@@ -392,6 +393,7 @@ public final class FileFormat {
 		if(r[0]==UNKNOWN || (r[0]!=BAM && forceFileRead) || 
 				((r[0]==FASTQ || r[0]==FASTA) && r[3]==UNKNOWN && allowFileRead 
 				&& !stream.FASTQ.FORCE_INTERLEAVED && stream.FASTQ.TEST_INTERLEAVED)){
+			
 			File f=(allowFileRead && r[2]==FILE ? new File(fname) : null);
 			if(f!=null && f.exists() && !f.isDirectory()){
 //				//a: {quality, interleaved, length, format}
@@ -402,7 +404,7 @@ public final class FileFormat {
 						final int aq=a[0], ai=a[1], al=a[2], af=a[3], abc=a[4], abd=a[5];
 						if(aq>-1){r[4]=aq;}
 						if(ai!=UNKNOWN){r[3]=ai;}
-						if(af!=UNKNOWN && (af!=BREAD || (r[0]!=HEADER && r[0]!=TEXT))){r[0]=af;}
+						if(r[0]==UNKNOWN || (af!=TEXT && af!=BREAD)){r[0]=af;}
 						if(al>1 && r[5]==-1){r[5]=al;}
 						r[6]=abc;
 						r[7]=abd;
@@ -414,7 +416,8 @@ public final class FileFormat {
 					e.printStackTrace();
 				}
 				
-				if(verbose){System.err.println("After reading:   \t"+r[0]+", "+toString(r)+", "+forceFileRead+", "+(r[0]!=BAM));}
+				if(verbose){System.err.println("After reading:   \t"+r[0]+", "+toString(r)+
+						", "+forceFileRead+", "+(r[0]!=BAM));}
 			}else if(r[0]==UNKNOWN){
 				if(fname.equals("sequential")){r[0]=SEQUENTIAL;}
 				else if(fname.equals("random")){r[0]=RANDOM;}
@@ -440,6 +443,16 @@ public final class FileFormat {
 		}
 		if(verbose){System.err.println("testFormat return:\t"+r[0]+", "+toString(r)+", "+forceFileRead+", "+(r[0]!=BAM)+", "+r[4]);}
 		return r;
+	}
+	
+	public static boolean hasGffExtension(String fname){
+		int[] r=testFormat(fname, false, false);
+		return r[0]==GFF;
+	}
+	
+	public static boolean hasVcfExtension(String fname){
+		int[] r=testFormat(fname, false, false);
+		return r[0]==VCF;
 	}
 	
 	public static boolean hasFastaExtension(String fname){
@@ -763,7 +776,14 @@ public final class FileFormat {
 	/*--------------------------------------------------------------*/
 	/*----------------            Getters           ----------------*/
 	/*--------------------------------------------------------------*/
-
+	
+	public boolean extensionEquals(String ext) {
+		String s=ReadWrite.rawExtension(name);
+		if(s==ext) {return true;}
+		if(s==null || ext==null) {return false;}
+		return ext.equals(s);
+	}
+	
 	public String rawExtension() {
 		return ReadWrite.rawExtension(name);
 	}
@@ -800,6 +820,9 @@ public final class FileFormat {
 		else if(ext.equals("embl")){return EMBL;}
 		else if(ext.equals("gbk")){return GBK;}
 		else if(ext.equals("gbff")){return GBFF;}
+		else if(ext.equals("bbnet")){return BBNET;}
+		else if(ext.equals("bbvec") || ext.equals("vec")){return BBVEC;}
+		else if(ext.equals("clade") || ext.equals("spectra")){return CLADE;}
 		else if(ext.equals("txt") || ext.equals("text") || ext.equals("tsv") || ext.equals("csv")){return TXT;}
 		return UNKNOWN;
 	}
@@ -867,6 +890,8 @@ public final class FileFormat {
 	public final boolean gbff(){return format==GBFF;}
 	public final boolean alm(){return format==ALM;}
 	public final boolean bbnet(){return format==BBNET;}
+	public final boolean bbvec(){return format==BBVEC;}
+	public final boolean clade(){return format==CLADE;}
 	
 	public final boolean preferShreds(){
 		return preferShreds;
@@ -993,13 +1018,16 @@ public final class FileFormat {
 	//Alignment Model, from Consensus package
 	public static final int ALM=30;
 	public static final int BBNET=31;
+	public static final int BBVEC=32;
+	public static final int CLADE=33;
 	
 	public static final String[] FORMAT_ARRAY=new String[] {
 		"unknown", "fasta", "fastq", "bread", "sam", "csfasta",
 		"qual", "sequential", "random", "sites", "attachment",
 		"bam", "scarf", "text", "phylip", "header", "int1d",
 		"long1d", "bitset", "sketch", "oneline", "fastr",
-		"vcf", "var", "gff", "bed", "pgm", "embl", "gbk", "gbff", "alm", "bbnet"
+		"vcf", "var", "gff", "bed", "pgm", "embl", "gbk", "gbff",
+		"alm", "bbnet", "bbvec", "vec", "clade", "spectra"
 	};
 	
 	public static final String[] EXTENSION_LIST=new String[] {
@@ -1010,7 +1038,7 @@ public final class FileFormat {
 		"gz", "gzip", "bz2", "zip", "xz", "dsrc", "header", "headers",
 		"int1d", "long1d", "bitset", "sketch", "oneline", "flat", "fqz",
 		"gff", "gff3", "var", "vcf", "bed", "pgm", "embl", "gbk", "gbff", "alm", 
-		"bbnet", "7z", "zst"
+		"bbnet", "bbvec", "vec", "clade", "spectra", "7z", "zst"
 	};
 	
 	/* Compression */

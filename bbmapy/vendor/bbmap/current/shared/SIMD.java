@@ -14,10 +14,10 @@ import ml.Cell;
 /** 
  * Holds SIMD methods.
  * @author Brian Bushnell
- * @date Sep 12, 2013
+ * @date Sep 12, 2023?
  *
  */
-final class SIMD {
+public final class SIMD {
 	
 	//Example from https://medium.com/@Styp/java-18-vector-api-do-we-get-free-speed-up-c4510eda50d2
 	@SuppressWarnings("restriction")
@@ -115,6 +115,139 @@ final class SIMD {
 //		assert(elements==bSet.length);
 		
 		return c;
+	}
+	
+	//Isla
+	public static final float absDif(long[] a, long[] b, float inva, float invb) {
+	    assert(a.length==b.length);
+	    
+	    final int length = a.length;
+	    final int limit = LSPECIES.loopBound(length);
+	    
+	    FloatVector sumVec = FloatVector.zero(FSPECIES);
+	    int i = 0;
+	    
+	    // SIMD loop for aligned portion
+	    for (; i < limit; i += LWIDTH) {
+	        LongVector va = LongVector.fromArray(LSPECIES, a, i);
+	        LongVector vb = LongVector.fromArray(LSPECIES, b, i);
+	        
+	        // Convert longs to floats
+	        FloatVector fa = (FloatVector) va.convertShape(VectorOperators.L2F, FSPECIES, 0);
+	        FloatVector fb = (FloatVector) vb.convertShape(VectorOperators.L2F, FSPECIES, 0);
+	        
+	        // Apply scaling factors
+	        fa = fa.mul(inva);
+	        fb = fb.mul(invb);
+	        
+	        // Calculate absolute difference and accumulate
+	        FloatVector diff = fa.sub(fb).abs();
+	        sumVec = sumVec.add(diff);
+	    }
+	    
+	    // For residual elements, just use scalar loop
+	    float sum = sumVec.reduceLanes(VectorOperators.ADD);
+	    for (; i < length; i++) {
+	        float ai = a[i] * inva;
+	        float bi = b[i] * invb;
+	        sum += Math.abs(ai - bi);
+	    }
+	    
+	    return sum;
+	}
+	
+	//Isla
+	//Unfortunately, this dumps core, is very slow, and gives the wrong answer
+	public static float absDifComp(long[] a, long[] b, int k, int[] gcmap) {
+	    final int length = a.length;
+	    
+	    // Calculate GC bucket sums - this can't be easily vectorized
+	    final float[] aSums = new float[k+1];
+	    final float[] bSums = new float[k+1];
+	    
+	    for(int i=0; i<length; i++) {
+	        int gc = gcmap[i];
+	        aSums[gc] += a[i];
+	        bSums[gc] += b[i];
+	    }
+	    
+	    final float inv = 1f/(k+1);
+	    
+	    // Compute normalization factors
+	    for(int i=0; i<=k; i++) {
+	        aSums[i] = inv/Math.max(aSums[i], 1);
+	        bSums[i] = inv/Math.max(bSums[i], 1);
+	    }
+	    
+	    // Process by GC content - one efficient way to vectorize with different scaling factors
+	    FloatVector sumVec = FloatVector.zero(FSPECIES);
+	    
+	    // Process elements grouped by their GC content
+	    for(int gc=0; gc<=k; gc++) {
+	        float aFactor = aSums[gc];
+	        float bFactor = bSums[gc];
+	        
+	        // Find all indices with this GC content in chunks for efficient processing
+	        int currentIndex = 0;
+	        while(currentIndex < length) {
+	            // Find start of a chunk with this GC
+	            while(currentIndex < length && gcmap[currentIndex] != gc) {
+	                currentIndex++;
+	            }
+	            
+	            // If we found a starting point
+	            if(currentIndex < length) {
+	                int chunkStart = currentIndex;
+	                
+	                // Find end of the chunk
+	                while(currentIndex < length && gcmap[currentIndex] == gc) {
+	                    currentIndex++;
+	                }
+	                
+	                int chunkEnd = currentIndex;
+	                int chunkSize = chunkEnd - chunkStart;
+	                
+	                // Process this chunk with SIMD
+	                if(chunkSize >= LWIDTH) {
+	                    int limit = chunkStart + (chunkSize / LWIDTH) * LWIDTH;
+	                    
+	                    for(int i=chunkStart; i<limit; i+=LWIDTH) {
+	                        LongVector va = LongVector.fromArray(LSPECIES, a, i);
+	                        LongVector vb = LongVector.fromArray(LSPECIES, b, i);
+	                        
+	                        // Convert to float
+	                        FloatVector fa = (FloatVector) va.convertShape(VectorOperators.L2F, FSPECIES, 0);
+	                        FloatVector fb = (FloatVector) vb.convertShape(VectorOperators.L2F, FSPECIES, 0);
+	                        
+	                        // Apply GC-specific scaling
+	                        fa = fa.mul(aFactor);
+	                        fb = fb.mul(bFactor);
+	                        
+	                        // Calculate absolute difference
+	                        sumVec = sumVec.add(fa.sub(fb).abs());
+	                    }
+	                    
+	                    // Handle remainder
+	                    for(int i=limit; i<chunkEnd; i++) {
+	                        float aComp = a[i] * aFactor;
+	                        float bComp = b[i] * bFactor;
+	                        sumVec = sumVec.add(Math.abs(aComp - bComp));
+	                    }
+	                } 
+	                else {
+	                    // Small chunk - handle with scalar code
+	                    for(int i=chunkStart; i<chunkEnd; i++) {
+	                        float aComp = a[i] * aFactor;
+	                        float bComp = b[i] * bFactor;
+	                        sumVec = sumVec.add(Math.abs(aComp - bComp));
+	                    }
+	                }
+	            }
+	        }
+	    }
+	    
+	    float sum = sumVec.reduceLanes(VectorOperators.ADD);
+	    return Tools.mid(0, 1, (Float.isFinite(sum) && sum>0 ? sum : 0));
 	}
 	
 	/** 
@@ -419,6 +552,109 @@ final class SIMD {
 		for (; i<=to; i++) {c+=a[i];}//Residual scalar loop
 		return c;
 	}
+	
+//	public static float absDifFloat(float[] a, float[] b) {
+//		assert(a.length==b.length);
+//		float sum=0;
+//		for(int i=0; i<a.length; i++){
+//			sum+=Math.abs(a[i]-b[i]);
+//		}
+//		return (float)sum;
+//	}
+	
+	/**
+     * Calculates the sum of the absolute differences between corresponding elements of two float arrays.
+     *
+     * @param a the first float array
+     * @param b the second float array
+     * @return the sum of the absolute differences between corresponding elements of the two arrays
+     * @throws IllegalArgumentException if the lengths of the arrays do not match
+     */
+    public static float absDifFloat(float[] a, float[] b) {
+        if(a.length!=b.length){
+            throw new IllegalArgumentException("Arrays must have the same length");
+        }
+
+        final int length=a.length;
+        final int limit0=FSPECIES.loopBound(length);
+        final int limit=limit0;
+
+        FloatVector sumVec=FloatVector.zero(FSPECIES);
+        int i=0;
+        for (; i<limit; i+=FWIDTH) { // SIMD loop
+            FloatVector va=FloatVector.fromArray(FSPECIES, a, i);
+            FloatVector vb=FloatVector.fromArray(FSPECIES, b, i);
+            FloatVector diff=va.sub(vb).abs();
+            sumVec=sumVec.add(diff);
+        }
+        
+        //Scalar residual loop
+//        float sum=sumVec.reduceLanes(VectorOperators.ADD);
+//        for (; i<length; i++) { // Residual scalar loop
+//            sum+=Math.abs(a[i]-b[i]);
+//        }
+//        return sum;
+        
+        // Handle the residual elements using lanewise masking
+        // Lightly tested and seems to work
+        if (i < length) {
+            VectorMask<Float> mask = FSPECIES.indexInRange(i, length);
+            FloatVector va = FloatVector.fromArray(FSPECIES, a, i, mask);
+            FloatVector vb = FloatVector.fromArray(FSPECIES, b, i, mask);
+            FloatVector diff = va.sub(vb).abs();
+            sumVec = sumVec.add(diff, mask);
+        }
+        float sum = sumVec.reduceLanes(VectorOperators.ADD);
+        return sum;
+    }
+    
+    //Isla
+    public static float cosineSimilarity(int[] a, int[] b, float inva, float invb) {
+        assert(a.length == b.length);
+        
+        int length = a.length;
+        int upperBound = ISPECIES.loopBound(length);
+        
+        // Accumulation vectors
+        FloatVector dotProductVec = FloatVector.zero(FSPECIES);
+        FloatVector normVec1Vec = FloatVector.zero(FSPECIES);
+        FloatVector normVec2Vec = FloatVector.zero(FSPECIES);
+        
+        int i = 0;
+        for (; i < upperBound; i += IWIDTH) {
+            IntVector va = IntVector.fromArray(ISPECIES, a, i);
+            IntVector vb = IntVector.fromArray(ISPECIES, b, i);
+            
+            FloatVector fa = (FloatVector) va.convertShape(VectorOperators.I2F, FSPECIES, 0);
+            FloatVector fb = (FloatVector) vb.convertShape(VectorOperators.I2F, FSPECIES, 0);
+            fa = fa.mul(inva);
+            fb = fb.mul(invb);
+            
+            // Accumulate in vector space
+            dotProductVec = dotProductVec.add(fa.mul(fb));
+            normVec1Vec = normVec1Vec.add(fa.mul(fa));
+            normVec2Vec = normVec2Vec.add(fb.mul(fb));
+        }
+        
+        // Reduce once at the end
+        float dotProduct = dotProductVec.reduceLanes(VectorOperators.ADD);
+        float normVec1 = normVec1Vec.reduceLanes(VectorOperators.ADD);
+        float normVec2 = normVec2Vec.reduceLanes(VectorOperators.ADD);
+        
+        // Handle remaining elements
+        for (; i < length; i++) {
+            float ai = a[i] * inva;
+            float bi = b[i] * invb;
+            dotProduct += ai * bi;
+            normVec1 += ai * ai;
+            normVec2 += bi * bi;
+        }
+        
+        normVec1 = Math.max(normVec1, 1e-15f);
+        normVec2 = Math.max(normVec2, 1e-15f);
+        
+        return (float)(dotProduct / (Math.sqrt(normVec1) * Math.sqrt(normVec2)));
+    }
 	
 	@SuppressWarnings("restriction")
 	/** 

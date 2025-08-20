@@ -412,7 +412,6 @@ public class ByteStreamWriter extends Thread {
 		return buffer;
 	}
 	
-	@Deprecated
 	/** Avoid using this if possible. */
 	public ByteStreamWriter print(CharSequence x){
 		if(verbose){System.err.println("Added line '"+x+"'");}
@@ -440,6 +439,16 @@ public class ByteStreamWriter extends Thread {
 		flushBuffer(false);
 		return this;
 	}
+	
+	/** Avoid using this if possible. */
+	public ByteStreamWriter printt(String x){
+		if(verbose){System.err.println("Added line '"+x+"'");}
+		assert(open) : x;
+		buffer.append(x);
+		buffer.append('\t');
+		flushBuffer(false);
+		return this;
+	}
 
 	public ByteStreamWriter tab(){return print('\t');}
 	public ByteStreamWriter nl(){return print('\n');}
@@ -460,7 +469,7 @@ public class ByteStreamWriter extends Thread {
 		return this;
 	}
 	
-	public ByteStreamWriter printtab(int x){
+	public ByteStreamWriter printt(int x){
 		if(verbose){System.err.println("Added line '"+(x)+"'");}
 		assert(open) : x;
 		buffer.append(x);
@@ -477,7 +486,7 @@ public class ByteStreamWriter extends Thread {
 		return this;
 	}
 	
-	public ByteStreamWriter printtab(long x){
+	public ByteStreamWriter printt(long x){
 		if(verbose){System.err.println("Added line '"+(x)+"'");}
 		assert(open) : x;
 		buffer.append(x);
@@ -510,7 +519,7 @@ public class ByteStreamWriter extends Thread {
 		return this;
 	}
 	
-	public ByteStreamWriter printtab(float x, int decimals){
+	public ByteStreamWriter printt(float x, int decimals){
 		if(verbose){System.err.println("Added line '"+(x)+"'");}
 		assert(open) : x;
 		buffer.append(x, decimals);
@@ -527,7 +536,7 @@ public class ByteStreamWriter extends Thread {
 		return this;
 	}
 	
-	public ByteStreamWriter printtab(double x, int decimals){
+	public ByteStreamWriter printt(double x, int decimals){
 		if(verbose){System.err.println("Added line '"+(x)+"'");}
 		assert(open) : x;
 		buffer.append(x, decimals);

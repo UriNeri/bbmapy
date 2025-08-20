@@ -397,7 +397,7 @@ public class TrainerThread extends Thread {
 	
 	private final float weightMult() {
 		if(currentEpoch>=minWeightEpoch){return 1.0f;}
-		return currentEpoch*minWeightEpochInverse;
+		return (float)Math.sqrt((currentEpoch+1)*minWeightEpochInverse);
 	}
 	
 	private void runTestingInterval(Sample[] set) {
@@ -784,6 +784,8 @@ public class TrainerThread extends Thread {
 	}
 	
 	private void gatherStats(JobResults job) {
+		assert(job.errorSum>=0) : job.errorSum;
+		assert(job.weightedErrorSum>=0) : job.weightedErrorSum;
 		rawErrorSum+=job.errorSum;
 		weightedErrorSum+=job.weightedErrorSum;
 		tpSum+=job.tpSum;
@@ -806,6 +808,8 @@ public class TrainerThread extends Thread {
 		tnRate=tnSum*invSamples*invOutputs;
 		final double e3=rawErrorSum*invSamples;
 		final double we3=weightedErrorSum*invSamples;
+		assert(e3>=0) : e3+", "+we3+", "+samples;
+		assert(we3>=0) : e3+", "+we3+", "+samples;
 		
 //		assert!Double.isNaN(e3) : invSamples;
 

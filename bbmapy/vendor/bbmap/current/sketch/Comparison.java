@@ -3,6 +3,8 @@ package sketch;
 import java.util.Comparator;
 
 import aligner.Aligner;
+import aligner.GlocalAlignerOld;
+import aligner.IDAligner;
 import prok.GeneCaller;
 import shared.Tools;
 import tax.TaxNode;
@@ -739,27 +741,28 @@ public final class Comparison extends SketchObject implements Comparable<Compari
 			ssuB=c;
 		}
 		if(useSSA){
-			Aligner ssa=(useSSA3 ? GeneCaller.getSSA3() : GeneCaller.getSSA());
-			int[] max=ssa.fillUnlimited(ssuA, ssuB, 0, ssuB.length-1, 0);
-			if(max==null){return 0;}
-			
-			final int rows=max[0];
-			final int maxCol=max[1];
-			final int maxState=max[2];
-			
-			//returns {score, bestRefStart, bestRefStop} 
-			//padded: {score, bestRefStart, bestRefStop, padLeft, padRight};
-			int[] score=ssa.score(ssuA, ssuB, 0, ssuB.length-1, rows, maxCol, maxState);
-			int rstart=score[1];
-			int rstop=score[2];
-			
-//			byte[] match=ssa.traceback(ssuA, ssuB, 0, ssuB.length-1, rows, maxCol, maxState);
-//			float id=Read.identity(match);
-			float id=ssa.tracebackIdentity(ssuA, ssuB, 0, ssuB.length-1, rows, maxCol, maxState, null);
-			return id;
+			IDAligner ssa=(useSSA3 ? GeneCaller.getSSA3() : GeneCaller.getSSA());
+			return ssa.align(ssuA, ssuB, null, 0);
+//			Aligner ssa=(useSSA3 ? GeneCaller.getSSA3() : GeneCaller.getSSA());
+//			int[] max=ssa.fillUnlimited(ssuA, ssuB, 0, ssuB.length-1, 0);
+//			if(max==null){return 0;}
+//			
+//			final int rows=max[0];
+//			final int maxCol=max[1];
+//			final int maxState=max[2];
+//			
+//			//returns {score, bestRefStart, bestRefStop} 
+//			//padded: {score, bestRefStart, bestRefStop, padLeft, padRight};
+//			int[] score=ssa.score(ssuA, ssuB, 0, ssuB.length-1, rows, maxCol, maxState);
+//			int rstart=score[1];
+//			int rstop=score[2];
+//			
+////			byte[] match=ssa.traceback(ssuA, ssuB, 0, ssuB.length-1, rows, maxCol, maxState);
+////			float id=Read.identity(match);
+//			float id=ssa.tracebackIdentity(ssuA, ssuB, 0, ssuB.length-1, rows, maxCol, maxState, null);
+//			return id;
 		}else{
-			GlocalAligner ga=new GlocalAligner();
-			return ga.alignForward(ssuA, ssuB);
+			return GlocalAlignerOld.alignForward(ssuA, ssuB);
 		}
 	}
 	

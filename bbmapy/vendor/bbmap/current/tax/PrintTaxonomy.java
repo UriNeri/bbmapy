@@ -285,7 +285,7 @@ public class PrintTaxonomy {
 			
 			TaxNode tn=parseNodeFromHeader(name);
 			if(tn!=null){
-				String tl=makeTaxLine(tn, minLevelExtended, maxLevelExtended).toString();
+				String tl=makeTaxLine(tree, tn, minLevelExtended, maxLevelExtended, skipNonCanonical, reverseOrder).toString();
 				split[col]=tl;
 			}else{
 				List<TaxNode> list=tree.getNodesByNameExtended(name);
@@ -293,7 +293,7 @@ public class PrintTaxonomy {
 					String tab="";
 					for(TaxNode tn2 : list){
 						sb.append(tab);
-						sb.append(makeTaxLine(tn2, minLevelExtended, maxLevelExtended).toString());
+						sb.append(makeTaxLine(tree, tn2, minLevelExtended, maxLevelExtended, skipNonCanonical, reverseOrder).toString());
 						tab="\t";
 					}
 				}else{
@@ -380,7 +380,7 @@ public class PrintTaxonomy {
 		}while(tn!=null && tn.id!=tn.pid);
 	}
 	
-	StringBuilder makeTaxLine(TaxNode tn, int minLevelE, int maxLevelE){
+	public static StringBuilder makeTaxLine(TaxTree tree, TaxNode tn, int minLevelE, int maxLevelE, boolean skipNonCanonical, boolean reverseOrder){
 //		assert(false) : tn+", "+minLevelE+", "+maxLevelE;
 		assert(tn!=null);
 		StringBuilder sb=new StringBuilder();

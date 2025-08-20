@@ -315,13 +315,19 @@ public class Trainer implements Accumulator<WorkerThread> {
 				startTriage=Parse.parseIntKMG(b);
 			}else if(a.equals("starttriagemult") || a.equals("triagestartmult")){
 				startTriageMult=Float.parseFloat(b);
+			}
 				
-			}else if(a.equals("minweightepoch") || a.equals("minweightbatch") || a.equals("weightstart")){
+			else if(a.equals("minweightepoch") || a.equals("minweightbatch") || a.equals("weightstart")){
 				minWeightEpoch=Parse.parseIntKMG(b);
 			}else if(a.equals("minweightepochmult") || a.equals("minweightbatchmult") || a.equals("weightstartmult")){
-				minWeightEpochMult=Float.parseFloat(b);	
+				minWeightEpochMult=Float.parseFloat(b);
+			}
 				
-			}else if(a.equals("lowweightannealcutoff") || a.equals("lwac")){
+			else if(a.equalsIgnoreCase("weights") || a.equalsIgnoreCase("weighted")){
+				DataLoader.weighted=Parse.parseBoolean(b);
+			}
+				
+			else if(a.equals("lowweightannealcutoff") || a.equals("lwac")){
 				Cell.setLowWeightAnnealCutoff(Float.parseFloat(b));
 			}else if(a.equals("startanneal") || a.equals("annealstart") || a.equals("minannealepoch")){
 				minAnnealEpoch=Parse.parseIntKMG(b);
@@ -627,8 +633,8 @@ public class Trainer implements Accumulator<WorkerThread> {
 		netIn=Tools.fixExtension(netIn);
 		dataIn=Tools.fixExtension(dataIn);
 		validateIn=Tools.fixExtension(validateIn);
-		if(netIn==null && dims0==null && (minDims==null || maxDims==null)){
-			throw new RuntimeException("Error - a net file or dims is required.");
+		if(netIn==null && dims0==null && (minDims==null || maxDims==null)){//TODO: This fired when dims was specified
+			throw new RuntimeException("Error - an input net file or dims is required.");
 		}
 		if(dataIn==null && (validateIn==null || training)){throw new RuntimeException("Error - a data file is required.");}
 	}
@@ -1184,7 +1190,7 @@ public class Trainer implements Accumulator<WorkerThread> {
 	}
 	
 	private CellNet loadNetwork(String path){
-		final CellNet net=CellNetParser.load(path);
+		final CellNet net=CellNetParser.load(path, false);
 		if(setCutoffForEvaluation) {net.setCutoff(cutoffForEvaluation);}
 //		dims=net.dims.clone();
 		assert(numInputs<0 || net.numInputs()==numInputs);

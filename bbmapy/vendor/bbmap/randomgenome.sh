@@ -57,7 +57,7 @@ calcXmx () {
 calcXmx "$@"
 
 randomgenome() {
-	local CMD="java $EA $EOOM $z -cp $CP jgi.RandomGenome $@"
+	local CMD="java $EA $EOOM $z -cp $CP synth.RandomGenome $@"
 	echo $CMD >&2
 	eval $CMD
 }

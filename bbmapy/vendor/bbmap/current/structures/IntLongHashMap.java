@@ -495,6 +495,16 @@ public final class IntLongHashMap{
 	public long[] values() {return values;}
 
 	public int invalid() {return invalid;}
+
+	public long sum() {
+		long sum=0;
+		for(int i=0; i<keys.length; i++) {
+			if(keys[i]!=invalid) {
+				sum+=values[i];
+			}
+		}
+		return sum;
+	}
 	
 	/*--------------------------------------------------------------*/
 	/*----------------            Fields            ----------------*/

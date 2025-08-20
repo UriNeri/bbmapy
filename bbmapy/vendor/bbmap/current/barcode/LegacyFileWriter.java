@@ -462,11 +462,11 @@ public class LegacyFileWriter {
 			return q30;
 		}
 		
-		long yield() {return bases;}
+		long yieldBases() {return bases;}
 		long yieldQ30() {return /*q30PositionSum*/q30CountSum;}
 		long qualityScoreSum() {return (long)qsum.sum();}
 		double meanQualityScore() {return qsum.sum()/bases;}
-		double fractionQ30() {return yieldQ30()/(double)yield();}
+		double fractionQ30() {return yieldQ30()/(double)yieldBases();}
 		
 //		Lane,SampleID,index,index2,ReadNumber,Yield,YieldQ30,QualityScoreSum,Mean Quality Score (PF),% Q30
 		ByteBuilder appendTo(ByteBuilder bb, int lane, int pairnum, 
@@ -476,7 +476,7 @@ public class LegacyFileWriter {
 			Barcode.appendIndex(bb.comma(), delimiter, 1, barcode);
 			Barcode.appendIndex(bb.comma(), delimiter, 2, barcode);
 			bb.comma().append(pairnum+1);
-			bb.comma().append(yield());
+			bb.comma().append(yieldBases());
 			bb.comma().append(yieldQ30());
 			bb.comma().append(qualityScoreSum());
 			bb.comma().append(meanQualityScore(),2);

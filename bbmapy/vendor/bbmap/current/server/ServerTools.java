@@ -202,9 +202,9 @@ public class ServerTools {
 		int responseCode=-1;
 		String result=null;
 		
-		for(int i=0; i<12 && (result==null || responseCode<200 || responseCode>299); i++) {
+		for(int i=0; i<14 && (result==null || responseCode<200 || responseCode>299); i++) {
 			try {
-				if(i>0) {Tools.sleep(20*i*i);}
+				if(i>0) {Tools.sleep(40*i*i);}
 				response = client.send(request, HttpResponse.BodyHandlers.ofString());
 				result=response.body();
 				responseCode=response.statusCode();

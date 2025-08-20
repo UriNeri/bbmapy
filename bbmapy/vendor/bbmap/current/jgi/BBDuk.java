@@ -45,7 +45,7 @@ import structures.StringCount;
 import tracker.EntropyTracker;
 import tracker.PolymerTracker;
 import tracker.ReadStats;
-import var2.CallVariants;
+import var2.AnalyzeVars;
 import var2.ScafMap;
 import var2.Var;
 import var2.VarMap;
@@ -1187,7 +1187,7 @@ public class BBDuk {
 
 		if(DISPLAY_PROGRESS && !json){
 			outstream.println("Initial:");
-			Shared.printMemory();
+			Shared.printMemory(outstream);
 			outstream.println();
 		}
 		
@@ -3282,8 +3282,8 @@ public class BBDuk {
 			}
 			
 			if(fixVariants){
-				CallVariants.fixVars(r1, varMap, scafMap);
-				CallVariants.fixVars(r2, varMap, scafMap);
+				AnalyzeVars.fixVars(r1, varMap, scafMap);
+				AnalyzeVars.fixVars(r2, varMap, scafMap);
 			}
 
 			if(readstats!=null){
@@ -3298,8 +3298,8 @@ public class BBDuk {
 			}
 
 			if(fixVariants && unfixVariants){
-				CallVariants.unfixVars(r1);
-				CallVariants.unfixVars(r2);
+				AnalyzeVars.unfixVars(r1);
+				AnalyzeVars.unfixVars(r2);
 			}
 		}
 		
@@ -4522,7 +4522,7 @@ public class BBDuk {
 			if(!r.mapped() || r.bases==null || r.samline==null || r.match==null){return true;}
 			//TODO: Add Vars as well, like in FilterSam
 			if(Read.countSubs(r.match)<=maxBadSubs){return true;}
-			ArrayList<Var> list=CallVariants.findUniqueSubs(r, r.samline, varMap, scafMap, maxBadSubAlleleDepth, maxBadAlleleFraction, minBadSubReadDepth, minBadSubEDist);
+			ArrayList<Var> list=AnalyzeVars.findUniqueSubs(r, r.samline, varMap, scafMap, maxBadSubAlleleDepth, maxBadAlleleFraction, minBadSubReadDepth, minBadSubEDist);
 			return list==null || list.size()<=maxBadSubs;
 		}
 		

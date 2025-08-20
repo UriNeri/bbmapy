@@ -75,7 +75,7 @@ calcXmx () {
 calcXmx "$@"
 
 fuse() {
-	local CMD="java $EA $EOOM $z -cp $CP jgi.FuseSequence $@"
+	local CMD="java $EA $EOOM $z -cp $CP synth.FuseSequence $@"
 	echo $CMD >&2
 	eval $CMD
 }

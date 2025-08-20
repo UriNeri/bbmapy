@@ -746,6 +746,18 @@ public final class AminoAcid {
 		return out;
 	}
 	
+	public static final boolean isHomopolymer(int kmer, int k, int maxRepeat) {
+		if(maxRepeat<1) {return false;}
+		final int mask=~((-1)<<(2*k));
+		final int inv=(~kmer)&mask;
+		boolean polymer=false;
+		for(int i=1; i<=maxRepeat && !polymer; i++) {
+			int shift=2*i;
+			polymer=(kmer==(kmer|(kmer>>shift))) && (inv==(inv|(inv>>shift)));
+		}
+		return polymer;
+	}
+	
 	public static final short[] rcompBinaryTable=makeBinaryRcompTable(4);
 	
 	private static final short[] makeBinaryRcompTable(int k){

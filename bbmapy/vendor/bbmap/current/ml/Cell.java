@@ -464,7 +464,10 @@ public class Cell extends Source {
 		float mult=toErrorMult(v, target, weightMult);
 		double incr=toErrorIncr(rawError, v, target);
 		assert(incr==0 || incr>=0 == rawError>=0) : incr+", "+rawError;
-		return (float)((rawError+incr)*mult);
+		float ret=(float)((rawError+incr)*mult);
+		assert(ret>=0 || rawError<0) : "raw="+rawError+", v="+v+", t="+target+
+			", wm="+weightMult+", m="+mult+", incr="+incr+", ret="+ret;
+		return ret;
 	}
 	
 	public static double toErrorIncr(double rawError, float v, float target) {
@@ -520,6 +523,7 @@ public class Cell extends Source {
 		final boolean positiveGoal=target>cutoffForTraining;
 		final boolean negativeGoal=target<cutoffForTraining;
 		final boolean excess=(positiveError == positiveGoal);
+		boolean offsides=false;
 //		final boolean offsides=(positiveGoal && v<)
 		if(positiveError) {
 			if(positiveGoal) {
@@ -527,6 +531,7 @@ public class Cell extends Source {
 				mult=excessPositiveErrorMult;
 			}else if(v>cutoffForTraining-spread){//offsides; false positive
 				mult=falsePositiveErrorMult;
+				offsides=true;
 			}else {
 				mult=positiveErrorMult;
 			}
@@ -536,11 +541,20 @@ public class Cell extends Source {
 				mult=excessNegativeErrorMult;
 			}else if(v<cutoffForTraining+spread){//offsides; false negative
 				mult=falseNegativeErrorMult;
+				offsides=true;
 			}else {
 				mult=negativeErrorMult;
 			}
 		}
-		return ((mult-1)*multFraction)+1; //multFraction=0.5, for example, returns halfway between 1.0 and mult
+		//multFraction=0.5, for example, returns halfway between 1.0 and mult
+//		float ret=((mult-1)*multFraction)+1;
+		
+		float ret=mult*multFraction;//Changed to this because the old formula was giving a negative multiplier
+		assert(ret>0) : "v="+v+", target="+target+"\n"+
+				"mult="+mult+", ret="+ret+", mf="+multFraction+
+				", pe="+positiveError+", pg="+positiveGoal+", ng="+negativeGoal+
+				", excess="+excess+", offsides="+offsides;
+		return ret;
 	}
 	
 	public static float calcETotalOverOut(float v, float target, float weightMult) {
