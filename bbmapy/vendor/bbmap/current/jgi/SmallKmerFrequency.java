@@ -108,7 +108,7 @@ public class SmallKmerFrequency extends BBTool_ST {
 				kmers[i].count=counts[i];
 			}
 			Arrays.sort(kmers, countComparator);
-			for(int i=0; i<display; i++){
+			for(int i=0; i<display; i++){ //Possible bug: should check kmers[i].count>0 like r1
 				sb.append('\t');
 				sb.append(kmers[i].s);
 				if(addNumbers){sb.append('=').append(kmers[i].count);}
@@ -160,8 +160,11 @@ public class SmallKmerFrequency extends BBTool_ST {
 	
 	private class Kmer{
 		
+		/** String representation of the k-mer sequence */
 		String s;
+		/** Frequency count of this k-mer in the current sequence */
 		int count=0;
+		/** Numeric representation of the k-mer for sorting purposes */
 		int num;
 		
 		@Override
@@ -187,6 +190,14 @@ public class SmallKmerFrequency extends BBTool_ST {
 		
 	}
 	
+	/**
+	 * Creates canonical k-mer index mapping for given k-mer length.
+	 * Maps both k-mer and its reverse complement to the same index value,
+	 * using the lexicographically smaller representation.
+	 *
+	 * @param n K-mer length in bases
+	 * @return Index array mapping k-mer values to canonical positions
+	 */
 	public static final int[] makeKmerIndex(final int n){
 		final int max=(1<<(2*n))-1;
 		int[] array=new int[max+1];
@@ -207,17 +218,27 @@ public class SmallKmerFrequency extends BBTool_ST {
 	@Override
 	protected final boolean useSharedHeader(){return true;}
 
+	/** Comparator instance for sorting k-mers by numeric representation */
 	private static final NumComparator numComparator=new NumComparator();
+	/** Comparator instance for sorting k-mers by frequency count */
 	private static final CountComparator countComparator=new CountComparator();
 	
+	/** K-mer length in bases for frequency analysis */
 	private int k;
+	/** Number of top k-mers to display in output */
 	private int display;
+	/** Whether to include numeric counts in output display */
 	private boolean addNumbers;
+	/** Maximum k-mer index value for the given k-mer length */
 	private final int maxKmer;
+	/** Canonical index mapping for k-mer values */
 	private final int[] kmerIndex;
+	/** Array to store k-mer frequency counts during processing */
 	private final int[] counts;
+	/** String builder for constructing output lines */
 	private final StringBuilder sb=new StringBuilder();
 	
+	/** Array of k-mer objects containing sequence strings and counts */
 	private final Kmer[] kmers;
 	
 }

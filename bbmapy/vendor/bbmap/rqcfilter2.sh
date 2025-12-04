@@ -19,7 +19,7 @@ in=<file>           Input reads.
 in2=<file>          Use this if 2nd read of pairs are in a different file.
 path=null           Set to the directory to use for all output files.
 
-Reference file paths:
+Reference file path parameters:
 rqcfilterdata=      Path to unzipped RQCFilterData directory.  Default is /global/projectb/sandbox/gaag/bbtools/RQCFilterData
 ref=<file,file>     Comma-delimited list of additional reference files for filtering via BBDuk.
 
@@ -188,6 +188,7 @@ chastityfilter=t    Remove reads failing chastity filter.
 barcodefilter=f     Crash when improper barcodes are discovered.  Set to 'f' to disable,
                     't' to remove improper barcodes, or 'crash' to crash if they are discovered.
 barcodes=           A comma-delimited list of barcodes or files of barcodes.
+filterbytile        Also needs to be disabled for SRA data.
 
 Java Parameters:
 -Xmx                This will set Java's memory usage, overriding autodetection.
@@ -200,57 +201,39 @@ Java Parameters:
 *****   All additional parameters supported by BBDuk may also be used, and will be passed directly to BBDuk   *****
 
 Please contact Brian Bushnell at bbushnell@lbl.gov if you encounter any problems.
+For documentation and the latest version, visit: https://bbmap.org
 "
 }
 
-#This block allows symlinked shellscripts to correctly set classpath.
-pushd . > /dev/null
-DIR="${BASH_SOURCE[0]}"
-while [ -h "$DIR" ]; do
-  cd "$(dirname "$DIR")"
-  DIR="$(readlink "$(basename "$DIR")")"
-done
-cd "$(dirname "$DIR")"
-DIR="$(pwd)/"
-popd > /dev/null
-
-#DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )/"
-CP="$DIR""current/"
-JNI="-Djava.library.path=""$DIR""jni/"
-JNI=""
-
-z="-Xmx40g"
-z2="-Xms40g"
-set=0
-export TZ="America/Los_Angeles"
-
-if [ -z "$1" ] || [[ $1 == -h ]] || [[ $1 == --help ]]; then
+if [ -z "$1" ] || [ "$1" = "-h" ] || [ "$1" = "--help" ]; then
 	usage
 	exit
 fi
 
-calcXmx () {
-	source "$DIR""/calcmem.sh"
-	setEnvironment
-	parseXmx "$@"
-    
-	if [[ $set == 1 ]]; then
-		return
-	fi
-	freeRam 39200m 84
-
-	if [[ $NSLOTS == 8 ]]; then
-		RAM=39200
-	fi
-	
-	z="-Xmx${RAM}m"
-	z2="-Xms${RAM}m"
+resolveSymlinks(){
+	SCRIPT="$0"
+	while [ -h "$SCRIPT" ]; do
+		DIR="$(dirname "$SCRIPT")"
+		SCRIPT="$(readlink "$SCRIPT")"
+		[ "${SCRIPT#/}" = "$SCRIPT" ] && SCRIPT="$DIR/$SCRIPT"
+	done
+	DIR="$(cd "$(dirname "$SCRIPT")" && pwd)"
+	CP="$DIR/current/"
+	JNI="-Djava.library.path=$DIR/jni/"
+	JNI=""
 }
 
-calcXmx "$@"
+setEnv(){
+	. "$DIR/javasetup.sh"
+	. "$DIR/memdetect.sh"
 
+	parseJavaArgs "--xmx=40g" "--xms=40g" "--percent=84" "--mode=auto" "$@"
+	setEnvironment
 
-rqcfilter() {
+	export TZ="America/Los_Angeles"
+}
+
+launch() {
 	if [[ $SHIFTER_RUNTIME == 1 ]]; then
 		#Ignore NERSC_HOST
 		shifter=1
@@ -258,12 +241,12 @@ rqcfilter() {
 		module unload oracle-jdk
 		module load oracle-jdk/1.8_144_64bit
 		module load pigz
-		export TZ="America/Los_Angeles" 
+		export TZ="America/Los_Angeles"
 	elif [[ $NERSC_HOST == denovo ]]; then
 		module unload java
 		module load java/1.8.0_144
 		module load pigz
-		export TZ="America/Los_Angeles" 
+		export TZ="America/Los_Angeles"
 	elif [[ $NERSC_HOST == cori ]]; then
 		module use /global/common/software/m342/nersc-builds/denovo/Modules/jgi
 		module use /global/common/software/m342/nersc-builds/denovo/Modules/usg
@@ -271,9 +254,11 @@ rqcfilter() {
 		module load java/1.8.0_144
 		module load pigz
 	fi
-	local CMD="java $EA $EOOM $z $z2 $JNI -cp $CP jgi.RQCFilter2 jni=t $@"
-	echo $CMD >&2
+	CMD="java $EA $EOOM $SIMD $XMX $XMS $JNI -cp $CP jgi.RQCFilter2 jni=t $@"
+	echo "$CMD" >&2
 	eval $CMD
 }
 
-rqcfilter "$@"
+resolveSymlinks
+setEnv "$@"
+launch "$@"

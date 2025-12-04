@@ -1,5 +1,6 @@
 package var2;
 
+import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
 
 import shared.Parse;
@@ -15,7 +16,7 @@ import shared.Tools;
  * - Extended: Includes full statistical data (coverage, quality, bias metrics)
  * 
  * @author Brian Bushnell
- * @author Isla Winglet
+ * @author Isla
  * @date June 25, 2025
  */
 public class VcfToVar {
@@ -39,7 +40,7 @@ public class VcfToVar {
 		// Field 0: CHROM - chromosome/scaffold name
 		while(b<line.length && line[b]!='\t'){b++;}
 		assert(b>a) : "Missing field 0: "+new String(line);
-		String scaf=new String(line, a, b-a);
+		String scaf=new String(line, a, b-a, StandardCharsets.US_ASCII);
 		b++;
 		a=b;
 		

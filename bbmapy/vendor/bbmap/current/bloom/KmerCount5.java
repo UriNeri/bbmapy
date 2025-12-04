@@ -7,6 +7,7 @@ import dna.AminoAcid;
 import fileIO.FileFormat;
 import shared.Timer;
 import shared.Tools;
+import shared.Vector;
 import stream.ConcurrentReadInputStream;
 import stream.FastaReadInputStream;
 import stream.Read;
@@ -19,6 +20,12 @@ import structures.ListNum;
  */
 public class KmerCount5 extends KmerCountAbstract {
 	
+	/**
+	 * Program entry point for standalone k-mer counting.
+	 * Parses command line arguments and executes counting with specified parameters.
+	 * Supports regular k-mer counting and split k-mer counting with gaps.
+	 * @param args Command-line arguments including input files and parameters
+	 */
 	public static void main(String[] args){
 
 		Timer t=new Timer();
@@ -67,6 +74,12 @@ public class KmerCount5 extends KmerCountAbstract {
 
 	}
 
+	/**
+	 * Prints comprehensive statistics about k-mer frequency distribution.
+	 * Outputs frequency histogram, unique k-mer counts, and coverage statistics
+	 * in formatted tables for analysis and quality assessment.
+	 * @param count The k-mer count array to analyze and report
+	 */
 	public static void printStatistics(KCountArray count){
 		long[] freq=count.transformToFrequency();
 
@@ -106,10 +119,34 @@ public class KmerCount5 extends KmerCountAbstract {
 		System.out.println("Useful:        \t"+Tools.format("%.3f%%   ",(100l*x/(double)sum2))+"\t"+x);
 	}
 
+	/**
+	 * Counts k-mers in paired-end sequence files with basic parameters.
+	 * Convenience method that calls the full count method with default settings.
+	 *
+	 * @param reads1 Path to first reads file
+	 * @param reads2 Path to second reads file (may be null for single-end)
+	 * @param k K-mer length for counting
+	 * @param cbits Number of bits per count cell
+	 * @param rcomp Whether to include reverse complement k-mers
+	 * @return KCountArray containing k-mer counts
+	 */
 	public static KCountArray count(String reads1, String reads2, int k, int cbits, boolean rcomp){
 		return count(reads1, reads2, k, cbits, rcomp, null);
 	}
 
+	/**
+	 * Counts k-mers in paired-end sequence files using existing count array.
+	 * Processes reads through concurrent input stream for efficient parallel processing.
+	 * Creates bit mask for k-mer encoding and handles both single-end and paired-end data.
+	 *
+	 * @param reads1 Path to first reads file
+	 * @param reads2 Path to second reads file (may be null for single-end)
+	 * @param k K-mer length for counting
+	 * @param cbits Number of bits per count cell
+	 * @param rcomp Whether to include reverse complement k-mers
+	 * @param count Existing count array to use (null to create new)
+	 * @return KCountArray containing k-mer counts
+	 */
 	public static KCountArray count(String reads1, String reads2, int k, int cbits, boolean rcomp, KCountArray count){
 		assert(k<32 && k>=1 && (count!=null || k<20));
 		final int kbits=2*k;
@@ -173,6 +210,25 @@ public class KmerCount5 extends KmerCountAbstract {
 
 
 
+	/**
+	 * Advanced k-mer counting with error correction using trusted k-mer sets.
+	 * Processes reads with optional error correction based on k-mer frequency patterns.
+	 * Uses BitSet to mark trusted positions and replaces untrusted bases with 'N'.
+	 * Supports both conservative and aggressive error correction strategies.
+	 *
+	 * @param reads1 Path to first reads file
+	 * @param reads2 Path to second reads file (may be null for single-end)
+	 * @param k K-mer length for counting
+	 * @param cbits Number of bits per count cell
+	 * @param rcomp Whether to include reverse complement k-mers
+	 * @param counts Existing count array to use (null to create new)
+	 * @param trusted Reference k-mer set for error correction (null to disable)
+	 * @param maxReads Maximum number of reads to process
+	 * @param thresh Threshold for trusted k-mer identification
+	 * @param detectStepsize Step size for error detection scanning
+	 * @param conservative Whether to use conservative error correction strategy
+	 * @return KCountArray containing k-mer counts
+	 */
 	public static KCountArray count(final String reads1, final String reads2, final int k, final int cbits, final boolean rcomp,
 			KCountArray counts, final KCountArray trusted, final long maxReads, final int thresh, final int detectStepsize, final boolean conservative){
 
@@ -269,6 +325,21 @@ public class KmerCount5 extends KmerCountAbstract {
 	}
 
 
+	/**
+	 * Counts split k-mers with a gap between two k-mer segments.
+	 * Creates composite k-mers from two separate regions separated by a fixed gap.
+	 * Useful for specialized applications requiring gapped k-mer analysis.
+	 *
+	 * @param reads1 Path to first reads file
+	 * @param reads2 Path to second reads file (may be null for single-end)
+	 * @param k1 Length of first k-mer segment
+	 * @param k2 Length of second k-mer segment
+	 * @param gap Number of bases between k-mer segments
+	 * @param cbits Number of bits per count cell
+	 * @param rcomp Whether to include reverse complement k-mers
+	 * @param counts Existing count array to use (null to create new)
+	 * @return KCountArray containing split k-mer counts
+	 */
 	public static KCountArray countFastqSplit(String reads1, String reads2, int k1, int k2, int gap, int cbits, boolean rcomp, KCountArray counts){
 		int k=k1+k2;
 		assert(k<32 && k>=1 && (counts!=null || k<20));
@@ -334,6 +405,18 @@ public class KmerCount5 extends KmerCountAbstract {
 		return counts;
 	}
 
+	/**
+	 * Adds all k-mers from a single read to the count array.
+	 * Processes read bases sequentially, building k-mers with rolling hash.
+	 * Skips k-mers containing ambiguous bases or low-quality positions.
+	 * Optionally processes reverse complement for strand-independent counting.
+	 *
+	 * @param r The read to process
+	 * @param count K-mer count array to increment
+	 * @param k K-mer length
+	 * @param mask Bit mask for k-mer encoding
+	 * @param rcomp Whether to also process reverse complement
+	 */
 	public static void addRead(final Read r, final KCountArray count, final int k, final long mask, boolean rcomp){
 		int len=0;
 		long kmer=0;
@@ -366,6 +449,21 @@ public class KmerCount5 extends KmerCountAbstract {
 		}
 	}
 
+	/**
+	 * Adds split k-mers from a read to the count array.
+	 * Creates composite k-mers from two segments separated by a gap.
+	 * Both segments must pass quality filters for the k-mer to be counted.
+	 * Combines segments using bit shifting to create unique composite keys.
+	 *
+	 * @param r The read to process
+	 * @param count K-mer count array to increment
+	 * @param k1 Length of first k-mer segment
+	 * @param k2 Length of second k-mer segment
+	 * @param mask1 Bit mask for first k-mer segment
+	 * @param mask2 Bit mask for second k-mer segment
+	 * @param gap Number of bases between segments
+	 * @param rcomp Whether to also process reverse complement
+	 */
 	public static void addReadSplit(final Read r, final KCountArray count, final int k1, final int k2, final long mask1, final long mask2, final int gap, boolean rcomp){
 		int len=0;
 		int shift=k2*2;
@@ -410,6 +508,21 @@ public class KmerCount5 extends KmerCountAbstract {
 		}
 	}
 
+	/**
+	 * Adds split k-mers from raw sequence bases to the count array.
+	 * Creates composite k-mers from two segments separated by a gap.
+	 * Includes debugging output for k-mer composition analysis.
+	 * Both segments must be valid bases for the k-mer to be counted.
+	 *
+	 * @param bases Raw sequence bases to process
+	 * @param count K-mer count array to increment
+	 * @param k1 Length of first k-mer segment
+	 * @param k2 Length of second k-mer segment
+	 * @param mask1 Bit mask for first k-mer segment
+	 * @param mask2 Bit mask for second k-mer segment
+	 * @param gap Number of bases between segments
+	 * @param rcomp Whether to also process reverse complement
+	 */
 	public static void addReadSplit(final byte[] bases, final KCountArray count, final int k1, final int k2, final long mask1, final long mask2, final int gap, boolean rcomp){
 		int len=0;
 		int shift=k2*2;
@@ -450,7 +563,7 @@ public class KmerCount5 extends KmerCountAbstract {
 			}
 		}
 		if(rcomp){
-			AminoAcid.reverseComplementBasesInPlace(bases);
+			Vector.reverseComplementInPlaceFast(bases);
 			addReadSplit(bases, count, k1, k2, mask1, mask2, gap, false);
 		}
 	}

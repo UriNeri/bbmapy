@@ -17,6 +17,8 @@ calculated in different ways, and thus will not exactly agree, but should be
 close.  For most calculations, only read 1 is used, or the merge of read 1
 and read 2 if the merge flag is enabled and they overlap.
 
+Usage:  checkstrand.sh in=<input file>
+
 
 Output meaning:
 
@@ -76,8 +78,6 @@ PlusFeatures:   Fraction of features with majority plus-mapped reads.
 AlignmentRate:  Fraction of reads that aligned.
 Feature-Mapped: Fraction of reads that aligned to a feature in the gff.
 
-
-Usage:  checkstrand.sh in=<input file>
 
 Running on a fastq is simple, but there are multiple ways to run CheckStrand
 on aligned data (in=, ref=, and gff= flags are not needed if the files have
@@ -151,43 +151,40 @@ Java Parameters:
 -da             Disable assertions.
 
 Please contact Brian Bushnell at bbushnell@lbl.gov if you encounter any problems.
+For documentation and the latest version, visit: https://bbmap.org
 "
 }
 
-#This block allows symlinked shellscripts to correctly set classpath.
-pushd . > /dev/null
-DIR="${BASH_SOURCE[0]}"
-while [ -h "$DIR" ]; do
-  cd "$(dirname "$DIR")"
-  DIR="$(readlink "$(basename "$DIR")")"
-done
-cd "$(dirname "$DIR")"
-DIR="$(pwd)/"
-popd > /dev/null
-
-#DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )/"
-CP="$DIR""current/"
-
-z="-Xmx2g"
-#z2="-Xms2g"
-set=0
-
-if [ -z "$1" ] || [[ $1 == -h ]] || [[ $1 == --help ]]; then
+if [ -z "$1" ] || [ "$1" = "-h" ] || [ "$1" = "--help" ]; then
 	usage
 	exit
 fi
 
-calcXmx () {
-	source "$DIR""/calcmem.sh"
-	setEnvironment
-	parseXmx "$@"
+resolveSymlinks(){
+	SCRIPT="$0"
+	while [ -h "$SCRIPT" ]; do
+		DIR="$(dirname "$SCRIPT")"
+		SCRIPT="$(readlink "$SCRIPT")"
+		[ "${SCRIPT#/}" = "$SCRIPT" ] && SCRIPT="$DIR/$SCRIPT"
+	done
+	DIR="$(cd "$(dirname "$SCRIPT")" && pwd)"
+	CP="$DIR/current/"
 }
-calcXmx "$@"
 
-checkstrand() {
-	local CMD="java $EA $EOOM $z -cp $CP jgi.CheckStrand2 $@"
-	echo $CMD >&2
+setEnv(){
+	. "$DIR/javasetup.sh"
+	. "$DIR/memdetect.sh"
+
+	parseJavaArgs "--xmx=2g" "--xms=2g" "--mode=fixed" "$@"
+	setEnvironment
+}
+
+launch() {
+	CMD="java $EA $EOOM $SIMD $XMX $XMS -cp $CP jgi.CheckStrand2 $@"
+	echo "$CMD" >&2
 	eval $CMD
 }
 
-checkstrand "$@"
+resolveSymlinks
+setEnv "$@"
+launch "$@"

@@ -19,8 +19,15 @@ import shared.Tools;
  *
  */
 public class SimpleHttpServer {
+	/** Default port number for the HTTP server */
 	public static int port = 8321;
 
+	/**
+	 * Program entry point that starts the HTTP server.
+	 * Creates server instance, registers GET handler, and begins listening.
+	 * @param args Command-line arguments (unused)
+	 * @throws Exception If server creation or startup fails
+	 */
 	public static void main(String[] args) throws Exception {
 		HttpServer server = HttpServer.create(new InetSocketAddress(SimpleHttpServer.port), 0);
 		server.createContext("/", new GetHandler());
@@ -28,6 +35,8 @@ public class SimpleHttpServer {
 		server.start();
 	}
 
+	/** HTTP request handler that processes GET requests and returns JSON responses.
+	 * Parses RESTful-style URL parameters and constructs appropriate JSON output. */
 	static class GetHandler implements HttpHandler {
 		@Override
 		public void handle(HttpExchange t) throws IOException {

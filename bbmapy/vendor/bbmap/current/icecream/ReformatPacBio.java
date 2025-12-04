@@ -400,6 +400,12 @@ public final class ReformatPacBio {
 		}
 	}
 	
+	/**
+	 * Generates text-format statistics summary.
+	 * Reports processing metrics, filtering results, and quality metrics.
+	 * @param t Timer with execution timing information
+	 * @return ByteBuilder containing formatted text statistics
+	 */
 	private ByteBuilder toText(Timer t){
 		ByteBuilder bb=new ByteBuilder();
 		bb.appendln(Tools.timeZMWsReadsBasesProcessed(t, ZMWs, readsProcessed, basesProcessed, 8));
@@ -423,6 +429,12 @@ public final class ReformatPacBio {
 		return bb;
 	}
 	
+	/**
+	 * Generates JSON-format statistics summary.
+	 * Creates structured output with all processing metrics and percentages.
+	 * @param t Timer with execution timing information
+	 * @return JsonObject containing structured statistics data
+	 */
 	private JsonObject toJson(Timer t){
 		JsonObject jo=new JsonObject();
 		long readsFiltered=readsProcessed-readsOut;
@@ -460,6 +472,12 @@ public final class ReformatPacBio {
 		return jo;
 	}
 	
+	/**
+	 * Writes histogram data to specified output file.
+	 * Includes summary statistics like mean, median, mode, and standard deviation.
+	 * @param ff Output file format, or null to skip writing
+	 * @param hist Histogram array with count data
+	 */
 	private static void writeHistogram(FileFormat ff, long[] hist){
 		if(ff==null){return;}
 		final ByteStreamWriter bsw=new ByteStreamWriter(ff);
@@ -478,6 +496,12 @@ public final class ReformatPacBio {
 		bsw.poisonAndWait();
 	}
 	
+	/**
+	 * Creates a concurrent output stream for reads.
+	 * Configures buffering and format-specific options.
+	 * @param ff Output file format, or null for no output
+	 * @return Configured ConcurrentReadOutputStream or null
+	 */
 	private ConcurrentReadOutputStream makeCros(FileFormat ff){
 		if(ff==null){return null;}
 
@@ -517,6 +541,11 @@ public final class ReformatPacBio {
 		ZMWs=zstream.ZMWs;
 	}
 	
+	/**
+	 * Waits for all processing threads to complete and accumulates statistics.
+	 * Collects per-thread counters and sets error state if any thread failed.
+	 * @param alpt List of ProcessThread objects to monitor
+	 */
 	private void waitForThreads(ArrayList<ProcessThread> alpt){
 		
 		//Wait for completion of all threads
@@ -562,6 +591,14 @@ public final class ReformatPacBio {
 	/*----------------          CCS Methods         ----------------*/
 	/*--------------------------------------------------------------*/
 	
+	/**
+	 * Generates consensus sequence from multiple subreads in a ZMW.
+	 * Uses BaseGraph for alignment and consensus calling with identity filtering.
+	 * Applies minimum pass requirements and generates quality metrics.
+	 *
+	 * @param zmw ZMW containing subreads for consensus generation
+	 * @return Consensus read with average identity score in obj field
+	 */
 	public Read makeConsensus(ZMW zmw){
 		//Apply correct strand
 		for(int i=0; i<zmw.size(); i++){
@@ -576,11 +613,11 @@ public final class ReformatPacBio {
 		for(Read r : zmw){
 			if(r!=ref){
 				final boolean rcomp=(r.strand()!=ref.strand());
-				if(rcomp){r.reverseComplement();}
+				if(rcomp){r.reverseComplementFast();}
 				float id=shredAndAdd(r, bg, null);
 				idSum+=id;
 				added++;
-				if(rcomp){r.reverseComplement();}
+				if(rcomp){r.reverseComplementFast();}
 			}
 		}
 		float avgId=idSum/(Tools.max(1, added));
@@ -594,6 +631,16 @@ public final class ReformatPacBio {
 		return c;
 	}
 	
+	/**
+	 * Shreds long reads and adds alignable fragments to BaseGraph.
+	 * Handles both short reads (direct alignment) and long reads (shredding).
+	 * Filters fragments by identity threshold before adding to graph.
+	 *
+	 * @param subread Input subread to process
+	 * @param bg BaseGraph for consensus building
+	 * @param ssa Sequence aligner (created if null)
+	 * @return Average identity score of aligned fragments
+	 */
 	private float shredAndAdd(Read subread, BaseGraph bg, Aligner ssa){
 		int added=0;
 		float idSum=0;
@@ -621,6 +668,16 @@ public final class ReformatPacBio {
 		return avgId;
 	}
 	
+	/**
+	 * Divides a read into overlapping fragments of specified length.
+	 * Ensures even coverage with specified overlap between adjacent shreds.
+	 * Maintains original read names with coordinate suffixes.
+	 *
+	 * @param r Read to shred into fragments
+	 * @param shredLength Target length for each fragment
+	 * @param overlap Number of bases overlap between adjacent fragments
+	 * @return List of Read objects representing the fragments
+	 */
 	private static ArrayList<Read> shred(final Read r, final int shredLength, final int overlap){
 		final byte[] bases=r.bases;
 		final byte[] quals=r.quality;
@@ -678,6 +735,11 @@ public final class ReformatPacBio {
 	/*----------------         Inner Methods        ----------------*/
 	/*--------------------------------------------------------------*/
 	
+	/**
+	 * Counts total reads, ZMWs, and bases in input for exact subsampling.
+	 * Required for target-based subsampling modes to calculate probabilities.
+	 * Updates initial counts and remaining counters for sampling.
+	 */
 	void countInitial(){
 		if(verbose){System.err.println("Entered countInitial()");}
 		assert(!ffin1.stdio()) : "Target subsampling can't be used with stdin.";
@@ -705,6 +767,15 @@ public final class ReformatPacBio {
 	private class ProcessThread extends Thread {
 		
 		//Constructor
+		/**
+		 * Constructor for processing thread.
+		 * Initializes streams, thread ID, and entropy tracker if needed.
+		 *
+		 * @param zstream_ ZMW input stream
+		 * @param ros_ Good reads output stream
+		 * @param rosb_ Bad reads output stream
+		 * @param tid_ Thread identifier
+		 */
 		ProcessThread(final ZMWStreamer zstream_, 
 				final ConcurrentReadOutputStream ros_,  
 				final ConcurrentReadOutputStream rosb_, final int tid_){
@@ -748,6 +819,12 @@ public final class ReformatPacBio {
 			}
 		}
 		
+		/**
+		 * Calculates median length of middle subreads in a ZMW.
+		 * Excludes first and last reads which may be partial or low quality.
+		 * @param list ZMW containing subreads
+		 * @return Median length of middle reads, or -1 if insufficient reads
+		 */
 		private int medianLength(ZMW list){
 			if(list.size()<3){return -1;}
 			IntList lengths=new IntList(list.size()-2);
@@ -760,6 +837,17 @@ public final class ReformatPacBio {
 			return median;
 		}
 		
+		/**
+		 * Identifies and flags reads with low sequence complexity.
+		 * Uses entropy tracking to find long homopolymer or low-complexity regions.
+		 * Marks reads as discarded if they contain excessive low-entropy sequence.
+		 *
+		 * @param reads ZMW containing reads to evaluate
+		 * @param minEnt Minimum entropy threshold (unused in current implementation)
+		 * @param minLen0 Minimum absolute length of low-entropy block
+		 * @param minFract Minimum fraction of read that must be low-entropy
+		 * @return Number of reads flagged as low entropy
+		 */
 		int flagLowEntropyReads(final ZMW reads, final float minEnt, 
 				final int minLen0, final float minFract){
 			int found=0;
@@ -778,6 +866,14 @@ public final class ReformatPacBio {
 			return found;
 		}
 		
+		/**
+		 * Flags reads that are unusually long compared to median length.
+		 * Long reads often indicate adapter contamination or chimeric sequences.
+		 *
+		 * @param reads ZMW containing reads to evaluate
+		 * @param median Median length for comparison
+		 * @return Number of reads flagged as too long
+		 */
 		int flagLongReads(final ZMW reads, int median){
 			int found=0;
 			for(Read r : reads){
@@ -790,6 +886,12 @@ public final class ReformatPacBio {
 			return found;
 		}
 		
+		/**
+		 * Discards reads from the ends of a ZMW for subsampling.
+		 * Preferentially removes shorter reads and maintains read order.
+		 * @param zmw ZMW containing reads to selectively discard
+		 * @param toDiscard Number of reads to discard from ends
+		 */
 		void discardEndReads(ZMW zmw, int toDiscard){
 			if(toDiscard<1){return;}
 			if(toDiscard==1){
@@ -1034,6 +1136,12 @@ public final class ReformatPacBio {
 			if(!reads.isEmpty()){outputReads(reads);}
 		}
 		
+		/**
+		 * Removes reads shorter than minimum length threshold.
+		 * Marks short reads as discarded to filter out low-quality fragments.
+		 * @param reads ZMW containing reads to filter by length
+		 * @return Number of reads removed for being too short
+		 */
 		private int removeShortTrash(ZMW reads) {
 			int removed=0;
 			for(int i=0; i<reads.size(); i++){
@@ -1048,6 +1156,15 @@ public final class ReformatPacBio {
 			return removed;
 		}
 		
+		/**
+		 * Updates read header coordinates after trimming operations.
+		 * Adjusts PacBio coordinate system and SAM optional fields.
+		 * Maintains consistency between sequence data and header information.
+		 *
+		 * @param r Read with header to fix
+		 * @param leftTrim Number of bases trimmed from left end
+		 * @param rightTrim Number of bases trimmed from right end
+		 */
 		private void fixReadHeader(Read r, int leftTrim, int rightTrim){
 			leftTrim=Tools.max(0, leftTrim);
 			rightTrim=Tools.max(0, rightTrim);
@@ -1095,6 +1212,15 @@ public final class ReformatPacBio {
 			}
 		}
 		
+		/**
+		 * Trims undefined bases from read ends using lookahead strategy.
+		 * Removes stretches of N's or other ambiguous bases from read termini.
+		 * Updates read header coordinates and SAM fields after trimming.
+		 *
+		 * @param r Read to trim
+		 * @param lookahead Number of defined bases required to stop trimming
+		 * @return Number of bases trimmed total
+		 */
 		int trimRead(Read r, int lookahead){
 			final byte[] bases=r.bases;
 			
@@ -1117,6 +1243,14 @@ public final class ReformatPacBio {
 			return trimmed;
 		}
 		
+		/**
+		 * Removes poly-A and poly-T stretches from read ends.
+		 * Trims homopolymer runs that may represent artifacts or adapters.
+		 * Updates read header coordinates after trimming.
+		 *
+		 * @param r Read to trim for poly-A/T sequences
+		 * @return Number of bases trimmed total
+		 */
 		int trimPolyA(Read r){
 			final byte[] bases=r.bases;
 
@@ -1139,6 +1273,14 @@ public final class ReformatPacBio {
 			return trimmed;
 		}
 		
+		/**
+		 * Calculates number of bases to trim from left end.
+		 * Finds the last undefined base within the lookahead window.
+		 *
+		 * @param bases Sequence bases to analyze
+		 * @param lookahead Number of consecutive defined bases required
+		 * @return Number of bases to trim from left end
+		 */
 		final int calcLeftTrim(final byte[] bases, int lookahead){
 			final int len=bases.length;
 			int lastUndef=-1;
@@ -1153,6 +1295,14 @@ public final class ReformatPacBio {
 			return lastUndef+1;
 		}
 		
+		/**
+		 * Calculates number of bases to trim from right end.
+		 * Finds the last undefined base within the lookahead window from right end.
+		 *
+		 * @param bases Sequence bases to analyze
+		 * @param lookahead Number of consecutive defined bases required
+		 * @return Number of bases to trim from right end
+		 */
 		final int calcRightTrim(final byte[] bases, int lookahead){
 			final int len=bases.length;
 			int lastUndef=len;
@@ -1167,6 +1317,12 @@ public final class ReformatPacBio {
 			return len-lastUndef-1;
 		}
 		
+		/**
+		 * Routes processed reads to appropriate output streams.
+		 * Separates good and bad reads based on discard flags.
+		 * Handles ZMW-together mode and maintains statistics.
+		 * @param reads ZMW containing processed reads for output
+		 */
 		private void outputReads(ZMW reads){
 			final int size=reads.size();
 			final ArrayList<Read> good=new ArrayList<Read>(size);
@@ -1228,7 +1384,9 @@ public final class ReformatPacBio {
 		/** Number of ZMWs processed by this thread */
 		protected long ZMWsT=0;
 		
+		/** Number of bases trimmed by this thread */
 		protected long basesTrimmedT=0;
+		/** Number of reads trimmed by this thread */
 		protected long readsTrimmedT=0;
 		
 		/** Number of reads retained by this thread */
@@ -1238,10 +1396,14 @@ public final class ReformatPacBio {
 		/** Number of ZMWs retained by this thread */
 		protected long ZMWsOutT=0;
 
+		/** Number of partially discarded ZMWs by this thread */
 		protected long partiallyDiscardedZMWsT=0;
+		/** Number of fully discarded ZMWs by this thread */
 		protected long fullyDiscardedZMWsT=0;
 		
+		/** Number of low entropy ZMWs flagged by this thread */
 		protected long lowEntropyZMWsT=0;
+		/** Number of low entropy reads flagged by this thread */
 		protected long lowEntropyReadsT=0;
 		
 		/** True only if this thread has completed successfully */
@@ -1254,8 +1416,11 @@ public final class ReformatPacBio {
 		/** Thread ID */
 		final int tid;
 		
+		/** ZMW input stream for this thread */
 		final ZMWStreamer zstream;
+		/** Entropy tracker for sequence complexity analysis */
 		final EntropyTracker eTracker;
+		/** Thread-local random number generator for subsampling */
 		Random randy;
 	}
 	
@@ -1282,6 +1447,7 @@ public final class ReformatPacBio {
 	/** Override output file extension */
 	private String extout=null;
 	
+	/** Multiplier for flagging reads as unusually long relative to median */
 	private float longReadMult=1.5f;
 	
 	/** For grading synthetic data */
@@ -1291,12 +1457,18 @@ public final class ReformatPacBio {
 	private boolean CCSInput;
 	
 	//Note: These flags are very similar... they need to be better-defined or merged.
+	/** Keep all reads from a ZMW together for filtering decisions */
 	private boolean keepZMWsTogether=false;
+	/** Retain reads that are shorter than typical */
 	private boolean keepShortReads=true;
 	
+	/** When subsampling, remove reads from ZMW ends rather than randomly */
 	private boolean subsampleFromEnds=false;
 	
+	/** Output format for statistics (text or JSON) */
 	private int format=FORMAT_TEXT;
+	/** Constant for JSON format statistics output */
+	/** Constant for text format statistics output */
 	private static final int FORMAT_TEXT=1, FORMAT_JSON=2;
 	
 	/*--------------------------------------------------------------*/
@@ -1313,16 +1485,22 @@ public final class ReformatPacBio {
 	/** Number of ZMWs retained */
 	protected long ZMWsOut=0;
 
+	/** ZMWs with some but not all reads discarded */
 	protected long partiallyDiscardedZMWs=0;
+	/** ZMWs with all reads discarded */
 	protected long fullyDiscardedZMWs=0;
 	
 	/** Quit after processing this many input reads; -1 means no limit */
 	private long maxReads=-1;
 	
+	/** Total number of bases removed by trimming */
 	protected long basesTrimmed=0;
+	/** Number of reads that had bases trimmed */
 	protected long readsTrimmed=0;
 	
+	/** Number of ZMWs flagged for low sequence complexity */
 	protected long lowEntropyZMWs=0;
+	/** Number of individual reads flagged for low entropy */
 	protected long lowEntropyReads=0;
 	
 	/** Total ZMWs observed */
@@ -1331,10 +1509,14 @@ public final class ReformatPacBio {
 	/** Histogram */
 	protected final long[] subreadCounts=new long[101];
 	
+	/** Enable flagging of unusually long reads as potential artifacts */
 	private boolean flagLongReads=false;
+	/** Enable trimming of undefined bases from read ends */
 	private boolean trimReads=false;
+	/** Minimum read length required after trimming to retain read */
 	private int minLengthAfterTrimming=0;
 	
+	/** Enable trimming of poly-A and poly-T sequences from read ends */
 	boolean trimPolyA=false;
 	
 	/*--------------------------------------------------------------*/
@@ -1342,35 +1524,55 @@ public final class ReformatPacBio {
 	/*--------------------------------------------------------------*/
 	
 	//If a target is chosen, these will be initialized with the original counts
+	/** Total reads in input file (for exact subsampling) */
 	long initialReads=0;
+	/** Total ZMWs in input file (for exact subsampling) */
 	long initialZMWs=0;
+	/** Total bases in input file (for exact subsampling) */
 	long initialBases=0;
 	
+	/** Reads remaining to process (for exact subsampling) */
 	long readsRemaining=0;
+	/** ZMWs remaining to process (for exact subsampling) */
 	long ZMWsRemaining=0;
+	/** Bases remaining to process (for exact subsampling) */
 	long basesRemaining=0;
 	
+	/** Fraction of reads to retain (0.0 to 1.0) */
 	float samplerate=1.0f;
+	/** Target number of reads for exact subsampling (-1 to disable) */
 	long sampleReadsTarget=-1;
+	/** Target number of bases for exact subsampling (-1 to disable) */
 	long sampleBasesTarget=-1;
+	/** Target number of ZMWs for exact subsampling (-1 to disable) */
 	long sampleZMWsTarget=-1;
 
+	/** True if using exact read-count based subsampling */
 	final boolean sampleReadsExact;
+	/** True if using exact base-count based subsampling */
 	final boolean sampleBasesExact;
+	/** True if using exact ZMW-count based subsampling */
 	final boolean sampleZMWsExact;
+	/** True if any exact subsampling mode is enabled */
 	final boolean sampleExact;
 	
+	/** Retain only the highest quality pass from each ZMW */
 	boolean keepBestPass=false;
+	/** Retain only the longest pass from each ZMW */
 	boolean keepLongestPass=false;
 	
 	/*--------------------------------------------------------------*/
 	/*----------------        Subset Fields         ----------------*/
 	/*--------------------------------------------------------------*/
 
+	/** File containing ZMW IDs to include (null to disable) */
 	String whitelist;
+	/** File containing ZMW IDs to exclude (null to disable) */
 	String blacklist;
 	
+	/** Set of ZMW IDs to include (parsed from whitelist file) */
 	IntHashSet whiteSet;
+	/** Set of ZMW IDs to exclude (parsed from blacklist file) */
 	IntHashSet blackSet;
 	
 	/*--------------------------------------------------------------*/
@@ -1385,6 +1587,7 @@ public final class ReformatPacBio {
 	 * the minimum of the two will be used */
 	float entropyFraction=0.5f;
 	
+	/** Maximum fraction of single nucleotide allowed in sequence */
 	float maxMonomerFraction=0.74f; //Suggested...  0.74
 	
 	/*--------------------------------------------------------------*/
@@ -1406,18 +1609,28 @@ public final class ReformatPacBio {
 	/** Subread count histogram */
 	private final FileFormat ffschist;
 	
+	/** Number of processing threads to use */
 	private final int threads;
 	
+	/** Random seed for deterministic subsampling (-1 for random) */
 	private long seed=-1;
+	/** Maximum number of ZMWs to process (-1 for no limit) */
 	private long maxZMWs=-1;
 	
+	/** Length of fragments when shredding long reads for consensus */
 	private int shredLength=500;
+	/** Overlap between adjacent shreds in consensus generation */
 	private int overlap=10;//Helps make the shreds concur at their borders.
+	/** Minimum identity threshold for including shreds in consensus */
 	private float minShredIdentity=0.6f;
+	/** Generate Circular Consensus Sequences from subreads */
 	private boolean makeCCS=false;
+	/** Attempt to determine correct strand orientation during consensus */
 	private boolean findOrientation=false;
 	
+	/** Minimum number of passes required for a ZMW */
 	private float minPasses=0;
+	/** Minimum number of subreads required for a ZMW */
 	private int minSubreads=0;
 	
 	/*--------------------------------------------------------------*/

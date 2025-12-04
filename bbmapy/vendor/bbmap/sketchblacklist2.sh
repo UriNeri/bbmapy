@@ -12,9 +12,9 @@ It is advisable to make the input sketches larger than normal,
 e.g. sizemult=2, because new kmers will be introduced in the final
 sketches to replace the blacklisted kmers.
 
-Usage:  sketchblacklist.sh ref=<sketch files> out=<sketch file>
-or      sketchblacklist.sh *.sketch out=<sketch file>
-or      sketchblacklist.sh ref=taxa#.sketch out=<sketch file>
+Usage:  sketchblacklist2.sh ref=<sketch files> out=<sketch file>
+or      sketchblacklist2.sh *.sketch out=<sketch file>
+or      sketchblacklist2.sh ref=taxa#.sketch out=<sketch file>
 
 Standard parameters:
 ref=<file>          Sketch files.
@@ -30,7 +30,7 @@ delta=t             Delta-compress sketches.
 a48=t               Encode sketches as ASCII-48 rather than hex.
 amino=f             Amino-acid mode.
 
-Taxonomy-specific flags:
+Taxonomy-specific parameters:
 tree=               Specify a taxtree file.  On Genepool, use 'auto'.
 gi=                 Specify a gitable file.  On Genepool, use 'auto'.
 accession=          Specify one or more comma-delimited NCBI accession to
@@ -51,49 +51,40 @@ Java Parameters:
 
 For more detailed information, please read /bbmap/docs/guides/BBSketchGuide.txt.
 Please contact Brian Bushnell at bbushnell@lbl.gov if you encounter any problems.
+For documentation and the latest version, visit: https://bbmap.org
 "
 }
 
-#This block allows symlinked shellscripts to correctly set classpath.
-pushd . > /dev/null
-DIR="${BASH_SOURCE[0]}"
-while [ -h "$DIR" ]; do
-  cd "$(dirname "$DIR")"
-  DIR="$(readlink "$(basename "$DIR")")"
-done
-cd "$(dirname "$DIR")"
-DIR="$(pwd)/"
-popd > /dev/null
-
-#DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )/"
-CP="$DIR""current/"
-
-z="-Xmx31g"
-z2="-Xms31g"
-set=0
-
-if [ -z "$1" ] || [[ $1 == -h ]] || [[ $1 == --help ]]; then
+if [ -z "$1" ] || [ "$1" = "-h" ] || [ "$1" = "--help" ]; then
 	usage
 	exit
 fi
 
-calcXmx () {
-	source "$DIR""/calcmem.sh"
-	setEnvironment
-	parseXmx "$@"
-	if [[ $set == 1 ]]; then
-		return
-	fi
-	freeRam 4000m 84
-	z="-Xmx${RAM}m"
-	z2="-Xms${RAM}m"
+resolveSymlinks(){
+	SCRIPT="$0"
+	while [ -h "$SCRIPT" ]; do
+		DIR="$(dirname "$SCRIPT")"
+		SCRIPT="$(readlink "$SCRIPT")"
+		[ "${SCRIPT#/}" = "$SCRIPT" ] && SCRIPT="$DIR/$SCRIPT"
+	done
+	DIR="$(cd "$(dirname "$SCRIPT")" && pwd)"
+	CP="$DIR/current/"
 }
-calcXmx "$@"
 
-sketchblacklist() {
-	local CMD="java $EA $EOOM $z $z2 -cp $CP sketch.BlacklistMaker2 $@"
-	echo $CMD >&2
+setEnv(){
+	. "$DIR/javasetup.sh"
+	. "$DIR/memdetect.sh"
+
+	parseJavaArgs "--xmx=4g" "--xms=4g" "--percent=84" "--mode=auto" "$@"
+	setEnvironment
+}
+
+launch() {
+	CMD="java $EA $EOOM $SIMD $XMX $XMS -cp $CP sketch.BlacklistMaker2 $@"
+	echo "$CMD" >&2
 	eval $CMD
 }
 
-sketchblacklist "$@"
+resolveSymlinks
+setEnv "$@"
+launch "$@"

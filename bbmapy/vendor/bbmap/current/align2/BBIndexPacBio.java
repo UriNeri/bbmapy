@@ -27,6 +27,12 @@ import structures.LongM;
 public final class BBIndexPacBio extends AbstractIndex {
 	
 	
+	/**
+	 * Standalone entry point for building PacBio-optimized alignment indices.
+	 * Parses command-line arguments for genome build, chromosome range, and k-mer length.
+	 * Creates and writes the index structure to disk for later use in alignment.
+	 * @param args Command-line arguments including build, minchrom, maxchrom, keylen
+	 */
 	public static void main(String[] args){
 		
 		int k=12;
@@ -72,6 +78,17 @@ public final class BBIndexPacBio extends AbstractIndex {
 	}
 	
 	
+	/**
+	 * Constructs a PacBio alignment index with specified parameters.
+	 * Initializes scoring constants optimized for long reads with higher error rates.
+	 * Sets up internal data structures for efficient multi-threaded alignment processing.
+	 *
+	 * @param k_ K-mer length for indexing
+	 * @param minChrom_ Minimum chromosome number to index
+	 * @param maxChrom_ Maximum chromosome number to index
+	 * @param kfilter_ K-mer filtering threshold
+	 * @param msa_ Multiple sequence alignment object for scoring
+	 */
 	public BBIndexPacBio(int k_, int minChrom_, int maxChrom_, int kfilter_, MSA msa_){
 		super(k_, kfilter_, BASE_HIT_SCORE, minChrom_, maxChrom_, msa_);
 		INV_BASE_KEY_HIT_SCORE=1f/BASE_KEY_HIT_SCORE;
@@ -344,6 +361,17 @@ public final class BBIndexPacBio extends AbstractIndex {
 	}
 	
 	
+	/**
+	 * Retrieves hit list boundaries for k-mers on specified chromosome.
+	 * Filters out k-mers with excessively long hit lists to maintain performance.
+	 *
+	 * @param keys K-mer values to look up
+	 * @param chrom Target chromosome number
+	 * @param maxLen Maximum allowed hit list length
+	 * @param starts Output array for hit list start positions
+	 * @param stops Output array for hit list stop positions
+	 * @return Number of k-mers with valid hit lists
+	 */
 	private final int getHits(final int[] keys, final int chrom, final int maxLen, final int[] starts, final int[] stops){
 		int numHits=0;
 		final Block b=index[chrom];
@@ -367,6 +395,15 @@ public final class BBIndexPacBio extends AbstractIndex {
 	}
 	
 	
+	/**
+	 * Counts k-mers with hit lists shorter than specified maximum.
+	 * Optionally marks k-mers with overly long hit lists as invalid.
+	 *
+	 * @param keys K-mer values to examine
+	 * @param maxLen Maximum acceptable hit list length
+	 * @param clearBadKeys Whether to mark long-list k-mers as invalid (-1)
+	 * @return Number of k-mers with acceptable hit list lengths
+	 */
 	private final int countHits(final int[] keys, final int maxLen, boolean clearBadKeys){
 		int numHits=0;
 		for(int i=0; i<keys.length; i++){
@@ -394,6 +431,21 @@ public final class BBIndexPacBio extends AbstractIndex {
 	}
 	
 	
+/**
+ * Main alignment search method for finding sequence matches in reference genome.
+ * Implements multi-stage filtering: hit counting, greedy trimming, and strand-specific search.
+ * Uses prescanning to identify promising regions before expensive extension.
+ *
+ * @param basesP Forward strand sequence bases
+ * @param basesM Reverse strand sequence bases
+ * @param qual Quality scores for bases
+ * @param baseScoresP Forward strand base alignment scores
+ * @param keyScoresP K-mer alignment scores
+ * @param offsetsP K-mer positions within read
+ * @param obeyLimits Whether to enforce hit list length limits
+ * @param id Read identifier for debugging
+ * @return List of alignment sites with scores
+ */
 public final ArrayList<SiteScore> find(byte[] basesP, byte[] basesM, byte[] qual,  byte[] baseScoresP, int[] keyScoresP, int[] offsetsP, boolean obeyLimits, long id){
 		
 		assert(checkOffsets(offsetsP)) : Arrays.toString(offsetsP);
@@ -1673,6 +1725,23 @@ public final ArrayList<SiteScore> find(byte[] basesP, byte[] basesM, byte[] qual
 	}
 	
 	
+	/**
+	 * Efficiently determines maximum quick-score and hit count for a chromosome block.
+	 * Used in prescanning to identify the most promising alignment regions
+	 * without performing expensive full extension.
+	 *
+	 * @param starts Hit list start positions
+	 * @param stops Hit list stop positions
+	 * @param offsets K-mer positions within read
+	 * @param keyScores K-mer alignment scores
+	 * @param baseChrom_ Base chromosome number
+	 * @param triples Working array for heap operations
+	 * @param values Working array for site values
+	 * @param prevMaxHits Previously found maximum hit count
+	 * @param earlyExit Whether to exit early on perfect matches
+	 * @param perfectOnly Whether to only consider perfect alignments
+	 * @return Array containing [maxQScore, maxHits]
+	 */
 	private final int[] findMaxQscore2(final int[] starts, final int[] stops, final int[] offsets, final int[] keyScores,
 			final int baseChrom_, final Quad[] triples, final int[] values, final int prevMaxHits,
 			boolean earlyExit, boolean perfectOnly){
@@ -1834,6 +1903,7 @@ public final ArrayList<SiteScore> find(byte[] basesP, byte[] basesM, byte[] qual
 	}
 	
 	
+	/** Calculates absolute difference between two integers */
 	private static final int absdif(int a, int b){
 		return a>b ? a-b : b-a;
 	}
@@ -1855,6 +1925,14 @@ public final ArrayList<SiteScore> find(byte[] basesP, byte[] basesM, byte[] qual
 	}
 	
 	
+	/**
+	 * Calculates maximum quick-score based on k-mer contributions and coverage.
+	 * Includes position-based scoring and optional coverage bonuses.
+	 *
+	 * @param offsets K-mer positions within read
+	 * @param keyScores Individual k-mer alignment scores
+	 * @return Maximum achievable quick-score
+	 */
 	public final int maxQuickScore(int[] offsets, int[] keyScores){
 
 //		int x=offsets.length*BASE_KEY_HIT_SCORE;
@@ -1872,6 +1950,20 @@ public final ArrayList<SiteScore> find(byte[] basesP, byte[] basesM, byte[] qual
 	}
 	
 	
+	/**
+	 * Computes rapid alignment score from genomic hit positions.
+	 * Scores center k-mer plus left and right extensions with indel penalties.
+	 *
+	 * @param locs Genomic positions of k-mer hits
+	 * @param keyScores Individual k-mer alignment scores
+	 * @param centerIndex Index of central k-mer for alignment
+	 * @param offsets K-mer positions within read
+	 * @param sizes Hit list lengths for each k-mer
+	 * @param penalizeIndels Whether to apply indel penalties
+	 * @param numApproxHits Approximate number of hits in region
+	 * @param numHits Total number of k-mer hits
+	 * @return Quick alignment score
+	 */
 	private final int quickScore(final int[] locs, final int[] keyScores, final int centerIndex, final int offsets[],
 			int[] sizes, final boolean penalizeIndels, final int numApproxHits, final int numHits){
 		
@@ -1940,6 +2032,22 @@ public final ArrayList<SiteScore> find(byte[] basesP, byte[] basesM, byte[] qual
 	
 	
 	
+	/**
+	 * Performs detailed base-by-base alignment scoring with indel handling.
+	 * Fills alignment position array and computes full alignment score
+	 * including base quality scores and gap penalties.
+	 *
+	 * @param bases Sequence bases to align
+	 * @param baseScores Quality scores for each base
+	 * @param offsets K-mer positions within read
+	 * @param values Genomic positions of k-mer hits
+	 * @param chrom Target chromosome number
+	 * @param centerIndex Index of central k-mer
+	 * @param locArray Output array for aligned positions
+	 * @param numHits Total number of k-mer hits
+	 * @param numApproxHits Approximate hits in alignment region
+	 * @return Extended alignment score
+	 */
 	private final int extendScore(final byte[] bases, final byte[] baseScores, final int[] offsets, final int[] values,
 			final int chrom, final int centerIndex, final int[] locArray, final int numHits, final int numApproxHits){
 		callsToExtendScore++;
@@ -2263,6 +2371,18 @@ public final ArrayList<SiteScore> find(byte[] basesP, byte[] basesM, byte[] qual
 	}
 	
 
+	/**
+	 * Scores k-mer matches to the right of the center position.
+	 * Applies indel penalties for misaligned matches.
+	 *
+	 * @param locs Genomic positions of k-mer hits
+	 * @param keyScores Individual k-mer alignment scores
+	 * @param centerIndex Index of central k-mer
+	 * @param sizes Hit list lengths for bonus calculation
+	 * @param penalizeIndels Whether to apply indel penalties
+	 * @param numHits Total number of k-mer hits
+	 * @return Score contribution from right-side k-mers
+	 */
 	private final int scoreRight(int[] locs, int[] keyScores, int centerIndex, int[] sizes, boolean penalizeIndels, int numHits){
 		
 		int score=0;
@@ -2298,6 +2418,17 @@ public final ArrayList<SiteScore> find(byte[] basesP, byte[] basesM, byte[] qual
 		
 	}
 	
+	/**
+	 * Scores k-mer matches to the left of the center position.
+	 * Applies indel penalties for misaligned matches.
+	 *
+	 * @param locs Genomic positions of k-mer hits
+	 * @param keyScores Individual k-mer alignment scores
+	 * @param centerIndex Index of central k-mer
+	 * @param sizes Hit list lengths for bonus calculation
+	 * @param penalizeIndels Whether to apply indel penalties
+	 * @return Score contribution from left-side k-mers
+	 */
 	private final int scoreLeft(int[] locs, int[] keyScores, int centerIndex, int[] sizes, boolean penalizeIndels){
 		
 		callsToScore++;
@@ -2355,8 +2486,23 @@ public final ArrayList<SiteScore> find(byte[] basesP, byte[] basesM, byte[] qual
 		return (number&SITE_MASK);
 	}
 
+	/**
+	 * Calculates minimum chromosome number for index block containing given chromosome.
+	 * @param chrom Input chromosome number
+	 * @return Minimum chromosome in the containing block
+	 */
 	public static final int minChrom(int chrom){return Tools.max(MINCHROM, chrom&CHROM_MASK_HIGH);}
+	/**
+	 * Calculates base chromosome offset for index block containing given chromosome.
+	 * @param chrom Input chromosome number
+	 * @return Base chromosome offset for the containing block
+	 */
 	public static final int baseChrom(int chrom){return Tools.max(0, chrom&CHROM_MASK_HIGH);}
+	/**
+	 * Calculates maximum chromosome number for index block containing given chromosome.
+	 * @param chrom Input chromosome number
+	 * @return Maximum chromosome in the containing block
+	 */
 	public static final int maxChrom(int chrom){return Tools.max(MINCHROM, Tools.min(MAXCHROM, chrom|CHROM_MASK_LOW));}
 	
 	
@@ -2420,7 +2566,9 @@ public final ArrayList<SiteScore> find(byte[] basesP, byte[] basesM, byte[] qual
 	private final int[][] shrinkReturn2=new int[3][];
 	private final int[][] shrinkReturn3=new int[5][];
 	private final int[][] prescanReturn=new int[2][];
+	/** Pre-allocated array for prescanning score storage */
 	private final int[] prescoreArray;
+	/** Pre-allocated array for prescanning hit count storage */
 	private final int[] precountArray;
 	
 	private final byte[][][] baseScoreArrays=new byte[2][BASE_ARRAY_LENGTH][];
@@ -2429,6 +2577,11 @@ public final ArrayList<SiteScore> find(byte[] basesP, byte[] basesM, byte[] qual
 	private final float[][] keyWeightArrays=new float[KMER_ARRAY_LENGTH][];
 	
 	
+	/**
+	 * Creates pre-allocated array of Quad objects for heap operations.
+	 * @param number Size of array to create
+	 * @return Array of initialized Quad objects
+	 */
 	private final static Quad[] makeQuadStorage(int number){
 		Quad[] r=new Quad[number];
 		for(int i=0; i<number; i++){r[i]=new Quad(i, 0, 0);}
@@ -2450,6 +2603,11 @@ public final ArrayList<SiteScore> find(byte[] basesP, byte[] basesM, byte[] qual
 	/** Mask the chromosome's lower bits to get the high bits */
 	static int CHROM_MASK_HIGH=~CHROM_MASK_LOW;
 	
+	/**
+	 * Configures chromosome bit allocation for position encoding.
+	 * Updates all related masks and constants used in position/chromosome encoding.
+	 * @param x Number of bits to allocate for chromosome numbers
+	 */
 	static void setChromBits(int x){
 		
 		NUM_CHROM_BITS=x;
@@ -2468,17 +2626,27 @@ public final ArrayList<SiteScore> find(byte[] basesP, byte[] basesM, byte[] qual
 		assert(Integer.numberOfLeadingZeros(SITE_MASK)==(NUM_CHROM_BITS+1)) : Integer.toHexString(SITE_MASK);
 	}
 	
+	/** Number of search cycles (blocks × strands) for this index */
 	private final int cycles;
 
+	/** Base score awarded for each matching base in alignment */
 	public static final int BASE_HIT_SCORE=100;
+	/** Maximum number of alignment columns supported */
 	public static final int ALIGN_COLUMNS=7600;
+	/** Maximum indel length tolerated in alignment */
 	public static int MAX_INDEL=100; //Max indel length, min 0, default 400; longer is more accurate
+	/** Extended indel tolerance for complex alignments */
 	public static int MAX_INDEL2=8*MAX_INDEL;
 	
+	/** Inverse of base key hit score for weight calculations */
 	private final float INV_BASE_KEY_HIT_SCORE;
+	/** Base penalty for indel events in alignment scoring */
 	private final int INDEL_PENALTY; //default (HIT_SCORE/2)-1
+	/** Multiplier for indel length penalties */
 	private final int INDEL_PENALTY_MULT; //default 20; penalty for indel length
+	/** Maximum penalty that can be applied for a single misaligned k-mer hit */
 	private final int MAX_PENALTY_FOR_MISALIGNED_HIT;
+	/** Coverage score bonus for single k-mer alignments */
 	private final int SCOREZ_1KEY;
 	
 	public static final boolean ADD_SCORE_Z=true; //Increases quality, decreases speed
@@ -2516,8 +2684,14 @@ public final ArrayList<SiteScore> find(byte[] basesP, byte[] basesM, byte[] qual
 		MAX_INDEL2=0;
 	}
 	
+	/** Fraction of most repetitive k-mers to exclude from searches */
 	static float FRACTION_GENOME_TO_EXCLUDE=0.005f; //Default .04; lower is slower and more accurate
 	
+	/**
+	 * Sets fraction of most repetitive k-mers to exclude from alignment searches.
+	 * Automatically adjusts related thresholds for hit list length limits.
+	 * @param f Fraction of k-mers to exclude (0.0 to 1.0)
+	 */
 	public static final void setFractionToExclude(float f){
 		assert(f>=0 && f<1);
 		FRACTION_GENOME_TO_EXCLUDE=f;
@@ -2569,6 +2743,16 @@ public final ArrayList<SiteScore> find(byte[] basesP, byte[] basesM, byte[] qual
 	public static int MAXIMUM_MAX_HITS_REDUCTION=6;
 	public static int HIT_REDUCTION_DIV=4;
 	
+	/**
+	 * Calculates adaptive threshold for approximate hit count filtering.
+	 * Balances sensitivity and specificity based on read characteristics and alignment mode.
+	 *
+	 * @param keys Total number of k-mers in read
+	 * @param hits Number of k-mers with index hits
+	 * @param currentCutoff Current threshold value
+	 * @param perfect Whether a perfect match has been found
+	 * @return Adjusted hits threshold for alignment filtering
+	 */
 	private static final int calcApproxHitsCutoff(final int keys, final int hits, int currentCutoff, final boolean perfect){ //***$
 		assert(keys>=hits) : keys+", "+hits;
 		assert(hits>=0);

@@ -3,7 +3,7 @@
 usage(){
 echo "
 Written by Brian Bushnell
-Last modified June 23, 2025
+Last modified December 1, 2025
 
 Description:  Bins contigs using coverage and kmer frequencies.
 If reads or covstats are provided, coverage will be calculated from those;
@@ -14,12 +14,12 @@ Any number of sam files may be used (from different samples of the same
 environment, usually).  The more sam files, the more accurate.  Ideally,
 sam files will be generated from paired reads like this:
 bbmap.sh ref=contigs.fa in=reads.fq ambig=random mateqtag minid=0.9 maxindel=10 out=mapped.sam
-For PacBio-only metagenomes, it is best to generate synthetic paired 
+For PacBio-only metagenomes, it is best to generate synthetic paired
 reads from the PacBio CCS reads and align them:
-randomreadsmg.sh in=ccs.fa out=synth.fq depth=10 variance=0 paired length=250 avginsert=600 
+randomreadsmg.sh in=ccs.fa out=synth.fq depth=10 variance=0 paired length=250 avginsert=600
 
-Usage:  
-quickbin.sh in=contigs.fa out=bins *.sam covout=cov.txt
+Usage:
+quickbin.sh in=contigs.fa out=bins *.sam covout=cov.txt report=report.tsv
 or
 quickbin.sh in=contigs.fa out=bins cov=cov.txt
 or
@@ -40,16 +40,17 @@ out=<pattern>   Output pattern.  If this contains a % symbol, like bin%.fa,
                 indicate their bin number.  A term without a '.' symbol
                 like 'out=output' will be considered a directory.
 chaff           Enable to write small clusters to a shared file.
+report=<file>   Report on bin size, quality, and taxonomy.
 
 Size parameters:
-mincluster=50k  (mcs) Minimum output cluster size in base pairs; smaller 
+mincluster=50k  (mcs) Minimum output cluster size in base pairs; smaller
                 clusters will share a residual file if chaff=t.
 mincontig=100   Don't load contigs smaller than this; reduces memory usage.
 minseed=3000    Minimum contig length to create a new cluster; reducing this
                 can increase speed dramatically for large metagenomes,
                 increase sensitivity for small contigs, and slightly increase
-                contamination.  In particular, large metagenomes with only 
-                1 sample will run slowly if this is below 2000; with 
+                contamination.  In particular, large metagenomes with only
+                1 sample will run slowly if this is below 2000; with
                 at least 3 samples the speed should not be affected much.
 minresidue=200  Discard unclustered contigs shorter than this; reduces memory.
 dumpsequence    (TODO) Discard sequence to reduce memory usage.
@@ -74,7 +75,7 @@ Note: Halving either quantization parameter can roughly double speed,
 but may decrease recovery of shorter contigs.
 
 Neural network parameters:
-net=auto        Specify a neural network file to use; default is 
+net=auto        Specify a neural network file to use; default is
                 bbmap/resources/quickbin1D_all.bbnet
 cutoff=0.52     Neural network output threshold; higher increases specificity,
                 lower increases sensitivity.  This is a soft cutoff that
@@ -85,7 +86,7 @@ Edge-processing parameters:
 e1=0                  Edge-first clustering passes; may increase speed
                       at the cost of purity.
 e2=4                  Later edge-based clustering passes.
-edgeStringency1=0.25  Stringency for edge-first clustering; 
+edgeStringency1=0.25  Stringency for edge-first clustering;
                       lower is more stringent.
 edgeStringency2=1.1    Stringency for later edge-based clustering.
 maxEdges=3            Follow up to this many edges per contig.
@@ -101,14 +102,22 @@ minid=0.96            When loading sam files, ignore reads aligned with
                       identity below this, both for edges and coverage.
 
 Other parameters:
-sketchoutput=f        Use SendSketch to identify taxonomy of output clusters.
+quickclade=f          Use QuickClade to determine taxonomy of output bins.
+server=f              Prioritize using QuickClade server instead of local ref.
+                      Normally, a local reference will be used if present;
+		      this is faster and available at:
+		      https://sourceforge.net/projects/bbmap/files/Resources/
+sketchoutput=f        Use SendSketch to determine taxonomy of output bins.
 validate=f            If contig headers have a term such as 'tid_1234', this
                       will be parsed and used to evaluate correctness.
 printcc=f             Print completeness/contam after each step.
 callssu=f             Call 16S and 18S genes; do not merge clusters with
                       incompatible SSU sequence.
-minssuid=0.98         SSUs with identity below this are incompatible.
+minssuid=0.96         SSUs with identity below this are incompatible.
 aligner=quantum       Options include ssa2, glocal, drifting, banded, crosscut.
+threads=auto          Number of threads; default is logical cores.
+flat                  Ignore depth; may still be used with bam files for e.g. MDA.
+                      Required flag if there is no coverage information.
 
 Java Parameters:
 -Xmx            This will set Java's memory usage, overriding autodetection.
@@ -119,50 +128,40 @@ Java Parameters:
 -da             Disable assertions.
 
 Please contact Brian Bushnell at bbushnell@lbl.gov if you encounter any problems.
+For documentation and the latest version, visit: https://bbmap.org
 "
 }
 
-#This block allows symlinked shellscripts to correctly set classpath.
-pushd . > /dev/null
-DIR="${BASH_SOURCE[0]}"
-while [ -h "$DIR" ]; do
-  cd "$(dirname "$DIR")"
-  DIR="$(readlink "$(basename "$DIR")")"
-done
-cd "$(dirname "$DIR")"
-DIR="$(pwd)/"
-popd > /dev/null
-
-#DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )/"
-CP="$DIR""current/"
-
-if [ -z "$1" ] || [[ $1 == -h ]] || [[ $1 == --help ]]; then
+if [ -z "$1" ] || [ "$1" = "-h" ] || [ "$1" = "--help" ]; then
 	usage
 	exit
 fi
 
-calcXmx () {
-    # Source the new scripts
-    source "$DIR""/memdetect.sh"
-    source "$DIR""/javasetup.sh"
-    
-    # Parse Java arguments with tool-specific defaults
-    # Use auto mode with 84% of available RAM, minimum 4000MB
-    parseJavaArgs "--mem=4000m" "--percent=84" "--mode=auto" "$@"
-    
-    # Set environment paths
-    setEnvironment
-    
-    # Set the Java memory parameters
-    z="-Xmx${RAM}m"
-    z2="-Xms${RAM}m"
+resolveSymlinks(){
+	SCRIPT="$0"
+	while [ -h "$SCRIPT" ]; do
+		DIR="$(dirname "$SCRIPT")"
+		SCRIPT="$(readlink "$SCRIPT")"
+		[ "${SCRIPT#/}" = "$SCRIPT" ] && SCRIPT="$DIR/$SCRIPT"
+	done
+	DIR="$(cd "$(dirname "$SCRIPT")" && pwd)"
+	CP="$DIR/current/"
 }
-calcXmx "$@"
 
-quickbin() {
-	local CMD="java $EA $EOOM $SIMD $XMX $XMS -cp $CP bin.QuickBin $@"
-	echo $CMD >&2
+setEnv(){
+	. "$DIR/javasetup.sh"
+	. "$DIR/memdetect.sh"
+
+	parseJavaArgs "--xmx=4000m" "--xms=4000m" "--percent=84" "--mode=auto" "$@"
+	setEnvironment
+}
+
+launch() {
+	CMD="java $EA $EOOM $SIMD $XMX $XMS -cp $CP bin.QuickBin $@"
+	echo "$CMD" >&2
 	eval $CMD
 }
 
-quickbin "$@"
+resolveSymlinks
+setEnv "$@"
+launch "$@"

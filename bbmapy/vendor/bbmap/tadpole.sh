@@ -11,10 +11,9 @@ but some values are not supported.  Specifically, it allows 1-31,
 multiples of 2 from 32-62, multiples of 3 from 63-93, etc.
 Please read bbmap/docs/guides/TadpoleGuide.txt for more information.
 
-Usage:
-Assembly:     tadpole.sh in=<reads> out=<contigs>
-Extension:    tadpole.sh in=<reads> out=<extended> mode=extend
-Correction:   tadpole.sh in=<reads> out=<corrected> mode=correct
+Usage (Assembly):  tadpole.sh k=62 in=<reads> out=<contigs>
+Extension:    tadpole.sh k=62 in=<reads> out=<extended> mode=extend
+Correction:   tadpole.sh k=62 in=<reads> out=<corrected> mode=correct
 
 Recommended parameters for optimal assembly:
 tadpole.sh in=<reads> out=<contigs> shave rinse pop k=<50-70% of read length>
@@ -101,7 +100,7 @@ processcontigs=f    Explore the contig connectivity graph.
 popbubbles=t        (pop) Pop bubbles; increases contiguity.  Requires 
                     additional time and memory and forces processcontigs=t.
 
-Processing modes:
+Processing mode parameters:
 mode=contig         contig: Make contigs from kmers.
                     extend: Extend sequences to be longer, and optionally
                             perform error correction.
@@ -204,46 +203,36 @@ Java Parameters:
 "
 }
 
-#This block allows symlinked shellscripts to correctly set classpath.
-pushd . > /dev/null
-DIR="${BASH_SOURCE[0]}"
-while [ -h "$DIR" ]; do
-  cd "$(dirname "$DIR")"
-  DIR="$(readlink "$(basename "$DIR")")"
-done
-cd "$(dirname "$DIR")"
-DIR="$(pwd)/"
-popd > /dev/null
-
-#DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )/"
-CP="$DIR""current/"
-
-z="-Xmx14g"
-z2="-Xms14g"
-set=0
-
-if [ -z "$1" ] || [[ $1 == -h ]] || [[ $1 == --help ]]; then
+if [ -z "$1" ] || [ "$1" = "-h" ] || [ "$1" = "--help" ]; then
 	usage
 	exit
 fi
 
-calcXmx () {
-	source "$DIR""/calcmem.sh"
-	setEnvironment
-	parseXmx "$@"
-	if [[ $set == 1 ]]; then
-		return
-	fi
-	freeRam 15000m 84
-	z="-Xmx${RAM}m"
-	z2="-Xms${RAM}m"
+resolveSymlinks(){
+	SCRIPT="$0"
+	while [ -h "$SCRIPT" ]; do
+		DIR="$(dirname "$SCRIPT")"
+		SCRIPT="$(readlink "$SCRIPT")"
+		[ "${SCRIPT#/}" = "$SCRIPT" ] && SCRIPT="$DIR/$SCRIPT"
+	done
+	DIR="$(cd "$(dirname "$SCRIPT")" && pwd)"
+	CP="$DIR/current/"
 }
-calcXmx "$@"
 
-tadpole() {
-	local CMD="java $EA $EOOM $z $z2 -cp $CP assemble.Tadpole $@"
-	echo $CMD >&2
+setEnv(){
+	. "$DIR/javasetup.sh"
+	. "$DIR/memdetect.sh"
+
+	parseJavaArgs "--xmx=14g" "--xms=14g" "--percent=84" "--mode=auto" "$@"
+	setEnvironment
+}
+
+launch() {
+	CMD="java $EA $EOOM $SIMD $XMX $XMS -cp $CP assemble.Tadpole $@"
+	echo "$CMD" >&2
 	eval $CMD
 }
 
-tadpole "$@"
+resolveSymlinks
+setEnv "$@"
+launch "$@"

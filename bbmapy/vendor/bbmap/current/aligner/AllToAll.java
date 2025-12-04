@@ -225,6 +225,12 @@ public class AllToAll implements Accumulator<AllToAll.ProcessThread> {
 		}
 	}
 	
+	/**
+	 * Mirrors alignment matrix across the diagonal to fill upper triangle.
+	 * Sets diagonal elements to 1.0 (100% identity) and copies lower triangle
+	 * values to corresponding upper triangle positions.
+	 * @param matrix Square similarity matrix with computed lower triangle values
+	 */
 	private static void mirrorMatrix(float[][] matrix){
 		for(int i=0; i<matrix.length; i++) {
 			for(int j=i; j<matrix.length; j++) {
@@ -234,6 +240,11 @@ public class AllToAll implements Accumulator<AllToAll.ProcessThread> {
 		}
 	}
 	
+	/**
+	 * Outputs the similarity matrix to the specified output file.
+	 * Writes tab-separated values with sequence names as headers and
+	 * similarity scores as percentages with 2 decimal places.
+	 */
 	private void printResults(){
 		if(ffout1==null){return;}
 		ByteStreamWriter bsw=new ByteStreamWriter(ffout1);
@@ -307,6 +318,14 @@ public class AllToAll implements Accumulator<AllToAll.ProcessThread> {
 	static class ProcessThread extends Thread {
 		
 		//Constructor
+		/**
+		 * Constructs a worker thread for alignment processing.
+		 *
+		 * @param reads_ List of sequences to align
+		 * @param results_ Shared matrix for storing alignment results
+		 * @param atom_ Atomic counter for claiming work units
+		 * @param tid_ Thread identifier
+		 */
 		ProcessThread(final ArrayList<Read> reads_, float[][] results_, final AtomicInteger atom_, final int tid_){
 			reads=reads_;
 			results=results_;
@@ -337,6 +356,14 @@ public class AllToAll implements Accumulator<AllToAll.ProcessThread> {
 			
 		}
 		
+		/**
+		 * Processes a single query sequence against all preceding sequences.
+		 * Uses SketchObject.align() to compute pairwise sequence identity and
+		 * stores results in the shared matrix. Only aligns against earlier
+		 * sequences to avoid redundant computation.
+		 *
+		 * @param qnum Index of the query sequence to process
+		 */
 		void processQuery(final int qnum){
 			final Read query=reads.get(qnum);
 			final float[] scores=new float[reads.size()];
@@ -380,8 +407,11 @@ public class AllToAll implements Accumulator<AllToAll.ProcessThread> {
 		/** Thread ID */
 		final int tid;
 		
+		/** Reference to shared list of sequences */
 		final ArrayList<Read> reads;
+		/** Reference to shared results matrix */
 		final float[][] results;
+		/** Atomic counter for work distribution */
 		final AtomicInteger atom;
 	}
 	
@@ -392,6 +422,7 @@ public class AllToAll implements Accumulator<AllToAll.ProcessThread> {
 	/** Primary input file path */
 	private String in1=null;
 	
+	/** Quality file path for input sequences */
 	private String qfin1=null;
 
 	/** Primary output file path */
@@ -402,7 +433,9 @@ public class AllToAll implements Accumulator<AllToAll.ProcessThread> {
 	
 	/*--------------------------------------------------------------*/
 
+	/** List of all input sequences loaded into memory */
 	ArrayList<Read> reads;
+	/** Matrix storing pairwise alignment identity scores */
 	float[][] results;
 	
 	/** Number of reads processed */
@@ -428,6 +461,7 @@ public class AllToAll implements Accumulator<AllToAll.ProcessThread> {
 	
 	@Override
 	public final ReadWriteLock rwlock() {return rwlock;}
+	/** Read-write lock for thread synchronization */
 	private final ReadWriteLock rwlock=new ReentrantReadWriteLock();
 	
 	/*--------------------------------------------------------------*/

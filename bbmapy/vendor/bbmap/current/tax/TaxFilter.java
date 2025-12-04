@@ -21,6 +21,8 @@ import stream.Read;
  */
 public class TaxFilter {
 	
+	/** Test method for regex pattern matching.
+	 * @param args Command line arguments: regex pattern and test string */
 	public static void main(String[] args){
 		String regex=args[0];
 		String s=args[1];
@@ -192,6 +194,11 @@ public class TaxFilter {
 		}
 	}
 	
+	/**
+	 * Checks if a parameter name is valid for TaxFilter configuration.
+	 * @param a Parameter name to validate
+	 * @return true if the parameter is recognized, false otherwise
+	 */
 	public static boolean validArgument(String a){
 		if(a.equals("table") || a.equals("gi")){
 		}else if(a.equals("tree") || a.equals("taxtree")){
@@ -219,6 +226,11 @@ public class TaxFilter {
 	/*----------------        Initialization        ----------------*/
 	/*--------------------------------------------------------------*/
 	
+	/**
+	 * Loads NCBI accession-to-taxid mapping table.
+	 * @param accessionFile Path to accession table file
+	 * @param tree Taxonomy tree to associate with accession data
+	 */
 	private static void loadAccession(String accessionFile, TaxTree tree){
 		if(accessionFile!=null){
 			AccessionToTaxid.tree=tree;
@@ -229,12 +241,19 @@ public class TaxFilter {
 		}
 	}
 	
+	/** Loads NCBI gi-to-taxid mapping table.
+	 * @param fname Path to gi table file */
 	public static void loadGiTable(String fname){
 		if(fname==null){return;}
 		if(PRINT_STUFF){outstream.println("Loading gi table.");}
 		GiToTaxid.initialize(fname);
 	}
 	
+	/**
+	 * Loads NCBI taxonomy tree from file.
+	 * @param fname Path to taxonomy tree file
+	 * @return Loaded TaxTree instance or null if no file specified
+	 */
 	public static TaxTree loadTree(String fname){
 		if(fname==null){return null;}
 		TaxTree tt=TaxTree.loadTaxTree(fname, PRINT_STUFF ? outstream : null, true, false);
@@ -242,6 +261,12 @@ public class TaxFilter {
 		return tt;
 	}
 	
+	/**
+	 * Adds comma-separated taxonomy names or IDs to the filter set.
+	 * Automatically detects whether each entry is a name or numeric ID.
+	 * @param names Comma-separated list of taxonomy names or IDs
+	 * @param promote Whether to promote matches up the taxonomic tree
+	 */
 	public void addNamesOrNumbers(String names, boolean promote){
 		if(names==null){return;}
 		String[] array=names.split(",");
@@ -250,12 +275,20 @@ public class TaxFilter {
 		}
 	}
 	
+	/**
+	 * Adds a single taxonomy name or ID to the filter set.
+	 * Determines if the string is numeric and routes to appropriate handler.
+	 * @param s Taxonomy name or numeric ID
+	 * @param promote Whether to promote matches up the taxonomic tree
+	 */
 	public void addNameOrNumber(String s, boolean promote){
 		if(s==null || s.length()<1){return;}
 		if(Tools.isDigit(s.charAt(0))){addNumber(Integer.parseInt(s), promote);}
 		else{addName(s);}
 	}
 	
+	/** Adds comma-separated taxonomy names to the filter set.
+	 * @param names Comma-separated list of taxonomy names */
 	public void addNames(String names){
 		if(names==null){return;}
 		String[] array=names.split(",");
@@ -264,6 +297,12 @@ public class TaxFilter {
 		}
 	}
 	
+	/**
+	 * Adds a taxonomy name to the filter set.
+	 * First tries header parsing, then searches by extended name matching.
+	 * @param name Taxonomy name to add
+	 * @return true if at least one node was added successfully
+	 */
 	public boolean addName(String name){
 		{
 			TaxNode tn=tree.parseNodeFromHeader(name, true);
@@ -279,6 +318,12 @@ public class TaxFilter {
 		return success;
 	}
 	
+	/**
+	 * Adds taxonomy IDs from string or file to the filter set.
+	 * Supports comma-separated IDs, file paths, or organism names.
+	 * @param numbers Comma-separated taxonomy IDs, file path, or organism names
+	 * @param promote Whether to promote matches up the taxonomic tree
+	 */
 	public void addNumbers(String numbers, boolean promote){
 		if(numbers==null){return;}
 		String[] array=numbers.split(",");
@@ -300,6 +345,12 @@ public class TaxFilter {
 		}
 	}
 	
+	/**
+	 * Adds a numeric taxonomy ID to the filter set.
+	 * @param taxID NCBI taxonomy ID to add
+	 * @param promote Whether to promote the node and ancestors to the filter level
+	 * @return true if the ID was added successfully
+	 */
 	public boolean addNumber(int taxID, boolean promote){
 		if(promote){
 			TaxNode tn=tree.getNode(taxID);
@@ -311,6 +362,12 @@ public class TaxFilter {
 		}
 	}
 	
+	/**
+	 * Adds a taxonomy node and its ancestors to the filter set.
+	 * Promotes the node up to the specified taxonomic level if needed.
+	 * @param tn Taxonomy node to add
+	 * @return true if the node was added successfully
+	 */
 	public boolean addNode(TaxNode tn){
 		if(tn==null){return false;}
 		taxSet.add(tn.id);
@@ -330,10 +387,21 @@ public class TaxFilter {
 	/*----------------        Outer Methods         ----------------*/
 	/*--------------------------------------------------------------*/
 	
+	/**
+	 * Tests if a sequence read passes the taxonomic filter.
+	 * @param r Sequence read with taxonomic header information
+	 * @return true if the read passes the filter criteria
+	 */
 	public boolean passesFilter(final Read r){
 		return passesFilter(r.id);
 	}
 	
+	/**
+	 * Tests if a sequence name passes regex and substring filters only.
+	 * Does not perform taxonomic ID lookups.
+	 * @param name Sequence name to test
+	 * @return true if the name matches regex/substring criteria
+	 */
 	public boolean passesFilterByNameOnly(final String name){
 		if(regexPattern!=null){
 			boolean b=matchesRegex(name);
@@ -346,6 +414,12 @@ public class TaxFilter {
 		return true;
 	}
 	
+	/**
+	 * Tests if a sequence name passes all filter criteria.
+	 * Combines name-based filtering with taxonomic ID matching.
+	 * @param name Sequence name with taxonomic information
+	 * @return true if the sequence passes all filter criteria
+	 */
 	public boolean passesFilter(final String name){
 		if(!passesFilterByNameOnly(name)){return false;}
 		if(taxSet.isEmpty() && reqLevels==0){return !include;}
@@ -362,6 +436,11 @@ public class TaxFilter {
 		return passesFilter(tn);
 	}
 	
+	/**
+	 * Tests if a taxonomy ID passes the filter criteria.
+	 * @param id NCBI taxonomy ID to test
+	 * @return true if the ID passes the filter criteria
+	 */
 	public boolean passesFilter(final int id){
 //		if((taxSet==null || taxSet.isEmpty()) && reqLevels==0){return !include;}
 		if((taxSet==null || taxSet.isEmpty()) && reqLevels==0){return true;}
@@ -380,6 +459,14 @@ public class TaxFilter {
 		return passesFilter(tn);
 	}
 	
+	/**
+	 * Core filtering logic for taxonomy nodes.
+	 * Checks taxonomic set membership and required ancestor levels.
+	 * Supports promotion up the taxonomic tree.
+	 *
+	 * @param tn0 Taxonomy node to test
+	 * @return true if the node passes filter criteria
+	 */
 	boolean passesFilter(final TaxNode tn0){
 		TaxNode tn=tn0;
 		if(taxSet.isEmpty() && reqLevels==0){return !include;}
@@ -400,6 +487,12 @@ public class TaxFilter {
 		return include==found && (levels&reqLevels)==reqLevels;
 	}
 	
+	/**
+	 * Fast filtering method that skips required level checking.
+	 * Optimized for performance when ancestor level requirements are not needed.
+	 * @param id NCBI taxonomy ID to test
+	 * @return true if the ID passes the filter criteria
+	 */
 	public boolean passesFilterFast(final int id){
 		assert(reqLevels==0);
 		if(taxSet==null || taxSet.isEmpty()){return true;}
@@ -417,6 +510,12 @@ public class TaxFilter {
 		return passesFilterFast(tn);
 	}
 	
+	/**
+	 * Fast filtering logic that uses maximum child level optimization.
+	 * Stops early when nodes cannot contain target taxa.
+	 * @param tn0 Taxonomy node to test
+	 * @return true if the node passes filter criteria
+	 */
 	boolean passesFilterFast(final TaxNode tn0){
 		TaxNode tn=tn0;
 		if(taxSet==null || taxSet.isEmpty()){return true;}
@@ -434,10 +533,20 @@ public class TaxFilter {
 		return include==found;
 	}
 	
+	/**
+	 * Tests if a string matches the configured regular expression pattern.
+	 * @param s String to test against regex
+	 * @return true if the string matches the regex pattern
+	 */
 	boolean matchesRegex(String s){
 		return regexPattern.matcher(s).matches();
 	}
 	
+	/**
+	 * Tests if a string contains the configured substring (case-insensitive).
+	 * @param s String to test for substring presence
+	 * @return true if the string contains the target substring
+	 */
 	boolean containsString(String s){
 		return s.toLowerCase().contains(containsString);
 	}
@@ -446,6 +555,8 @@ public class TaxFilter {
 	/*----------------            Clone             ----------------*/
 	/*--------------------------------------------------------------*/
 
+	/** Creates a deep copy of this TaxFilter with independent taxonomy set.
+	 * @return Deep copy of this TaxFilter instance */
 	public TaxFilter deepCopy() {
 		TaxFilter copy=null;
 		try {
@@ -461,10 +572,12 @@ public class TaxFilter {
 		return copy;
 	}
 	
+	/** Clears the taxonomy ID set by setting it to null */
 	public void clearSet(){
 		taxSet=null;
 	}
 	
+	/** Initializes the taxonomy ID set to an empty HashSet */
 	public void makeSet(){
 		taxSet=new HashSet<Integer>();
 	}
@@ -473,6 +586,12 @@ public class TaxFilter {
 //		include=b;
 //	}
 	
+	/**
+	 * Changes the taxonomic filtering level.
+	 * Level can only be increased when the taxonomy set is non-empty.
+	 * @param newLevel New taxonomy level for filtering
+	 * @param promote Whether to promote existing nodes to the new level
+	 */
 	public void setLevel(final int newLevel, boolean promote){
 		final int newLevelE=TaxTree.levelToExtended(newLevel);
 		assert(newLevelE>=taxLevelE || newLevelE<1 || taxSet==null && taxSet.isEmpty()) : "taxLevel may only be increased when the set is non-empty.";
@@ -480,6 +599,8 @@ public class TaxFilter {
 		if(promote){promote();}
 	}
 	
+	/** Promotes all nodes in the taxonomy set to the current filtering level.
+	 * Replaces specific nodes with their ancestors at the target level. */
 	public void promote(){
 		if(taxSet!=null && !taxSet.isEmpty() && taxLevelE>0){
 			ArrayList<Integer> list=new ArrayList<Integer>(taxSet.size());
@@ -489,26 +610,38 @@ public class TaxFilter {
 		}
 	}
 	
+	/** Gets the number of taxonomy IDs in the filter set */
 	public int size(){return (taxSet==null ? 0 : taxSet.size());}
 
+	/** Gets the current taxonomic filtering level */
 	public int taxLevel(){return TaxTree.extendedToLevel(taxLevelE);}
+	/** Gets array of taxonomy IDs in the filter set, or null if empty */
 	public Integer[] taxSet(){
 		return (taxSet==null || taxSet.isEmpty()) ? null : taxSet.toArray(new Integer[0]);
 	}
+	/** Gets whether the filter is in include mode (true) or exclude mode (false) */
 	public boolean include(){return include;}
+	/** Sets the taxonomy tree for this filter.
+	 * @param tree_ New taxonomy tree to use */
 	public void setTree(TaxTree tree_){tree=tree_;}
+	/** Gets the taxonomy tree used by this filter */
 	public TaxTree tree(){return tree;}
+	/** Sets the substring matching pattern (converted to lowercase).
+	 * @param s Substring pattern to match, or null to disable */
 	public void setContainsString(String s){containsString=(s==null ? null : s.toLowerCase());}
+	/** Gets the current substring matching pattern */
 	public String containsString(){return containsString;}
 	@Override
 	public String toString(){return ""+taxSet;}
 	
+	/** Returns true if the taxonomy set is empty */
 	public boolean isEmpty() {return taxSet.isEmpty();}
 	
 	/*--------------------------------------------------------------*/
 	/*----------------            Fields            ----------------*/
 	/*--------------------------------------------------------------*/
 	
+	/** Taxonomy tree for taxonomic lookups and navigation */
 	private TaxTree tree;
 	
 	/** Level at which to filter */
@@ -520,12 +653,20 @@ public class TaxFilter {
 	/** Set of numeric NCBI TaxIDs */
 	private HashSet<Integer> taxSet;
 	
+	/**
+	 * Maximum extended level of child nodes in the taxonomy set for optimization
+	 */
 	private int maxChildLevelExtended=TaxTree.LIFE_E;
+	/** If true, include matching sequences; if false, exclude them */
 	private final boolean include;
+	/** Whether to promote matches up the taxonomic tree */
 	private boolean promote;
 	
+	/** Regular expression pattern for name matching */
 	private String regex;
+	/** Compiled regular expression pattern for efficient matching */
 	private final Pattern regexPattern;
+	/** Substring pattern for name matching (stored in lowercase) */
 	private String containsString;
 	
 	/*--------------------------------------------------------------*/
@@ -538,8 +679,11 @@ public class TaxFilter {
 	/** Print loading messages */
 	static boolean PRINT_STUFF=true;
 	
+	/** Whether to require all taxonomy nodes to be present in the tree */
 	public static boolean REQUIRE_PRESENT=true;
+	/** Whether to warn about absent taxonomy nodes (one-time warning) */
 	public static boolean WARN_ABSENT_NODE=true;
+	/** Whether to print debug information when nodes are added to the filter */
 	public static boolean printNodesAdded=true;
 
 }

@@ -1,8 +1,13 @@
 package synth;
 
 import java.io.PrintStream;
+import java.util.ArrayList;
 import java.util.Random;
 
+import bin.AdjustEntropy;
+import clade.Clade;
+import clade.CladeLoader;
+import clade.CladeObject;
 import dna.AminoAcid;
 import fileIO.ByteStreamWriter;
 import fileIO.FileFormat;
@@ -17,11 +22,14 @@ import structures.ByteBuilder;
 
 /**
  * @author Brian Bushnell
+ * @contributor Isla
  * @date Jan 3, 2013
  *
  */
 public class RandomGenome {
 	
+	/** Program entry point for random genome generation.
+	 * @param args Command-line arguments specifying output parameters */
 	public static void main(String[] args){
 		//Start a timer immediately upon code entrance.
 		Timer t=new Timer();
@@ -36,6 +44,12 @@ public class RandomGenome {
 		Shared.closeStream(x.outstream);
 	}
 	
+	/**
+	 * Constructs RandomGenome instance with parsed command-line arguments.
+	 * Parses parameters for chromosome count, length, GC content, padding,
+	 * and output options. Initializes random number generator with optional seed.
+	 * @param args Command-line arguments for configuration
+	 */
 	public RandomGenome(String[] args){
 		
 		{//Preparse block for help, config files, and outstream
@@ -72,6 +86,8 @@ public class RandomGenome {
 				includeStop=Parse.parseBoolean(b);
 			}else if(a.equals("seed")){
 				seed=Long.parseLong(b);
+			}else if(a.equals("k")){
+				k=Integer.parseInt(b);
 			}else if(parser.parse(arg, a, b)){
 				//do nothing
 			}else{
@@ -86,6 +102,7 @@ public class RandomGenome {
 			append=parser.append;
 
 			out=parser.out1;
+			in=parser.in1;
 		}
 
 		wrap=Shared.FASTA_WRAP;
@@ -102,11 +119,33 @@ public class RandomGenome {
 			throw new RuntimeException("\n\noverwrite="+overwrite+"; Can't write to output files "+out+"\n");
 		}
 
+		ffin=FileFormat.testInput(in, FileFormat.CLADE, null, true, false, false);
 		ffout=FileFormat.testOutput(out, FileFormat.FA, null, true, overwrite, append, false);
+		
+		if(ffin!=null) {
+			Clade clade;
+			AdjustEntropy.load();
+			if(ffin.clade()) {
+				ArrayList<Clade> clades=CladeLoader.loadCladesFromClade(ffin);
+				clade=clades.get(0);
+			}else {
+				clade=CladeLoader.loadCladeFromSequence(ffin);
+			}
+			long[] counts=clade.counts[k];
+			if(k>2) {counts=unfold(counts, k);}
+			prefixMatrix=countsToPrefixProb(counts, k);
+		}else {
+			prefixMatrix=null;
+		}
 		
 		randy=Shared.threadLocalRandom(seed);
 	}
 	
+	/**
+	 * Main processing method that generates synthetic sequences.
+	 * Delegates to nucleotide or amino acid processing based on AMINO_IN setting.
+	 * @param t Timer for tracking execution time
+	 */
 	void process(Timer t){
 		if(Shared.AMINO_IN){
 			processAmino(t);
@@ -115,6 +154,12 @@ public class RandomGenome {
 		}
 	}
 	
+	/**
+	 * Generates random nucleotide sequences with specified GC content.
+	 * Creates chromosomes with configurable length, padding with N's at ends,
+	 * and optional homopolymer filtering. Outputs in FASTA format.
+	 * @param t Timer for tracking execution time
+	 */
 	void processNucleotide(Timer t){
 		
 		ByteStreamWriter bsw=new ByteStreamWriter(ffout);
@@ -126,7 +171,30 @@ public class RandomGenome {
 			byte prev='N';
 			final int max=chromLength+2*pad;
 			final int pad2=chromLength+pad;
-			if(gc==0.5f){
+			if(prefixMatrix!=null){
+				if(prefixMatrix!=null){
+					final int mask=(1<<(2*(k-1)))-1; // Precalculate mask
+					int prefix=0; // Start with empty (k-1)-mer
+					for(int i=0; i<max; ){
+						for(int j=0; j<wrap && i<max; i++, j++){
+							byte b;
+							if(i<pad || i>=pad2){
+								b='N';
+								prefix=0; // Reset on N
+							}else{
+								b=nextBase(prefix, prefixMatrix, randy);
+								// Update prefix: shift left, add new base, mask to k-1 length
+								prefix=((prefix<<2)|AminoAcid.baseToNumber[b])&mask;
+							}
+							bb.append(b);
+							prev=b;
+						}
+						bb.nl();
+						bsw.print(bb);
+						bb.clear();
+					}
+				}
+			}else if(gc==0.5f){
 				for(int i=0; i<max; ){
 					for(int j=0; j<wrap && i<max; i++, j++){
 						byte b;
@@ -149,16 +217,18 @@ public class RandomGenome {
 						char b;
 						if(i<pad || i>=pad2){b='N';}
 						else{
+							boolean low=randy.nextBoolean();
 							if(at){
-								b=randy.nextBoolean() ? 'A' : 'T';
+								b=low ? 'A' : 'T';
 							}else{
-								b=randy.nextBoolean() ? 'C' : 'G';
+								b=low ? 'C' : 'G';
 							}
 							while(noPoly && b==prev){
+								low=randy.nextBoolean();
 								if(at){
-									b=randy.nextBoolean() ? 'A' : 'T';
+									b=low ? 'A' : 'T';
 								}else{
-									b=randy.nextBoolean() ? 'C' : 'G';
+									b=low ? 'C' : 'G';
 								}
 							}
 						}
@@ -174,6 +244,12 @@ public class RandomGenome {
 		bsw.poisonAndWait();
 	}
 	
+	/**
+	 * Generates random amino acid sequences for synthetic proteins.
+	 * Creates genes with random amino acid composition, padding with X's at ends,
+	 * and optional stop codon inclusion. Outputs in FASTA format.
+	 * @param t Timer for tracking execution time
+	 */
 	void processAmino(Timer t){
 		
 		ByteStreamWriter bsw=new ByteStreamWriter(ffout);
@@ -208,32 +284,138 @@ public class RandomGenome {
 	
 	/*--------------------------------------------------------------*/
 	
-	private String out=null;
-	
-	int chroms=1;
-	long totalLength=1000000;
-	float gc=0.5f;
-	final int chromLength;
-	final int wrap;
-	int pad=0;
-	boolean noPoly=false;
-	boolean includeStop=false;
-	long seed=-1;
+	/**
+	 * Convert kmer counts to prefix probability matrix.
+	 * @param counts Array of kmer counts (may be folded/canonical form)
+	 * @param k Kmer length
+	 * @return float[4^(k-1)][4] where [prefix][base] = cumulative probability
+	 */
+	static float[][] countsToPrefixProb(long[] counts, int k){
+		final int prefixes=1<<(2*(k-1)); // 4^(k-1) possible (k-1)-mer prefixes
+		float[][] matrix=new float[prefixes][4];
+		
+		// For each prefix (k-1)-mer
+		for(int prefix=0; prefix<prefixes; prefix++){
+			long[] baseCounts=new long[4];
+			
+			// Count occurrences of each base following this prefix
+			for(int base=0; base<4; base++){
+				int kmer=(prefix<<2)|base; // Append base to prefix
+				baseCounts[base]=counts[kmer];
+			}
+			
+			// Convert to cumulative probabilities
+			long total=baseCounts[0]+baseCounts[1]+baseCounts[2]+baseCounts[3];
+			if(total>0){
+				matrix[prefix][0]=(float)baseCounts[0]/total;
+				matrix[prefix][1]=matrix[prefix][0]+(float)baseCounts[1]/total;
+				matrix[prefix][2]=matrix[prefix][1]+(float)baseCounts[2]/total;
+				matrix[prefix][3]=1.0f; // Always 1.0 for last
+			}else{
+				// No data for this prefix, use uniform
+				matrix[prefix][0]=0.25f;
+				matrix[prefix][1]=0.50f;
+				matrix[prefix][2]=0.75f;
+				matrix[prefix][3]=1.00f;
+			}
+		}
+		
+		return matrix;
+	}
+
+	/**
+	 * Choose next base based on prefix probabilities.
+	 * @param prefix The (k-1)-mer prefix as binary encoding
+	 * @param prefixMatrix Cumulative probability matrix
+	 * @param randy Random number generator
+	 * @return Next base (A/C/G/T)
+	 */
+	static byte nextBase(int prefix, float[][] prefixMatrix, Random randy){
+		float[] probs=prefixMatrix[prefix];
+		float r=randy.nextFloat();
+		
+		if(r<probs[0]){return (byte)'A';}
+		if(r<probs[1]){return (byte)'C';}
+		if(r<probs[2]){return (byte)'G';}
+		return (byte)'T';
+	}
+
+	/**
+	 * Unfold canonical kmer counts to forward orientation.
+	 * Palindromes get doubled, non-palindromes get their count plus their RC's count.
+	 * @param counts Canonical (folded) counts
+	 * @param k Kmer length
+	 * @return Unfolded counts array
+	 */
+	static long[] unfold(long[] counts, int k){
+		
+		final int[] remap=CladeObject.remapMatrix[k];
+		
+		final int max=(1<<(2*k))-1;
+		long[] unfolded=new long[max+1];
+		
+		for(int kmer=0; kmer<=max; kmer++){
+			int rc=AminoAcid.reverseComplementBinaryFast(kmer, k);
+			long count=counts[remap[kmer]];
+			
+			// Find canonical index (this is simplified - you'd use the actual remap)
+			// For now assuming counts[canon] exists
+			if(kmer==rc){
+				// Palindrome - double it
+				unfolded[kmer]=count*2;
+			}else{
+				// Non-palindrome - use canonical count
+				unfolded[kmer]=count;
+			}
+		}
+		
+		return unfolded;
+	}
 	
 	/*--------------------------------------------------------------*/
 
+	private String in=null;
+	private String out=null;
+	
+	/** Number of chromosomes/contigs to generate */
+	int chroms=1;
+	/** Total length of all sequences combined in bases */
+	long totalLength=1000000;
+	/** GC content as fraction (0.0 to 1.0) for nucleotide sequences */
+	float gc=0.5f;
+	/** Length of each individual chromosome in bases */
+	final int chromLength;
+	/** Line wrap length for FASTA output formatting */
+	final int wrap;
+	/** Number of N's or X's to pad at chromosome ends */
+	int pad=0;
+	/** Whether to prevent consecutive identical bases (homopolymers) */
+	boolean noPoly=false;
+	/** Whether to include stop codons in amino acid sequences */
+	boolean includeStop=false;
+	/** Random number generator seed for reproducible output */
+	long seed=-1;
+	
+	int k=5;
+	final float[][] prefixMatrix;
+	
+	/*--------------------------------------------------------------*/
+
+	/** Random number generator instance for sequence generation */
 	final Random randy;
 	
 	private long linesOut=0;
 	private long bytesOut=0;
 	
 	/*--------------------------------------------------------------*/
-	
+
+	private final FileFormat ffin;
 	private final FileFormat ffout;
 	
 	/*--------------------------------------------------------------*/
 	
 	private PrintStream outstream=System.err;
+	/** Enable verbose output for debugging and progress tracking */
 	public static boolean verbose=false;
 	public boolean errorState=false;
 	private boolean overwrite=true;

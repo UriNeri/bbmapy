@@ -222,6 +222,12 @@ public class SampleSet implements Cloneable {
 		return fp*invSamples;
 	}
 	
+	/**
+	 * Calculates the classification cutoff value from a target False Positive Rate.
+	 * Iterates through sorted samples to find the cutoff that achieves the desired FPR.
+	 * @param fpr Target False Positive Rate (0.0 to 1.0)
+	 * @return Cutoff value that achieves the target FPR
+	 */
 	public double calcCutoffFromFPR(final double fpr) {
 		//Should be sorted
 		int fp=0, tp=0;
@@ -239,6 +245,12 @@ public class SampleSet implements Cloneable {
 		return (lastCutoff+prev)*0.5;
 	}
 	
+	/**
+	 * Calculates the classification cutoff value from a target False Negative Rate.
+	 * Iterates through sorted samples to find the cutoff that achieves the desired FNR.
+	 * @param fnr Target False Negative Rate (0.0 to 1.0)
+	 * @return Cutoff value that achieves the target FNR
+	 */
 	public double calcCutoffFromFNR(final double fnr) {
 		//Should be sorted
 		int fn=0, tn=0;
@@ -256,6 +268,12 @@ public class SampleSet implements Cloneable {
 		return (lastCutoff+prev)*0.5;
 	}
 	
+	/**
+	 * Calculates False Negative Rate for a given False Positive Rate.
+	 * Uses sorted samples to determine FNR at the cutoff that produces the target FPR.
+	 * @param fpr Target False Positive Rate (0.0 to 1.0)
+	 * @return Corresponding False Negative Rate
+	 */
 	public double calcFNRFromFPR(final double fpr) {
 		//Should be sorted
 		int fp=0, tp=0;
@@ -272,6 +290,12 @@ public class SampleSet implements Cloneable {
 		return fn*invSamples;
 	}
 	
+	/**
+	 * Calculates False Positive Rate for a given False Negative Rate.
+	 * Uses sorted samples to determine FPR at the cutoff that produces the target FNR.
+	 * @param fnr Target False Negative Rate (0.0 to 1.0)
+	 * @return Corresponding False Positive Rate
+	 */
 	public double calcFPRFromFNR(final double fnr) {
 		//Should be sorted
 		int fn=0, tn=0;
@@ -387,27 +411,42 @@ public class SampleSet implements Cloneable {
 	/*----------------            Fields            ----------------*/
 	/*--------------------------------------------------------------*/
 
+	/** Returns the number of input features in the underlying matrix */
 	final int numInputs() {return matrix.numInputs();}
+	/** Returns the number of output features in the underlying matrix */
 	final int numOutputs() {return matrix.numOutputs();}
+	/**
+	 * Returns the midpoint value for output classification from the underlying matrix
+	 */
 	final float outputMidpoint() {return matrix.outputMidpoint();}
 
+	/** The underlying data matrix containing inputs, outputs, and weights */
 	final Matrix matrix;
 	int numPositive=0, numNegative=0;
+	/** Array of all samples in their current order */
 	Sample[] samples;
+	/** Array of samples sorted by their predicted result values */
 	Sample[] samplesSortedByResult;
+	/** Array of sample subsets for cross-validation training */
 	private Subset[] subsets;
 	
+	/** Index of the currently active subset */
 	private int currentSubset=0;
+	/** Number of times the samples have been shuffled */
 	private int numShuffles=0;
+	/** Seed value for reproducible sample shuffling */
 	static long shuffleSeed=0;
+	/** Whether to shuffle samples during subset transitions */
 	static boolean shuffle=true;
 	
+	/** The epoch number when the next subset transition should occur */
 	int nextSubsetEpoch=subsetInterval;
 	
 	/*--------------------------------------------------------------*/
 	/*----------------        Static Fields         ----------------*/
 	/*--------------------------------------------------------------*/
 	
+	/** Number of epochs between subset transitions during training */
 	static int subsetInterval=64;
 	
 }

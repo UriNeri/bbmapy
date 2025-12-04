@@ -28,7 +28,7 @@ qin=auto            ASCII offset for input quality.  May be 33 (Sanger), 64 (Ill
 qout=auto           ASCII offset for output quality.  May be 33 (Sanger), 64 (Illumina), or auto (same as input).
 ignorebadquality=f  (ibq) Fix out-of-range quality values instead of crashing with a warning.
 
-Renaming modes (if not default):
+Renaming Mode Parameters (if not default):
 renamebyinsert=f    Rename the read to indicate its correct insert size.
 renamebymapping=f   Rename the read to indicate its correct mapping coordinates.
 renamebytrim=f      Rename the read to indicate its correct post-trimming length.
@@ -43,7 +43,7 @@ fixsra=f            Fixes headers of SRA reads renamed from Illumina.
                     ...into this:
                     HWI-ST79:17:D091UACXX:4:1101:210:824 1:
 
-Trimming:
+Trimming Parameters:
 trimleft=0          Trim this many characters from the header start.
 trimright=0         Trim this many characters from the header end.
 trimbeforesymbol=0  Trim this many characters before the last instance of
@@ -51,7 +51,7 @@ trimbeforesymbol=0  Trim this many characters before the last instance of
 symbol=             Trim before this symbol.  This can be a literal like ':'
                     or a word like tab or lessthan for reserved symbols.
 
-Other parameters:
+Other Parameters:
 reads=-1            Set to a positive number to only process this many INPUT reads (or pairs), then quit.
 quantize=           Set this to reduce compressed file size by binning quality.
                     E.g., quantize=2 will eliminate odd qscores.
@@ -65,42 +65,40 @@ Java Parameters:
 -da                 Disable assertions.
 
 Please contact Brian Bushnell at bbushnell@lbl.gov if you encounter any problems.
+For documentation and the latest version, visit: https://bbmap.org
 "
 }
 
-#This block allows symlinked shellscripts to correctly set classpath.
-pushd . > /dev/null
-DIR="${BASH_SOURCE[0]}"
-while [ -h "$DIR" ]; do
-  cd "$(dirname "$DIR")"
-  DIR="$(readlink "$(basename "$DIR")")"
-done
-cd "$(dirname "$DIR")"
-DIR="$(pwd)/"
-popd > /dev/null
-
-#DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )/"
-CP="$DIR""current/"
-
-z="-Xmx1g"
-set=0
-
-if [ -z "$1" ] || [[ $1 == -h ]] || [[ $1 == --help ]]; then
+if [ -z "$1" ] || [ "$1" = "-h" ] || [ "$1" = "--help" ]; then
 	usage
 	exit
 fi
 
-calcXmx () {
-	source "$DIR""/calcmem.sh"
-	setEnvironment
-	parseXmx "$@"
+resolveSymlinks(){
+	SCRIPT="$0"
+	while [ -h "$SCRIPT" ]; do
+		DIR="$(dirname "$SCRIPT")"
+		SCRIPT="$(readlink "$SCRIPT")"
+		[ "${SCRIPT#/}" = "$SCRIPT" ] && SCRIPT="$DIR/$SCRIPT"
+	done
+	DIR="$(cd "$(dirname "$SCRIPT")" && pwd)"
+	CP="$DIR/current/"
 }
-calcXmx "$@"
 
-function rename() {
-	local CMD="java $EA $EOOM $z -cp $CP jgi.RenameReads $@"
-	echo $CMD >&2
+setEnv(){
+	. "$DIR/javasetup.sh"
+	. "$DIR/memdetect.sh"
+
+	parseJavaArgs "--xmx=1g" "--xms=256m" "--mode=fixed" "$@"
+	setEnvironment
+}
+
+launch() {
+	CMD="java $EA $EOOM $SIMD $XMX $XMS -cp $CP jgi.RenameReads $@"
+	echo "$CMD" >&2
 	eval $CMD
 }
 
-rename "$@"
+resolveSymlinks
+setEnv "$@"
+launch "$@"

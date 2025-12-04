@@ -9,8 +9,30 @@ import structures.ByteBuilder;
 import structures.FloatList;
 import tax.TaxTree;
 
+/**
+ * Machine learning-based similarity comparison tool for genomic binning.
+ * Compares genomic bins using multi-level k-mer, depth, and network-based similarity metrics.
+ * Supports advanced bin classification and merging during metagenomic assembly processes.
+ *
+ * @author Brian Bushnell
+ * @date 2013
+ */
 public class Oracle extends BinObject implements Cloneable {
 
+	/**
+	 * Constructs Oracle with explicit similarity threshold parameters.
+	 * Initializes neural networks for different bin size categories.
+	 *
+	 * @param maxGCDif_ Maximum allowed GC content difference between bins
+	 * @param maxDepthRatio_ Maximum allowed depth ratio between bins
+	 * @param max3merDif_ Maximum allowed 3-mer cosine difference
+	 * @param max4merDif_ Maximum allowed 4-mer cosine difference
+	 * @param max5merDif_ Maximum allowed 5-mer cosine difference
+	 * @param maxProduct_ Maximum allowed product of tetramer difference and depth ratio
+	 * @param maxCovariance_ Maximum allowed covariance between bin depths
+	 * @param minKmerProb_ Minimum required k-mer probability
+	 * @param minEdgeWeight_ Minimum edge weight threshold for connections
+	 */
 	public Oracle(float maxGCDif_, float maxDepthRatio_, float max3merDif_, float max4merDif_, float max5merDif_,
 			float maxProduct_, float maxCovariance_, float minKmerProb_, int minEdgeWeight_) {
 		maxGCDif0=maxGCDif_;
@@ -28,6 +50,12 @@ public class Oracle extends BinObject implements Cloneable {
 		if(BinObject.net0large!=null) {networkLarge=BinObject.net0large.copy(false);}
 	}
 	
+	/**
+	 * Constructs Oracle using stringency-based parameter scaling.
+	 * Derives similarity thresholds by scaling default Binner parameters with stringency factor.
+	 * @param stringency Scaling factor for similarity thresholds (higher = more restrictive)
+	 * @param minEdgeWeight_ Minimum edge weight threshold for connections
+	 */
 	public Oracle(float stringency, int minEdgeWeight_) {
 		max3merDif0=Binner.max3merDif2*stringency;
 		max4merDif0=Binner.max4merDif2*stringency;
@@ -44,6 +72,7 @@ public class Oracle extends BinObject implements Cloneable {
 		if(BinObject.net0large!=null) {networkLarge=BinObject.net0large.copy(false);}
 	}
 	
+	/** Resets Oracle state by clearing best match and resetting scores to -1 */
 	void clear() {
 		best=null;
 		bestIdx=-1;
@@ -64,6 +93,15 @@ public class Oracle extends BinObject implements Cloneable {
 		return 1f/product;
 	}
 	
+	/**
+	 * Computes similarity between two bins using stringency-adjusted thresholds.
+	 * Applies size-based multipliers and SSU-based stringency adjustments.
+	 *
+	 * @param a First bin for comparison
+	 * @param b Second bin for comparison
+	 * @param stringency0 Base stringency level for threshold adjustment
+	 * @return Similarity score between bins
+	 */
 	public final float similarity(Bin a, Bin b, float stringency0) {
 		long size=Tools.min(a.size(), b.size());
 		float sizeMult=Binner.sizeAdjustMult(size);
@@ -87,6 +125,17 @@ public class Oracle extends BinObject implements Cloneable {
 		return score;
 	}
 	
+	/**
+	 * Calculates edge weight multiplier based on edge counts and depths.
+	 * Applies different multipliers for good edges vs. transitional edges.
+	 *
+	 * @param e1 Edge count from first bin
+	 * @param e2 Edge count from second bin
+	 * @param eT Transitional edge count
+	 * @param d1 Depth of first bin
+	 * @param d2 Depth of second bin
+	 * @return Edge weight multiplier for similarity calculations
+	 */
 	public static float edgeMult(long e1, long e2, long eT, float d1, float d2) {
 		long minEdges=Tools.min(e1, e2);
 		if(minEdges<Binner.minEdgeWeight) {return eT<Binner.minEdgeWeight ? 1f : Binner.goodTransEdgeMult;}
@@ -113,15 +162,19 @@ public class Oracle extends BinObject implements Cloneable {
 		final boolean sameLabel=(a.labelTaxid>0 && a.labelTaxid==b.labelTaxid);
 //		final boolean diffLabel=(a.labelTaxid<1 || a.labelTaxid!=b.labelTaxid);
 		if(Binner.PERFECT_ORACLE) {return sameLabel ? 1-1f/b.size() : -1;}
-		
+
 		final float gcDif=Math.abs(a.gc()-b.gc());
+		final float hhDif=Math.abs(a.hh-b.hh);
+		final float cagaDif=Math.abs(a.caga-b.caga);
+		final float gchhDif=Tools.max(gcDif, hhDif*hhMult, cagaDif*cagaMult);
+//		assert(false) : gcDif+", "+hhDif+", "+gchhDif;
 		final float depthRatio=a.depthRatio(b);
 		final long minlen=Math.min(a.size(), b.size());
 		if(BinObject.verbose || verbose2) {
 			System.err.println("gcdif="+gcDif);
 			System.err.println("depthRatio="+depthRatio);
 		}
-		if(gcDif>maxGCDif*Binner.goodEdgeMult || 
+		if(gchhDif>maxGCDif*Binner.goodEdgeMult || //TODO: Add hh here
 				depthRatio>maxDepthRatio*Binner.goodEdgeMult) {
 			return -1;
 		}//Early exit before edge-tracking
@@ -143,7 +196,7 @@ public class Oracle extends BinObject implements Cloneable {
 		if(BinObject.verbose || verbose2) {
 			System.err.println("B: mult="+mult+", gcdif="+gcDif+", max="+(maxGCDif*mult));
 		}
-		if(gcDif>maxGCDif*mult*Binner.cutoffMultD) {
+		if(gchhDif>maxGCDif*mult*Binner.cutoffMultD) {
 //			assert(!sameLabel) : "gcdif="+gcDif+">"+(maxGCDif*mult*Binner.cutoffMultD);
 			return -1;
 		}
@@ -237,6 +290,18 @@ public class Oracle extends BinObject implements Cloneable {
 		return ret;
 	}
 	
+	final boolean ssuCompatible(Bin a, Bin b) {
+		return ssa==null || ssuCompatibility(a, b)>=minSSUID;
+	}
+	
+	/**
+	 * Checks SSU (Small Subunit rRNA) compatibility between bins.
+	 * Returns incompatibility score for mixed 16S/18S bins or alignment score for same type.
+	 *
+	 * @param a First bin to compare
+	 * @param b Second bin to compare
+	 * @return 2 if no SSU conflict, -1 if incompatible SSU types, alignment score otherwise
+	 */
 	final float ssuCompatibility(Bin a, Bin b) {
 		if(a.r16S==null && a.r18S==null) {return 2;}
 		if(b.r16S==null && b.r18S==null) {return 2;}
@@ -248,6 +313,25 @@ public class Oracle extends BinObject implements Cloneable {
 		return 0;
 	}
 	
+	/**
+	 * Runs neural network to assess bin similarity using computed features.
+	 * Selects appropriate network based on bin size and applies feature vector.
+	 *
+	 * @param a First bin for comparison
+	 * @param b Second bin for comparison
+	 * @param minEdges Minimum edge count between bins
+	 * @param transEdges Transitional edge count
+	 * @param gcDif GC content difference
+	 * @param depthRatio Depth ratio between bins
+	 * @param covariance Depth covariance
+	 * @param trimerDif 3-mer cosine difference
+	 * @param tetramerDif 4-mer cosine difference
+	 * @param pentamerDif 5-mer cosine difference
+	 * @param kmerProb K-mer occurrence probability
+	 * @param similarity Basic similarity score
+	 * @param includeAnswer Whether to include answer in vector
+	 * @return Network output score
+	 */
 	final float runNetwork(Bin a, Bin b, final long minEdges, final long transEdges, final float gcDif, 
 			final float depthRatio, final float covariance, final float trimerDif, final float tetramerDif,
 			final float pentamerDif, final float kmerProb, final float similarity, boolean includeAnswer) {
@@ -261,6 +345,7 @@ public class Oracle extends BinObject implements Cloneable {
 		return result;
 	}
 	
+	/** Returns tab-separated header string for vector output formatting */
 	static String header() {
 		ByteBuilder bb=new ByteBuilder();
 //		bb.append('#').append("aSize").tab().append("bSize");//0 1
@@ -297,6 +382,16 @@ public class Oracle extends BinObject implements Cloneable {
 		return bb.toString();
 	}
 	
+	/**
+	 * Converts bin pair comparison into feature vector.
+	 * Computes all similarity metrics and organizes into standardized vector format.
+	 *
+	 * @param a First bin (automatically reordered to smaller size first)
+	 * @param b Second bin
+	 * @param list FloatList to populate (created if null)
+	 * @param includeAnswer Whether to include taxonomic answer in vector
+	 * @return Feature vector representing bin pair comparison
+	 */
 	FloatList toVector(Bin a, Bin b, FloatList list, boolean includeAnswer) {
 		if(a.size()>b.size()) {return toVector(b, a, list, includeAnswer);}
 		if(list==null) {list=new FloatList();}
@@ -322,6 +417,26 @@ public class Oracle extends BinObject implements Cloneable {
 				trimerDif, tetramerDif, pentamerDif, kmerProb, similarity, list, includeAnswer);
 	}
 	
+	/**
+	 * Converts pre-computed bin comparison metrics into comprehensive feature vector.
+	 * Creates standardized vector with size proxies, k-mer differences, depth metrics, and optional network outputs.
+	 *
+	 * @param a First bin (automatically reordered to smaller size first)
+	 * @param b Second bin
+	 * @param minEdges Minimum edge count between bins
+	 * @param transEdges Transitional edge count
+	 * @param gcDif GC content difference
+	 * @param depthRatio Depth ratio between bins
+	 * @param covariance Depth covariance
+	 * @param trimerDif 3-mer cosine difference
+	 * @param tetramerDif 4-mer cosine difference
+	 * @param pentamerDif 5-mer cosine difference
+	 * @param kmerProb K-mer occurrence probability
+	 * @param similarity Basic similarity score
+	 * @param list FloatList to populate (created if null)
+	 * @param includeAnswer Whether to include taxonomic ground truth
+	 * @return Comprehensive feature vector for machine learning
+	 */
 	FloatList toVector(Bin a, Bin b, final long minEdges, final long transEdges, final float gcDif, final float depthRatio,
 			final float covariance, float trimerDif, float tetramerDif, float pentamerDif, float kmerProb, 
 			final float similarity, FloatList list, boolean includeAnswer) {
@@ -464,6 +579,14 @@ public class Oracle extends BinObject implements Cloneable {
 		return list;
 	}
 	
+	/**
+	 * Validates taxonomic compatibility between two bins.
+	 * Checks taxonomic ID policies and common ancestor level constraints.
+	 *
+	 * @param aTaxid Taxonomic ID of first bin
+	 * @param bTaxid Taxonomic ID of second bin
+	 * @return true if taxonomically compatible, false otherwise
+	 */
 	private boolean taxaOK(int aTaxid, int bTaxid) {
 		if(!allowHalfTaxID && (aTaxid<1 || bTaxid<1)) {return false;}
 		if(!allowNoTaxID && aTaxid<1 && bTaxid<1) {return false;}
@@ -473,6 +596,12 @@ public class Oracle extends BinObject implements Cloneable {
 	}
 	
 	
+	/**
+	 * Creates deep copy of Oracle with independent networks and state.
+	 * Resets best match state and creates new network copies.
+	 * @return Independent Oracle clone
+	 * @throws RuntimeException if cloning fails
+	 */
 	protected Oracle clone() {
 		try {
 			Oracle clone=(Oracle) super.clone();
@@ -488,6 +617,15 @@ public class Oracle extends BinObject implements Cloneable {
 		}
 	}
 	
+	/**
+	 * Determines if bin pair should emit training vector based on size, purity, and result criteria.
+	 * Filters vectors for machine learning training dataset generation.
+	 *
+	 * @param a First bin to evaluate
+	 * @param b Second bin to evaluate
+	 * @param result Comparison result (positive indicates merge recommendation)
+	 * @return true if this pair should contribute to training data
+	 */
 	static boolean canEmitVector(Bin a, Bin b, float result) {
 		long minSize=Math.min(a.size(), b.size());
 		if(a.labelTaxid<1 || b.labelTaxid<1) {return false;}
@@ -502,6 +640,14 @@ public class Oracle extends BinObject implements Cloneable {
 		return ret;
 	}
 	
+	/**
+	 * Emits training vector for bin pair with probabilistic sampling.
+	 * Generates feature vector with ground truth label for machine learning.
+	 *
+	 * @param a First bin
+	 * @param b Second bin
+	 * @param bsw Output stream writer
+	 */
 	void emitVector(Bin a, Bin b, ByteStreamWriter bsw) {
 		assert(bsw!=null);
 		long minlen=Tools.min(a.size(), b.size());
@@ -512,6 +658,12 @@ public class Oracle extends BinObject implements Cloneable {
 		emitVector(vector, bsw);
 	}
 	
+	/**
+	 * Writes feature vector to output stream in tab-separated format.
+	 * Thread-safe vector emission with synchronized writing.
+	 * @param vector Feature vector to write
+	 * @param bsw Output stream writer
+	 */
 	static void emitVector(FloatList vector, ByteStreamWriter bsw) {
 		assert(bsw!=null);
 		ByteBuilder bb=new ByteBuilder();
@@ -524,6 +676,12 @@ public class Oracle extends BinObject implements Cloneable {
 		}
 	}
 	
+	/**
+	 * Selects appropriate neural network based on bin size.
+	 * Uses different networks optimized for small, medium, and large bins.
+	 * @param size Bin size for network selection
+	 * @return Appropriate CellNet network or null if below minimum size
+	 */
 	private CellNet getNetwork(long size) {
 		if(size<Binner.minNetSize) {return null;}
 		if(size<Binner.midNetSize) {return networkSmall;}
@@ -531,52 +689,95 @@ public class Oracle extends BinObject implements Cloneable {
 		return networkLarge;
 	}
 	
+	/** Best matching bin found during comparison */
 	Bin best=null;
+	/** Current similarity score */
 	float score=-1;
+	/** Highest similarity score encountered */
 	float topScore=-1;
+	/** Index of best matching bin */
 	int bestIdx=-1;
 	
+	/** Count of fast preliminary comparisons performed */
 	long fastComparisons=0;
+	/** Count of 3-mer comparisons performed */
 	long trimerComparisons=0;
+	/** Count of 4-mer comparisons performed */
 	long tetramerComparisons=0;
+	/** Count of comprehensive similarity comparisons performed */
 	long slowComparisons=0;
+	/** Count of neural network comparisons performed */
 	long netComparisons=0;
 
+	/** Base maximum 3-mer cosine difference threshold */
 	final float max3merDif0;
+	/** Base maximum 4-mer cosine difference threshold */
 	final float max4merDif0;
+	/** Base maximum 5-mer cosine difference threshold */
 	final float max5merDif0;
+	/** Base maximum depth ratio threshold between bins */
 	final float maxDepthRatio0;
+	/** Base maximum GC content difference threshold */
 	final float maxGCDif0;
+	/** Base maximum product threshold for tetramer difference and depth ratio */
 	final float maxProduct0;
+	/** Base maximum covariance threshold between bin depths */
 	final float maxCovariance0;
+	/** Base minimum k-mer occurrence probability threshold */
 	final float minKmerProb0;
+	/** Minimum edge weight required for strong bin connections */
 	final int minEdgeWeight;
 	
+	/** Base stringency level used for threshold scaling */
 	final float stringency0;
+	/** Reusable feature vector for neural network input */
 	private FloatList vector;
+	/** Neural network for small bin comparisons */
 	private CellNet networkSmall;
+	/** Neural network for medium-sized bin comparisons */
 	private CellNet networkMid;
+	/** Neural network for large bin comparisons */
 	private CellNet networkLarge;
+	/** SSU sequence aligner for 16S/18S compatibility checking */
 	private IDAligner ssa=(SpectraCounter.call16S ? 
 			aligner.Factory.makeIDAligner() : null);
 	
+	/** Taxonomic level for compatibility checking */
 	int taxlevel=TaxTree.SPECIES;
+	/** Whether to allow bins with no taxonomic ID */
 	boolean allowNoTaxID=true;
+	/** Whether to allow comparisons when only one bin has taxonomic ID */
 	boolean allowHalfTaxID=true;
+	/** Whether to use edge weight information in similarity calculations */
 	boolean useEdges=true;
 	
+	/** Global output stream writer for vector emission */
 	static ByteStreamWriter bsw;
+	/** Whether to emit true positive training vectors */
 	static boolean emitTP=true;
+	/** Whether to emit false positive training vectors */
 	static boolean emitFP=true;
+	/** Whether to emit true negative training vectors */
 	static boolean emitTN=true;
+	/** Whether to emit false negative training vectors */
 	static boolean emitFN=true;
+	/** Minimum bin size for training vector emission */
 	static int minEmitSize=0;
+	/** Maximum bin size for training vector emission */
 	static int maxEmitSize=2000000000;
+	/** Probability of emitting negative training examples */
 	static double negativeEmitProb=1;
+	/** Whether to include bin sizes in feature vectors */
 	static boolean printSizeInVector=false;
+	/** Weight printing mode for feature vectors */
 	static int printWeightInVector=1;
+	/** Whether to include network outputs in feature vectors */
 	static boolean printNetOutputInVector=false;
-	static float minSSUID=0.98f;
+	/** Minimum SSU identity required for bin compatibility */
+	static float minSSUID=0.96f;
+	static float hhMult=1.5f;//1.5 optimal in synth testing; 0.25% better than 0.
+	static float cagaMult=1.3f;//1.3 optimal; also 0.25% better.
+	/** Additional verbose output flag for detailed debugging */
 	boolean verbose2=false;
 	
 	

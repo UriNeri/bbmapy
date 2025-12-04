@@ -31,7 +31,7 @@ n_=t            This flag will prefix the terms 'contigs' and 'scaffolds'
                 with 'n_' in formats 3-6.
 addname=f       Adds a column for input file name, for formats 3-6.
 
-Logsum and Powsum:
+Logsum and Powsum Parameters:
 logoffset=1000  Minimum length for calculating log sum.
 logbase=2       Log base for calculating log sum.
 logpower=1      Raise the log to a power to increase the weight 
@@ -39,7 +39,7 @@ logpower=1      Raise the log to a power to increase the weight
 powsum=0.25     Use this power of the length to increase weight
                 of longer scaffolds for power sum.
 
-Assembly Score Metric:
+Assembly Score Metric Parameters:
 score=f         Print assembly score.
 aligned=0.0     Set the fraction of aligned reads (0-1).
 assemblyscoreminlen=2000   Minimum length of scaffolds to include in
@@ -68,42 +68,39 @@ gcformat=<0-5>  Select GC output format; default 1.
 	Note that in gcformat 1, A+C+G+T=1 even when N is nonzero.
 
 Please contact Brian Bushnell at bbushnell@lbl.gov if you encounter any problems.
+For documentation and the latest version, visit: https://bbmap.org
 "
 }
 
-#This block allows symlinked shellscripts to correctly set classpath.
-pushd . > /dev/null
-DIR="${BASH_SOURCE[0]}"
-while [ -h "$DIR" ]; do
-  cd "$(dirname "$DIR")"
-  DIR="$(readlink "$(basename "$DIR")")"
-done
-cd "$(dirname "$DIR")"
-DIR="$(pwd)/"
-popd > /dev/null
-
-#DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )/"
-CP="$DIR""current/"
-
-z="-Xmx120m"
-set=0
-
-if [ -z "$1" ] || [[ $1 == -h ]] || [[ $1 == --help ]]; then
+if [ -z "$1" ] || [ "$1" = "-h" ] || [ "$1" = "--help" ]; then
 	usage
 	exit
 fi
 
-calcXmx () {
-	source "$DIR""/calcmem.sh"
-	setEnvironment
-	parseXmx "$@"
+resolveSymlinks(){
+	SCRIPT="$0"
+	while [ -h "$SCRIPT" ]; do
+		DIR="$(dirname "$SCRIPT")"
+		SCRIPT="$(readlink "$SCRIPT")"
+		[ "${SCRIPT#/}" = "$SCRIPT" ] && SCRIPT="$DIR/$SCRIPT"
+	done
+	DIR="$(cd "$(dirname "$SCRIPT")" && pwd)"
+	CP="$DIR/current/"
 }
-calcXmx "$@"
 
-stats() {
-	local CMD="java $EA $EOOM $z -cp $CP jgi.AssemblyStats2 $@"
-#	echo $CMD >&2
+setEnv(){
+	. "$DIR/javasetup.sh"
+	. "$DIR/memdetect.sh"
+
+	parseJavaArgs "--xmx=120m" "--xms=120m" "--mode=fixed" "$@"
+	setEnvironment
+}
+
+launch() {
+	CMD="java $EA $EOOM $SIMD $XMX $XMS -cp $CP jgi.AssemblyStats2 $@"
 	eval $CMD
 }
 
-stats "$@"
+resolveSymlinks
+setEnv "$@"
+launch "$@"

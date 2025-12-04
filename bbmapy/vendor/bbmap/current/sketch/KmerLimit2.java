@@ -490,6 +490,14 @@ public class KmerLimit2 extends SketchObject {
 	/*----------------         Inner Methods        ----------------*/
 	/*--------------------------------------------------------------*/
 
+	/**
+	 * Truncates a sketch to limit the total count sum to a maximum value.
+	 * Creates a new sketch containing only the k-mers needed to reach the count sum limit.
+	 *
+	 * @param sketch0 Original sketch to truncate
+	 * @param max Maximum allowed sum of k-mer counts
+	 * @return New sketch with limited count sum, or original if already within limit
+	 */
 	public static Sketch capLengthAtCountSum(Sketch sketch0, int max) {
 		int len=0;
 		long sum=0;
@@ -512,6 +520,18 @@ public class KmerLimit2 extends SketchObject {
 		return sk;
 	}
 	
+	/**
+	 * Calculates the number of reads needed to achieve a target k-mer count.
+	 * Uses Monte Carlo simulation to estimate the sampling rate required
+	 * to retain the specified number of unique k-mers above the minimum count.
+	 *
+	 * @param sketch Input sketch containing k-mer counts
+	 * @param targetKmers Target number of unique k-mers to retain
+	 * @param minCount Minimum count threshold for k-mer inclusion
+	 * @param trials Number of simulation trials for accuracy
+	 * @param seed Random seed for reproducible results
+	 * @return Estimated number of reads needed to achieve target k-mer count
+	 */
 	public static long calcTargetReads(Sketch sketch, long targetKmers, int minCount, int trials, long seed){
 		final int[] counts0=sketch.keyCounts;
 		final int[] counts=Arrays.copyOf(counts0, counts0.length);
@@ -579,6 +599,18 @@ public class KmerLimit2 extends SketchObject {
 	//This can be done faster with bins.
 	//Each bin contains all kmers with count x.  When a bin is hit, one kmer moves to the next bin lower.
 	//Alternately, expand the array into one physical kmer per count.  Store the current counts in an IntMap. Remove key each time.
+	/**
+	 * Simulates random k-mer removal to estimate rounds needed to reach target count.
+	 * Uses weighted random selection where k-mers with higher counts are more likely
+	 * to be selected for removal, simulating the effect of read subsampling.
+	 *
+	 * @param counts0 Original k-mer count array (unchanged)
+	 * @param counts Working k-mer count array (modified during simulation)
+	 * @param minCount Minimum count threshold for k-mer validity
+	 * @param targetKeys Target number of valid k-mers to retain
+	 * @param randy Random number generator for sampling
+	 * @return Number of removal rounds needed to reach target
+	 */
 	public static long reduceRounds(final int[] counts0, final int[] counts, final int minCount, final int targetKeys, final Random randy){
 		assert(minCount>=0) : minCount;
 		long rounds=0;
@@ -637,6 +669,19 @@ public class KmerLimit2 extends SketchObject {
 	//This can be done faster with bins.
 	//Each bin contains all kmers with count x.  When a bin is hit, one kmer moves to the next bin lower.
 	//Alternately, expand the array into one physical kmer per count.  Store the current counts in an IntMap. Remove key each time.
+	/**
+	 * Optimized version of reduceRounds using expanded array representation.
+	 * Creates an expanded array where each k-mer appears once per count,
+	 * enabling faster uniform random selection for simulation accuracy.
+	 *
+	 * @param counts0 Original k-mer count array
+	 * @param expanded Pre-allocated expanded array for k-mer representation
+	 * @param minCount Minimum count threshold for k-mer validity
+	 * @param targetKeys Target number of valid k-mers to retain
+	 * @param randy Random number generator for sampling
+	 * @param map IntMap for tracking current k-mer counts
+	 * @return Number of removal rounds needed to reach target
+	 */
 	public static long reduceRoundsIM(final int[] counts0, final int[] expanded, final int minCount, final int targetKeys, final Random randy, final IntMap map){
 		assert(minCount>=0) : minCount;
 		long rounds=0;
@@ -688,6 +733,14 @@ public class KmerLimit2 extends SketchObject {
 	private class ProcessThread extends Thread {
 		
 		//Constructor
+		/**
+		 * Constructor for ProcessThread worker.
+		 *
+		 * @param cris_ Input read stream
+		 * @param ros_ Output read stream (may be null for counting phase)
+		 * @param tid_ Thread identifier
+		 * @param size Local heap size for k-mer storage
+		 */
 		ProcessThread(final ConcurrentReadInputStream cris_, final ConcurrentReadOutputStream ros_, final int tid_, final int size){
 			cris=cris_;
 			ros=ros_;
@@ -785,6 +838,12 @@ public class KmerLimit2 extends SketchObject {
 			if(r2!=null){processReadNucleotide(r2);}
 		}
 		
+		/**
+		 * Extracts k-mers from a single nucleotide read.
+		 * Uses rolling hash to generate forward and reverse complement k-mers,
+		 * applying quality filtering and adding valid k-mers to the local heap.
+		 * @param r Read to process for k-mer extraction
+		 */
 		void processReadNucleotide(final Read r){
 			final byte[] bases=r.bases;
 			final byte[] quals=r.quality;
@@ -850,6 +909,8 @@ public class KmerLimit2 extends SketchObject {
 			}
 		}
 		
+		/** Merges local thread heap into the shared global heap.
+		 * Synchronized operation to safely combine k-mer counts from all threads. */
 		private void dumpHeap(){
 			synchronized(sharedHeap){
 				sharedHeap.add(localHeap);
@@ -876,6 +937,7 @@ public class KmerLimit2 extends SketchObject {
 		/** Thread ID */
 		final int tid;
 		
+		/** Thread-local heap for k-mer collection before merging to shared heap */
 		final SketchHeap localHeap;
 	}
 	
@@ -888,7 +950,9 @@ public class KmerLimit2 extends SketchObject {
 	/** Secondary input file path */
 	private String in2=null;
 	
+	/** Primary quality file input path */
 	private String qfin1=null;
+	/** Secondary quality file input path */
 	private String qfin2=null;
 
 	/** Primary output file path */
@@ -896,7 +960,9 @@ public class KmerLimit2 extends SketchObject {
 	/** Secondary output file path */
 	private String out2=null;
 
+	/** Primary quality file output path */
 	private String qfout1=null;
+	/** Secondary quality file output path */
 	private String qfout2=null;
 	
 	/** Override input file extension */
@@ -919,9 +985,13 @@ public class KmerLimit2 extends SketchObject {
 	/** Quit after processing this many input reads; -1 means no limit */
 	private long maxReads=-1;
 	
+	/** True if input data contains paired reads */
 	private boolean paired=false;
+	/** Number of Monte Carlo trials for target read calculation */
 	private int trials=25;
+	/** Random seed for reproducible subsampling; -1 for random seed */
 	private long seed=-1;
+	/** Maximum length of expanded k-mer array for simulation */
 	private int maxExpandedLength=50000000;
 	
 	/*--------------------------------------------------------------*/
@@ -938,16 +1008,25 @@ public class KmerLimit2 extends SketchObject {
 	/** Secondary output file */
 	private final FileFormat ffout2;
 	
+	/** Shared heap for collecting k-mers from all worker threads */
 	private final SketchHeap sharedHeap;
+	/** Size of k-mer heaps for memory management */
 	private final int heapSize;
+	/** Target number of k-mers to retain after subsampling */
 	private final long targetKmers;
+	/** Minimum k-mer count threshold for inclusion */
 	private final int minCount;
 
+	/** Bit shift value for k-mer encoding (2*k) */
 	final int shift;
+	/** Bit shift value for reverse complement encoding (shift-2) */
 	final int shift2;
+	/** Bit mask for k-mer extraction and encoding */
 	final long mask;
 	
+	/** Minimum probability threshold for quality-based k-mer filtering */
 	final float minProb;
+	/** Minimum base quality score for k-mer inclusion */
 	final byte minQual;
 	
 	/*--------------------------------------------------------------*/

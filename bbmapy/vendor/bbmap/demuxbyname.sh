@@ -13,7 +13,7 @@ open file handles.
 Usage:
 demuxbyname.sh in=<file> in2=<file> out=<file> out2=<file> names=<string,string,...>
 
-Alternately:
+Alternate Usage:
 demuxbyname.sh in=<file> out=<file> outu=<file> names=<file> barcode
 This will parse the barcode from Illumina reads with a header like this:
 @A00178:73:HH7H3DSXX:4:1101:13666:1047 1:N:0:ACGTTGGT+TGACGCAT
@@ -53,7 +53,7 @@ names=          List of strings (or files containing strings) to parse from
                 at most 2 files would be created, and anything not matching 
                 those names would go to outu.
 
-Processing Modes (determines how to convert a read into a name):
+Processing Mode Parameters (determine how to convert a read into a name):
 prefixmode=t    (pm) Match prefix of read header.  If false, match suffix of
                 read header.  prefixmode=f is equivalent to suffixmode=t.
 barcode=f       Parse barcodes from Illumina headers.
@@ -96,7 +96,7 @@ length=0        If positive, use a suffix or prefix of this length from read
                 characters of read names.
 hdist=0         Allow a hamming distance for demultiplexing barcodes.  This
                 requires a list of names (barcodes).  It is unrelated to 
-                probabiilty mode's hdist3.
+                probability mode's hdist3.
 replace=        Replace some characters in the output filenames.  For example,
                 replace=+- would replace the + symbol in headers with the - 
                 symbol in output filenames.  So you could match the barcode 
@@ -133,49 +133,40 @@ Java Parameters:
 -da             Disable assertions.
 
 Please contact Brian Bushnell at bbushnell@lbl.gov if you encounter any problems.
+For documentation and the latest version, visit: https://bbmap.org
 "
 }
 
-#This block allows symlinked shellscripts to correctly set classpath.
-pushd . > /dev/null
-DIR="${BASH_SOURCE[0]}"
-while [ -h "$DIR" ]; do
-  cd "$(dirname "$DIR")"
-  DIR="$(readlink "$(basename "$DIR")")"
-done
-cd "$(dirname "$DIR")"
-DIR="$(pwd)/"
-popd > /dev/null
-
-#DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )/"
-CP="$DIR""current/"
-
-z="-Xmx2g"
-z2="-Xms2g"
-set=0
-
-if [ -z "$1" ] || [[ $1 == -h ]] || [[ $1 == --help ]]; then
+if [ -z "$1" ] || [ "$1" = "-h" ] || [ "$1" = "--help" ]; then
 	usage
 	exit
 fi
 
-calcXmx () {
-	source "$DIR""/calcmem.sh"
-	setEnvironment
-	parseXmx "$@"
-	if [[ $set == 1 ]]; then
-	return
-	fi
-	freeRam 3200m 84
-	z="-Xmx${RAM}m"
-	z2="-Xms${RAM}m"
+resolveSymlinks(){
+	SCRIPT="$0"
+	while [ -h "$SCRIPT" ]; do
+		DIR="$(dirname "$SCRIPT")"
+		SCRIPT="$(readlink "$SCRIPT")"
+		[ "${SCRIPT#/}" = "$SCRIPT" ] && SCRIPT="$DIR/$SCRIPT"
+	done
+	DIR="$(cd "$(dirname "$SCRIPT")" && pwd)"
+	CP="$DIR/current/"
 }
-calcXmx "$@"
 
-function demuxbyname() {
-	local CMD="java $EA $EOOM $z $z2 -cp $CP jgi.DemuxByName2 $@"
-	echo $CMD >&2
+setEnv(){
+	. "$DIR/javasetup.sh"
+	. "$DIR/memdetect.sh"
+
+	parseJavaArgs "--xmx=2g" "--xms=2g" "--percent=84" "--mode=auto" "$@"
+	setEnvironment
+}
+
+launch() {
+	CMD="java $EA $EOOM $SIMD $XMX $XMS -cp $CP jgi.DemuxByName2 $@"
+	echo "$CMD" >&2
 	eval $CMD
 }
 
-demuxbyname "$@"
+resolveSymlinks
+setEnv "$@"
+launch "$@"

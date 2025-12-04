@@ -457,6 +457,12 @@ public class CallGenes extends ProkObject {
 		}
 	}
 	
+	/**
+	 * Writes gene calling statistics to specified file in human-readable format.
+	 * Includes gene counts by type, coding fraction estimates, and detailed
+	 * statistics for each gene category when extended stats are enabled.
+	 * @param fname Output filename, or null to skip statistics output
+	 */
 	private void printStats(String fname){
 		if(fname==null){return;}
 		ByteStreamWriter bsw=new ByteStreamWriter(fname, overwrite, append, false);
@@ -524,6 +530,11 @@ public class CallGenes extends ProkObject {
 		bsw.poisonAndWait();
 	}
 	
+	/**
+	 * Writes gene calling statistics to specified file in JSON format.
+	 * Provides machine-readable output suitable for downstream analysis pipelines.
+	 * @param fname Output filename, or null to skip JSON output
+	 */
 	private void printStatsJson(String fname){
 		if(fname==null){return;}
 		
@@ -566,6 +577,11 @@ public class CallGenes extends ProkObject {
 		bsw.poisonAndWait();
 	}
 	
+	/**
+	 * Writes gene length histogram to specified file with summary statistics.
+	 * Includes mean, median, and standard deviation of gene lengths.
+	 * @param fname Output filename for histogram data
+	 */
 	private void printHist(String fname){
 		if(fname==null || geneHist==null){return;}
 		ByteStreamWriter bsw=new ByteStreamWriter(fname, overwrite, append, false);
@@ -592,6 +608,12 @@ public class CallGenes extends ProkObject {
 		bsw.poisonAndWait();
 	}
 	
+	/**
+	 * Creates concurrent read input stream for specified FASTA file.
+	 * Optimizes buffering and threading for high-throughput sequence processing.
+	 * @param fname Input FASTA filename
+	 * @return Configured ConcurrentReadInputStream
+	 */
 	private ConcurrentReadInputStream makeCris(String fname){
 		FileFormat ffin=FileFormat.testInput(fname, FileFormat.FA, null, true, true);
 		ConcurrentReadInputStream cris=ConcurrentReadInputStream.getReadInputStream(maxReads, false, ffin, null);
@@ -627,6 +649,12 @@ public class CallGenes extends ProkObject {
 		
 	}
 	
+	/**
+	 * Waits for all processing threads to complete and aggregates results.
+	 * Accumulates per-thread statistics including read counts, gene counts,
+	 * and score tracking data across all worker threads.
+	 * @param alpt List of ProcessThread instances to await
+	 */
 	private void waitForThreads(ArrayList<ProcessThread> alpt){
 		
 		//Wait for completion of all threads
@@ -683,12 +711,32 @@ public class CallGenes extends ProkObject {
 	/*----------------          Multipass           ----------------*/
 	/*--------------------------------------------------------------*/
 	
+	/**
+	 * Creates refined gene model using iterative multi-pass approach.
+	 * Each pass improves model accuracy by incorporating predictions from previous passes.
+	 *
+	 * @param pgm0 Initial gene model
+	 * @param fna Input FASTA filename
+	 * @param gff Optional input GFF file with known annotations
+	 * @param passes Number of refinement iterations
+	 * @return Refined gene model with improved accuracy
+	 */
 	public static GeneModel makeMultipassModel(GeneModel pgm0, String fna, String gff, int passes/*, long maxReads*/) {
 		if(passes<2) {return pgm0;}
 		ArrayList<Read> reads=ReadInputStream.toReads(fna, FileFormat.FASTA, -1/*maxReads*/);
 		return makeMultipassModel(pgm0, reads, gff, passes);
 	}
 	
+	/**
+	 * Creates refined gene model using iterative multi-pass approach with pre-loaded reads.
+	 * Progressively mixes original and derived models with different weights per pass.
+	 *
+	 * @param pgm0 Initial gene model
+	 * @param reads Pre-loaded sequence reads
+	 * @param gff Optional input GFF file with known annotations
+	 * @param passes Number of refinement iterations
+	 * @return Refined gene model with weighted combination of predictions
+	 */
 	public static GeneModel makeMultipassModel(GeneModel pgm0, ArrayList<Read> reads, String gff, int passes) {
 		GeneModel pgm=pgm0;
 		for(int i=1; i<passes; i++) {
@@ -745,6 +793,11 @@ public class CallGenes extends ProkObject {
 	/*----------------        Inner Methods         ----------------*/
 	/*--------------------------------------------------------------*/
 	
+	/**
+	 * Creates ByteStreamWriter for specified file format, or null if no output needed.
+	 * @param ff FileFormat specification, or null
+	 * @return Configured ByteStreamWriter, or null
+	 */
 	private static ByteStreamWriter makeBSW(FileFormat ff){
 		if(ff==null){return null;}
 		ByteStreamWriter bsw=new ByteStreamWriter(ff);
@@ -752,6 +805,12 @@ public class CallGenes extends ProkObject {
 		return bsw;
 	}
 	
+	/**
+	 * Creates ConcurrentReadOutputStream with optimized buffering.
+	 * Buffer size is adjusted based on threading requirements and ordering constraints.
+	 * @param ff FileFormat specification, or null
+	 * @return Configured output stream, or null
+	 */
 	private ConcurrentReadOutputStream makeCros(FileFormat ff){
 		if(ff==null){return null;}
 
@@ -772,6 +831,20 @@ public class CallGenes extends ProkObject {
 	private class ProcessThread extends Thread {
 		
 		//Constructor
+		/**
+		 * Constructs ProcessThread with shared I/O streams and gene model.
+		 * Initializes GeneCaller with configured scoring parameters and creates
+		 * thread-local gene length histogram if enabled.
+		 *
+		 * @param cris_ Shared input stream for sequences
+		 * @param bsw_ Shared output writer for GFF annotations
+		 * @param rosAmino_ Output stream for amino acid sequences
+		 * @param ros16S_ Output stream for 16S rRNA sequences
+		 * @param ros18S_ Output stream for 18S rRNA sequences
+		 * @param pgm_ Gene model for predictions
+		 * @param minLen Minimum gene length threshold
+		 * @param tid_ Thread identifier
+		 */
 		ProcessThread(final ConcurrentReadInputStream cris_, final ByteStreamWriter bsw_, 
 				ConcurrentReadOutputStream rosAmino_, ConcurrentReadOutputStream ros16S_, ConcurrentReadOutputStream ros18S_, 
 				GeneModel pgm_, final int minLen, final int tid_){
@@ -829,6 +902,12 @@ public class CallGenes extends ProkObject {
 			}
 		}
 		
+		/**
+		 * Processes single list of reads through gene calling pipeline.
+		 * Handles read merging/error correction if enabled, calls genes for each read,
+		 * and writes results to appropriate output streams with proper ordering.
+		 * @param ln ListNum containing reads to process
+		 */
 		void processList(ListNum<Read> ln){
 			//Grab the actual read list from the ListNum
 			final ArrayList<Read> reads=ln.list;
@@ -858,7 +937,7 @@ public class CallGenes extends ProkObject {
 					if(merge){
 						final int insert=BBMerge.findOverlapStrict(r1, r2, false);
 						if(insert>0){
-							r2.reverseComplement();
+							r2.reverseComplementFast();
 							r1=r1.joinRead(insert);
 							r2=null;
 						}
@@ -984,10 +1063,14 @@ public class CallGenes extends ProkObject {
 		/** Number of bytes written by this thread */
 		protected long bytesOutT=0;
 		
+		/** Thread-local gene length histogram array */
 		final long[] geneHistT;
 
+		/** Output stream for amino acid sequences */
 		protected ConcurrentReadOutputStream rosAmino;
+		/** Output stream for 16S rRNA sequences */
 		protected ConcurrentReadOutputStream ros16S;
+		/** Output stream for 18S rRNA sequences */
 		protected ConcurrentReadOutputStream ros18S;
 		
 		/** True only if this thread has completed successfully */
@@ -1005,6 +1088,15 @@ public class CallGenes extends ProkObject {
 		final int tid;
 	}
 	
+	/**
+	 * Extracts sequences of specified gene type from ORF list.
+	 * Processes both strands of the read, reverse complementing as needed.
+	 *
+	 * @param r Source read containing sequence data
+	 * @param list List of ORFs to search
+	 * @param type Gene type constant (r16S, r18S, tRNA, etc.)
+	 * @return List of Read objects containing extracted sequences of specified type
+	 */
 	public static ArrayList<Read> fetchType(final Read r, final ArrayList<Orf> list, int type){
 		if(list==null || list.isEmpty()){return null;}
 		ArrayList<Read> ret=new ArrayList<Read>(list.size());
@@ -1020,6 +1112,14 @@ public class CallGenes extends ProkObject {
 		return (ret.size()>0 ? ret : null);
 	}
 	
+	/**
+	 * Translates coding sequences (CDS) from ORF list to amino acids.
+	 * Processes both strands and creates Read objects with amino acid sequences.
+	 *
+	 * @param r Source read containing nucleotide sequence
+	 * @param list List of ORFs to translate
+	 * @return List of Read objects containing amino acid translations
+	 */
 	public static ArrayList<Read> translate(final Read r, final ArrayList<Orf> list){
 		if(list==null || list.isEmpty()){return null;}
 		ArrayList<Read> prots=new ArrayList<Read>(list.size());
@@ -1035,6 +1135,14 @@ public class CallGenes extends ProkObject {
 		return prots.isEmpty() ? null : prots;
 	}
 	
+	/**
+	 * Recodes CDS regions in sequence using canonical codons.
+	 * Replaces existing codons with canonical versions while preserving amino acids.
+	 *
+	 * @param r Read to recode in-place
+	 * @param list List of ORFs defining coding regions
+	 * @return Original read with recoded CDS regions
+	 */
 	public static Read recode(final Read r, final ArrayList<Orf> list){
 		if(list==null || list.isEmpty()){return r;}
 		for(int strand=0; strand<2; strand++){
@@ -1048,6 +1156,12 @@ public class CallGenes extends ProkObject {
 		return r;
 	}
 	
+	/**
+	 * Converts amino acid sequences back to nucleotide sequences using canonical codons.
+	 * Each amino acid is replaced with its corresponding canonical codon triplet.
+	 * @param prots List of protein (amino acid) sequences
+	 * @return List of nucleotide sequences using canonical codons
+	 */
 	public static ArrayList<Read> detranslate(final ArrayList<Read> prots){
 		if(prots==null || prots.isEmpty()){return null;}
 		ArrayList<Read> nucs=new ArrayList<Read>(prots.size());
@@ -1060,6 +1174,15 @@ public class CallGenes extends ProkObject {
 		return nucs;
 	}
 	
+	/**
+	 * Translates single ORF to amino acid sequence.
+	 * Handles strand orientation and creates Read with appropriate metadata.
+	 *
+	 * @param orf ORF defining coding region boundaries
+	 * @param bases Source nucleotide sequence
+	 * @param id Base identifier for naming translated sequence
+	 * @return Read containing amino acid translation with coordinate metadata
+	 */
 	public static Read translate(Orf orf, byte[] bases, String id){
 //		assert(orf.length()%3==0) : orf.length(); //Happens sometimes on genes that go off the end, perhaps
 		if(orf.strand==1){orf.flip();}
@@ -1070,6 +1193,14 @@ public class CallGenes extends ProkObject {
 		return r;
 	}
 	
+	/**
+	 * Extracts nucleotide sequences for all CDS ORFs from both strands.
+	 * Creates Read objects containing the raw nucleotide sequences of coding regions.
+	 *
+	 * @param r Source read containing sequence data
+	 * @param list List of ORFs to extract
+	 * @return List of Read objects containing CDS nucleotide sequences
+	 */
 	public static ArrayList<Read> fetch(final Read r, final ArrayList<Orf> list){
 		if(list==null || list.isEmpty()){return null;}
 		ArrayList<Read> genes=new ArrayList<Read>(list.size());
@@ -1085,6 +1216,14 @@ public class CallGenes extends ProkObject {
 		return genes.isEmpty() ? null : genes;
 	}
 	
+	/**
+	 * Extracts nucleotide sequence for single ORF from Read.
+	 * Handles reverse complement if needed and validates coordinate bounds.
+	 *
+	 * @param orf ORF defining sequence boundaries
+	 * @param source Source Read containing sequence data
+	 * @return Read containing extracted sequence with coordinate metadata
+	 */
 	public static Read fetch(Orf orf, Read source){
 		assert(orf.start>=0 && orf.stop<source.length() && orf.length()>0) : 
 			source.length()+"\n"+orf.length()+"\n"+orf;
@@ -1094,6 +1233,15 @@ public class CallGenes extends ProkObject {
 		return r;
 	}
 	
+	/**
+	 * Extracts nucleotide sequence for single ORF from byte array.
+	 * Creates new Read with subsequence and coordinate annotations.
+	 *
+	 * @param orf ORF defining sequence boundaries and strand
+	 * @param bases Source nucleotide sequence array
+	 * @param id Base identifier for naming extracted sequence
+	 * @return Read containing extracted sequence with metadata
+	 */
 	public static Read fetch(Orf orf, byte[] bases, String id){
 		assert(orf.start>=0 && orf.stop<bases.length) : bases.length+"\n"+orf;
 		if(orf.strand==1){orf.flip();}
@@ -1104,6 +1252,12 @@ public class CallGenes extends ProkObject {
 		return r;
 	}
 	
+	/**
+	 * Recodes ORF region in nucleotide array using canonical codons.
+	 * Translates to amino acids then back to canonical codon sequences in-place.
+	 * @param orf ORF defining coding region to recode
+	 * @param bases Nucleotide array to modify in-place
+	 */
 	public static void recode(Orf orf, byte[] bases){
 		if(orf.strand==1){orf.flip();}
 		byte[] acids=AminoAcid.toAAs(bases, orf.start, orf.stop);
@@ -1118,6 +1272,12 @@ public class CallGenes extends ProkObject {
 		if(orf.strand==1){orf.flip();}
 	}
 	
+	/**
+	 * Converts amino acid sequence to nucleotide sequence using canonical codons.
+	 * Each amino acid becomes a three-nucleotide canonical codon sequence.
+	 * @param prot Read containing amino acid sequence
+	 * @return Read containing equivalent nucleotide sequence
+	 */
 	public static Read detranslate(Read prot){
 		ByteBuilder bb=new ByteBuilder(prot.length()*3);
 		for(byte aa : prot.bases){
@@ -1133,24 +1293,41 @@ public class CallGenes extends ProkObject {
 	/*----------------            Fields            ----------------*/
 	/*--------------------------------------------------------------*/
 	
+	/**
+	 * Factory method for creating GeneCaller with current static parameters.
+	 * Uses configured scoring thresholds and overlap limits.
+	 * @param pgm Gene model for probability calculations
+	 * @return Configured GeneCaller instance
+	 */
 	public static GeneCaller makeGeneCaller(GeneModel pgm){
 		GeneCaller caller=new GeneCaller(minLen, maxOverlapSameStrand, maxOverlapOppositeStrand, 
 				minStartScore, minStopScore, minKmerScore, minOrfScore, minAvgScore, pgm);
 		return caller;
 	}
 	
+	/** Maximum number of reads to process, or -1 for no limit */
 	private long maxReads=-1;
+	/** Whether to attempt merging of overlapping paired reads */
 	private boolean merge;
+	/** Whether to perform error correction on overlapping paired reads */
 	private boolean ecco;
+	/** Number of iterative passes for model refinement */
 	private int passes=1;
 	
+	/** Total number of input reads processed */
 	private long readsIn=0;
+	/** Total number of input bases processed */
 	private long basesIn=0;
+	/** Total number of genes called and output */
 	private long genesOut=0;
+	/** Total number of bytes written to output files */
 	private long bytesOut=0;
 	
+	/** Minimum gene length in bases for calling genes */
 	private static int minLen=80;//Actually a much higher value like 200 seems optimal compared to NCBI
+	/** Maximum allowed overlap between genes on same strand */
 	private static int maxOverlapSameStrand=80;
+	/** Maximum allowed overlap between genes on opposite strands */
 	private static int maxOverlapOppositeStrand=110;
 	
 	/* for kinnercds=6 */
@@ -1161,61 +1338,104 @@ public class CallGenes extends ProkObject {
 //	private static float minAvgScore=0.08f; //Not very effective
 
 	/* for kinnercds=7 */
+	/** Minimum score threshold for gene start sites */
 	private static float minStartScore=-0.10f;
+	/** Minimum score threshold for gene stop sites */
 	private static float minStopScore=-0.5f;//Not useful; disabled
+	/** Minimum score threshold for internal kmer content */
 	private static float minKmerScore=0.02f;//Does not seem useful.
+	/** Minimum total score threshold for complete ORF */
 	private static float minOrfScore=50f; //Higher increases SNR dramatically but reduces TP rate
+	/** Minimum average score per base for ORF retention */
 	private static float minAvgScore=0.08f; //Not very effective
 	
+	/** Count of gene stop sites identified during processing */
 	long geneStopsMade=0;
+	/** Count of gene start sites identified during processing */
 	long geneStartsMade=0;
+	/** Count of gene start sites retained after filtering */
 	long geneStartsRetained=0;
+	/** Count of gene stop sites retained after filtering */
 	long geneStopsRetained=0;
+	/** Count of final gene start sites output */
 	long geneStartsOut=0;
 
+	/** Count of tRNA genes identified and output */
 	long tRNAOut=0;
+	/** Count of 16S rRNA genes identified and output */
 	long r16SOut=0;
+	/** Count of 23S rRNA genes identified and output */
 	long r23SOut=0;
+	/** Count of 5S rRNA genes identified and output */
 	long r5SOut=0;
+	/** Count of 18S rRNA genes identified and output */
 	long r18SOut=0;
 	
+	/** Score tracker for all CDS ORFs before filtering */
 	ScoreTracker stCds=new ScoreTracker(CDS);
+	/** Score tracker for CDS ORFs after initial filtering */
 	ScoreTracker stCds2=new ScoreTracker(CDS);
+	/** Score tracker for final CDS ORFs that passed all filters */
 	ScoreTracker stCdsPass=new ScoreTracker(CDS);
+	/** Score tracker for tRNA genes */
 	ScoreTracker sttRNA=new ScoreTracker(tRNA);
+	/** Score tracker for 16S rRNA genes */
 	ScoreTracker st16s=new ScoreTracker(r16S);
+	/** Score tracker for 23S rRNA genes */
 	ScoreTracker st23s=new ScoreTracker(r23S);
+	/** Score tracker for 5S rRNA genes */
 	ScoreTracker st5s=new ScoreTracker(r5S);
+	/** Score tracker for 18S rRNA genes */
 	ScoreTracker st18s=new ScoreTracker(r18S);
 	
+	/** Array of score trackers for all gene types for easy iteration */
 	ScoreTracker[] trackers=new ScoreTracker[] {stCdsPass, sttRNA, st16s, st23s, st5s, st18s};
 	
+	/** Number of bins for gene length histogram */
 	private int geneHistBins=1000;
+	/** Divisor for gene length histogram binning (bases per bin) */
 	private int geneHistDiv=21;
+	/** Histogram array for tracking gene length distribution */
 	private final long[] geneHist;
+	/** Whether to include zero-count bins in histogram output */
 	private boolean printZeroCountHist=false;
 	
 	/*--------------------------------------------------------------*/
 
+	/** List of input FASTA filenames */
 	private ArrayList<String> fnaList=new ArrayList<String>();
+	/** List of probabilistic gene model filenames */
 	private ArrayList<String> pgmList=new ArrayList<String>();
+	/** List of input GFF annotation filenames */
 	private ArrayList<String> inGffList=new ArrayList<String>();
+	/** Output filename for GFF3 gene annotations */
 	private String outGff=null;
+	/** Output filename for amino acid translations */
 	private String outAmino=null;
+	/** Output filename for 16S rRNA sequences */
 	private String out16S=null;
+	/** Output filename for 18S rRNA sequences */
 	private String out18S=null;
+	/** GFF filename for comparison/validation of gene calling results */
 	private String compareToGff=null;
+	/** Output filename for statistics summary */
 	private String outStats="stderr";
+	/** Output filename for gene length histogram */
 	private String geneHistFile=null;
+	/** Whether to output statistics in JSON format */
 	private boolean json_out=false;
 	
 	/*--------------------------------------------------------------*/
 	/*----------------         Final Fields         ----------------*/
 	/*--------------------------------------------------------------*/
 	
+	/** FileFormat object for GFF output configuration */
 	private final FileFormat ffoutGff;
+	/** FileFormat object for amino acid output configuration */
 	private final FileFormat ffoutAmino;
+	/** FileFormat object for 16S rRNA output configuration */
 	private final FileFormat ffout16S;
+	/** FileFormat object for 18S rRNA output configuration */
 	private final FileFormat ffout18S;
 	
 	/** Determines how sequence is processed if it will be output */
@@ -1232,12 +1452,21 @@ public class CallGenes extends ProkObject {
 	
 	/*--------------------------------------------------------------*/
 	
+	/** Output stream for progress messages and logging */
 	private PrintStream outstream=System.err;
+	/** Whether to print verbose progress and debugging information */
 	public boolean verbose=false;
+	/** Whether to include extended statistics in output */
 	public boolean extendedStats=false;
+	/** Flag indicating whether processing encountered errors */
 	public boolean errorState=false;
+	/** Whether to overwrite existing output files */
 	private boolean overwrite=true;
+	/** Whether to append to existing output files instead of overwriting */
 	private boolean append=false;
+	/**
+	 * Whether to maintain input order in output (may cause hanging on some sequences)
+	 */
 	private boolean ordered=false; //this is OK sometimes, but sometimes hangs (e.g. on RefSeq mito), possibly if a sequence produces nothing.
 	//To fix it, just ensure functions like translate always produce an array, even if it is empty.
 	

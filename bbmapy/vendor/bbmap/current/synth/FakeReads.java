@@ -4,7 +4,6 @@ import java.io.File;
 import java.io.PrintStream;
 import java.util.ArrayList;
 
-import dna.AminoAcid;
 import fileIO.ByteFile;
 import fileIO.ByteFile1;
 import fileIO.ByteFile2;
@@ -17,6 +16,7 @@ import shared.PreParser;
 import shared.Shared;
 import shared.Timer;
 import shared.Tools;
+import shared.Vector;
 import stream.ConcurrentGenericReadInputStream;
 import stream.ConcurrentReadInputStream;
 import stream.ConcurrentReadOutputStream;
@@ -32,6 +32,8 @@ import tracker.ReadStats;
  */
 public class FakeReads {
 
+	/** Program entry point.
+	 * @param args Command-line arguments */
 	public static void main(String[] args){
 		Timer t=new Timer();
 		FakeReads x=new FakeReads(args);
@@ -41,6 +43,11 @@ public class FakeReads {
 		Shared.closeStream(x.outstream);
 	}
 	
+	/**
+	 * Constructs FakeReads instance and parses command-line arguments.
+	 * Sets up input/output file formats and processing parameters.
+	 * @param args Command-line arguments specifying input files, output files, and parameters
+	 */
 	public FakeReads(String[] args){
 		
 		{//Preparse block for help, config files, and outstream
@@ -177,6 +184,12 @@ public class FakeReads {
 		ffin1=FileFormat.testInput(in1, FileFormat.FASTQ, extin, true, true);
 	}
 	
+	/**
+	 * Main processing method that converts single-end reads to paired-end reads.
+	 * Extracts sequences from both ends of input reads, reverse-complements the
+	 * second read, and outputs as paired reads with proper mate relationships.
+	 * @param t Timer for tracking execution time
+	 */
 	void process(Timer t){
 		
 		
@@ -238,14 +251,14 @@ public class FakeReads {
 						
 						byte[] bases1=KillSwitch.copyOfRange(r.bases, 0, len);
 						byte[] bases2=KillSwitch.copyOfRange(r.bases, r.length()-len, r.length());
-						AminoAcid.reverseComplementBasesInPlace(bases2);
+						Vector.reverseComplementInPlaceFast(bases2);
 						
 						byte[] qual1=null;
 						byte[] qual2=null;
 						if(r.quality!=null){
 							qual1=KillSwitch.copyOfRange(r.quality, 0, len);
 							qual2=KillSwitch.copyOfRange(r.quality, r.quality.length-len, r.quality.length);
-							Tools.reverseInPlace(qual2);
+							Vector.reverseInPlace(qual2);
 						}
 						
 //						public Read(byte[] s_, int chrom_, int start_, int stop_, String id_, byte[] quality_, long numericID_, int flags_){
@@ -282,44 +295,68 @@ public class FakeReads {
 	
 	/*--------------------------------------------------------------*/
 	
+	/** Tracks whether processing encountered any errors */
 	public boolean errorState=false;
 	
+	/** Prefix added to read names in output */
 	public String identifier=null;
 	
+	/** Primary input file path */
 	private String in1=null;
 	
+	/** Whether to add spacer character between identifier and read number */
 	private boolean addSpacer=true;
+	/** Spacer character added between identifier and read number in output names */
 	private String spacer=" ";
 	
+	/** Quality file input path for input1 */
 	private String qfin1=null;
 
+	/** Primary output file path for first reads in pairs */
 	private String out1=null;
+	/** Secondary output file path for second reads in pairs */
 	private String out2=null;
 
+	/** Quality file output path for first reads in pairs */
 	private String qfout1=null;
+	/** Quality file output path for second reads in pairs */
 	private String qfout2=null;
 	
+	/** Input file extension override for format detection */
 	private String extin=null;
+	/** Output file extension override for format specification */
 	private String extout=null;
 	
+	/** Whether to overwrite existing output files */
 	private boolean overwrite=true;
+	/** Whether to append to existing output files instead of overwriting */
 	private boolean append=false;
 	
+	/** Maximum number of reads to process (-1 for unlimited) */
 	private long maxReads=-1;
+	/** Minimum input read length required for processing */
 	private int minReadLength=1;
+	/** Target length for output paired reads */
 	private int desiredLength=250;
+	/** Overlap length between paired reads in split mode */
 	private int overlap=50;
+	/** Whether to use split mode for generating overlapping paired reads */
 	private boolean SPLITMODE=false;
 	
+	/** File format specification for primary input */
 	private final FileFormat ffin1;
 	
+	/** File format specification for primary output */
 	private final FileFormat ffout1;
+	/** File format specification for secondary output */
 	private final FileFormat ffout2;
 	
 	
 	/*--------------------------------------------------------------*/
 	
+	/** Output stream for status messages and statistics */
 	private PrintStream outstream=System.err;
+	/** Enable verbose output for debugging and progress tracking */
 	public static boolean verbose=false;
 	
 }

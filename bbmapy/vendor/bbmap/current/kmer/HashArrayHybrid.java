@@ -21,6 +21,14 @@ public final class HashArrayHybrid extends HashArray {
 	/*----------------        Initialization        ----------------*/
 	/*--------------------------------------------------------------*/
 	
+	/**
+	 * Constructs a new HashArrayHybrid with specified schedule and core mask.
+	 * Initializes the values array and setList for storing k-mer counts and
+	 * overflow handling.
+	 *
+	 * @param schedule_ Array defining resize schedule for the hash array
+	 * @param coreMask_ Bit mask for k-mer core extraction
+	 */
 	public HashArrayHybrid(int[] schedule_, long coreMask_){
 		super(schedule_, coreMask_, true);
 		values=allocInt1D(prime+extra);
@@ -165,6 +173,15 @@ public final class HashArrayHybrid extends HashArray {
 		}
 	}
 	
+	/**
+	 * Legacy method for inserting values into setList arrays.
+	 * Handles array growth and duplicate checking. Replaced by
+	 * more efficient implementation in setList.insertIntoList().
+	 *
+	 * @param v Value to insert
+	 * @param loc Location in setList
+	 * @return 1 if new value added, 0 if duplicate found
+	 */
 	@Deprecated
 	private final int insertIntoListOld(final int v, final int loc){
 		
@@ -193,6 +210,14 @@ public final class HashArrayHybrid extends HashArray {
 		return 1;
 	}
 	
+	/**
+	 * Inserts a value into a setList array at specified location.
+	 * Delegates to setList's optimized insertion method.
+	 *
+	 * @param v Value to insert
+	 * @param loc Location in setList
+	 * @return 1 if new value added, 0 if duplicate found
+	 */
 	private final int insertIntoList(final int v, final int loc){
 		return setList.insertIntoList(v, loc);
 	}
@@ -372,7 +397,9 @@ public final class HashArrayHybrid extends HashArray {
 	/*----------------            Fields            ----------------*/
 	/*--------------------------------------------------------------*/
 	
+	/** Array storing count values corresponding to k-mers in the main array */
 	private int[] values;
+	/** List of integer arrays for storing multiple values per k-mer when needed */
 	private IntList2 setList;
 	
 }

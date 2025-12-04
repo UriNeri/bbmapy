@@ -12,7 +12,7 @@ This is more aggressive than removehuman.sh and uses an unmasked human genome re
 It removes roughly 99.99% of human 2x150bp reads, but may incur false-positive removals.
 NOTE!  This program uses hard-coded paths and will only run on Nersc systems unless you change the path.
 
-Usage:  removehuman.sh in=<input file> outu=<clean output file>
+Usage:  removehuman2.sh in=<input file> outu=<clean output file>
 
 Input may be fasta or fastq, compressed or uncompressed.
 
@@ -31,40 +31,40 @@ path=               Set the path to an indexed human genome.
 ***** All BBMap parameters can be used; run bbmap.sh for more details. *****
 
 Please contact Brian Bushnell at bbushnell@lbl.gov if you encounter any problems.
+For documentation and the latest version, visit: https://bbmap.org
 "
 }
 
-#This block allows symlinked shellscripts to correctly set classpath.
-pushd . > /dev/null
-DIR="${BASH_SOURCE[0]}"
-while [ -h "$DIR" ]; do
-  cd "$(dirname "$DIR")"
-  DIR="$(readlink "$(basename "$DIR")")"
-done
-cd "$(dirname "$DIR")"
-DIR="$(pwd)/"
-popd > /dev/null
+if [ -z "$1" ] || [ "$1" = "-h" ] || [ "$1" = "--help" ]; then
+	usage
+	exit
+fi
 
-#DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )/"
-CP="$DIR""current/"
-JNI="-Djava.library.path=""$DIR""jni/"
-JNI=""
-
-z="-Xmx16000m"
-z2="-Xms16000m"
-set=0
-
-calcXmx () {
-	source "$DIR""/calcmem.sh"
-	setEnvironment
-	parseXmx "$@"
+resolveSymlinks(){
+	SCRIPT="$0"
+	while [ -h "$SCRIPT" ]; do
+		DIR="$(dirname "$SCRIPT")"
+		SCRIPT="$(readlink "$SCRIPT")"
+		[ "${SCRIPT#/}" = "$SCRIPT" ] && SCRIPT="$DIR/$SCRIPT"
+	done
+	DIR="$(cd "$(dirname "$SCRIPT")" && pwd)"
+	CP="$DIR/current/"
 }
-calcXmx "$@"
 
-function removehuman() {
-	local CMD="java $EA $EOOM $z $z2 $JNI -cp $CP align2.BBMap minratio=0.75 maxindel=8 bwr=0.22 bw=26 minhits=1 path=/global/cfs/cdirs/bbtools/hg19 build=2 pigz unpigz zl=6 qtrim=r trimq=10 untrim idtag usemodulo printunmappedcount ztd=2 maxsites=1 k=14 tipsearch=0 kfilter=25 bloomfilter $@"
-	echo $CMD >&2
+setEnv(){
+	. "$DIR/javasetup.sh"
+	. "$DIR/memdetect.sh"
+
+	parseJavaArgs "--xmx=16000m" "--xms=16000m" "--mode=fixed" "$@"
+	setEnvironment
+}
+
+launch() {
+	CMD="java $EA $EOOM $SIMD $XMX $XMS -cp $CP align2.BBMap minratio=0.75 maxindel=8 bwr=0.22 bw=26 minhits=1 path=/global/cfs/cdirs/bbtools/hg19 build=2 pigz unpigz zl=6 qtrim=r trimq=10 untrim idtag usemodulo printunmappedcount ztd=2 maxsites=1 k=14 tipsearch=0 kfilter=25 bloomfilter $@"
+	echo "$CMD" >&2
 	eval $CMD
 }
 
-removehuman "$@"
+resolveSymlinks
+setEnv "$@"
+launch "$@"

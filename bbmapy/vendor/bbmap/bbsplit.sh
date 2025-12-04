@@ -9,28 +9,25 @@ Last modified June 11, 2018
 Description:  Maps reads to multiple references simultaneously.
 Outputs reads to a file for the reference they best match, with multiple options for dealing with ambiguous mappings.
 
-To index:     bbsplit.sh build=<1> ref_x=<reference fasta> ref_y=<another reference fasta>
-To map:       bbsplit.sh build=<1> in=<reads> out_x=<output file> out_y=<another output file>
-
-To be concise, and do everything in one command:
-bbsplit.sh ref=x.fa,y.fa in=reads.fq basename=o%.fq
-
+Usage: bbsplit.sh ref=x.fa,y.fa in=reads.fq basename=o%.fq
 that is equivalent to
 bbsplit.sh build=1 in=reads.fq ref_x=x.fa ref_y=y.fa out_x=ox.fq out_y=oy.fq
+
+To index:     bbsplit.sh build=<1> ref_x=<reference fasta> ref_y=<another reference fasta>
+To map:       bbsplit.sh build=<1> in=<reads> out_x=<output file> out_y=<another output file>
 
 By default paired reads will yield interleaved output, but you can use the # symbol to produce twin output files.
 For example, basename=o%_#.fq will produce ox_1.fq, ox_2.fq, oy_1.fq, and oy_2.fq.
 
-     
+
 Indexing Parameters (required when building the index):
 ref=<file,file>     A list of references, or directories containing fasta files.
 ref_<name>=<ref.fa> Alternate, longer way to specify references. e.g., ref_ecoli=ecoli.fa
                     These can also be comma-delimited lists of files; e.g., ref_a=a1.fa,a2.fa,a3.fa
-build=<1>           If multiple references are indexed in the same directory, each needs a unique build ID.
+build=<1>           Designate index to use.  Corresponds to the number specified when building the index.
 path=<.>            Specify the location to write the index, if you don't want it in the current working directory.
 
 Input Parameters:
-build=<1>           Designate index to use.  Corresponds to the number specified when building the index.
 in=<reads.fq>       Primary reads input; required parameter.
 in2=<reads2.fq>     For paired reads in two files.
 qin=<auto>          Set to 33 or 64 to specify input quality value ASCII offset.
@@ -81,51 +78,40 @@ Java Parameters:
 
 This list is not complete.  For more information, please consult $DIRdocs/readme.txt
 Please contact Brian Bushnell at bbushnell@lbl.gov if you encounter any problems.
+For documentation and the latest version, visit: https://bbmap.org
 "
 }
 
-#This block allows symlinked shellscripts to correctly set classpath.
-pushd . > /dev/null
-DIR="${BASH_SOURCE[0]}"
-while [ -h "$DIR" ]; do
-  cd "$(dirname "$DIR")"
-  DIR="$(readlink "$(basename "$DIR")")"
-done
-cd "$(dirname "$DIR")"
-DIR="$(pwd)/"
-popd > /dev/null
-
-#DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )/"
-CP="$DIR""current/"
-JNI="-Djava.library.path=""$DIR""jni/"
-JNI=""
-
-z="-Xmx1g"
-z2="-Xms1g"
-set=0
-
-if [ -z "$1" ] || [[ $1 == -h ]] || [[ $1 == --help ]]; then
+if [ -z "$1" ] || [ "$1" = "-h" ] || [ "$1" = "--help" ]; then
 	usage
 	exit
 fi
 
-calcXmx () {
-	source "$DIR""/calcmem.sh"
-	setEnvironment
-	parseXmx "$@"
-	if [[ $set == 1 ]]; then
-	return
-	fi
-	freeRam 3200m 84
-	z="-Xmx${RAM}m"
-	z2="-Xms${RAM}m"
+resolveSymlinks(){
+	SCRIPT="$0"
+	while [ -h "$SCRIPT" ]; do
+		DIR="$(dirname "$SCRIPT")"
+		SCRIPT="$(readlink "$SCRIPT")"
+		[ "${SCRIPT#/}" = "$SCRIPT" ] && SCRIPT="$DIR/$SCRIPT"
+	done
+	DIR="$(cd "$(dirname "$SCRIPT")" && pwd)"
+	CP="$DIR/current/"
 }
-calcXmx "$@"
 
-function bbsplit() {
-	local CMD="java $EA $EOOM $z $z2 $JNI -cp $CP align2.BBSplitter ow=t fastareadlen=500 minhits=1 minratio=0.56 maxindel=20 qtrim=rl untrim=t trimq=6 $@"
-	echo $CMD >&2
+setEnv(){
+	. "$DIR/javasetup.sh"
+	. "$DIR/memdetect.sh"
+
+	parseJavaArgs "--xmx=3200m" "--xms=3200m" "--percent=84" "--mode=auto" "$@"
+	setEnvironment
+}
+
+launch() {
+	CMD="java $EA $EOOM $SIMD $XMX $XMS -cp $CP align2.BBSplitter ow=t fastareadlen=500 minhits=1 minratio=0.56 maxindel=20 qtrim=rl untrim=t trimq=6 $@"
+	echo "$CMD" >&2
 	eval $CMD
 }
 
-bbsplit "$@"
+resolveSymlinks
+setEnv "$@"
+launch "$@"

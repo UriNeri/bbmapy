@@ -1,6 +1,5 @@
 package synth;
 
-import java.util.Arrays;
 import java.util.Random;
 
 import dna.AminoAcid;
@@ -12,7 +11,7 @@ import dna.AminoAcid;
  * used in library preparation.
  * 
  * @author Brian Bushnell
- * @author Isla Winglet
+ * @author Isla
  * @date June 30, 2025
  */
 public class RandomHexamer {

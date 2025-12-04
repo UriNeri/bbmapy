@@ -1,6 +1,7 @@
 package ml;
 
 import java.util.ArrayList;
+
 import structures.ByteBuilder;
 
 /**
@@ -9,7 +10,7 @@ import structures.ByteBuilder;
  * Supports automatic range adjustment and binary classification conversion.
  * 
  * @author Brian Bushnell
- * @contributor Isla Winglet
+ * @contributor Isla
  * @version 1.0
  */
 public class Matrix {

@@ -712,6 +712,11 @@ public class Seal {
 	}
 	
 	
+	/**
+	 * Core processing method that loads reference kmers and processes input reads.
+	 * Handles kmer table loading, read processing, and statistics output.
+	 * @param startTime Start time for timing calculations
+	 */
 	public void process2(long startTime){
 		
 		/* Start phase timer */
@@ -1691,6 +1696,8 @@ public class Seal {
 	 */
 	private class LoadThread extends Thread{
 		
+		/** Constructor for LoadThread.
+		 * @param tnum_ Thread number for determining which kmers to process */
 		public LoadThread(final int tnum_){
 			tnum=tnum_;
 			map=keySets[tnum];
@@ -2986,6 +2993,7 @@ public class Seal {
 	
 	/** For calculating kmer cardinality */
 	final CardinalityTracker loglog;
+	/** Cardinality tracker for output kmer cardinality statistics */
 	final CardinalityTracker loglogOut;
 	
 	/** Has this class encountered errors while processing? */

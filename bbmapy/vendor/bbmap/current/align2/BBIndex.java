@@ -26,6 +26,12 @@ import structures.LongM;
 public final class BBIndex extends AbstractIndex {
 	
 	
+	/**
+	 * Command-line entry point for building BBIndex files.
+	 * Parses parameters for genome build, chromosome range, and k-mer length.
+	 * Creates and writes the index to disk for specified chromosome range.
+	 * @param args Command-line arguments including build, minchrom, maxchrom, keylen
+	 */
 	public static void main(String[] args){
 		
 		int k=13;
@@ -71,6 +77,16 @@ public final class BBIndex extends AbstractIndex {
 	}
 	
 	
+	/**
+	 * Constructs a BBIndex for the specified chromosome range and k-mer parameters.
+	 * Initializes scoring parameters, memory allocation, and cycle counting.
+	 *
+	 * @param k_ K-mer length for indexing
+	 * @param minChrom_ Minimum chromosome to include
+	 * @param maxChrom_ Maximum chromosome to include
+	 * @param kfilter_ K-mer filtering parameter
+	 * @param msa_ Multiple sequence alignment scoring object
+	 */
 	public BBIndex(int k_, int minChrom_, int maxChrom_, int kfilter_, MSA msa_){
 		super(k_, kfilter_, BASE_HIT_SCORE, minChrom_, maxChrom_, msa_);
 		INV_BASE_KEY_HIT_SCORE=1f/BASE_KEY_HIT_SCORE;
@@ -352,6 +368,17 @@ public final class BBIndex extends AbstractIndex {
 	}
 	
 	
+	/**
+	 * Retrieves hit start/stop positions for keys in the specified chromosome.
+	 * Filters hits by maximum length threshold and populates position arrays.
+	 *
+	 * @param keys Array of k-mer keys to search
+	 * @param chrom Target chromosome number
+	 * @param maxLen Maximum allowed hit list length
+	 * @param starts Output array for hit start positions
+	 * @param stops Output array for hit stop positions
+	 * @return Number of keys with valid hits found
+	 */
 	private final int getHits(final int[] keys, final int chrom, final int maxLen, final int[] starts, final int[] stops){
 		int numHits=0;
 		final Block b=index[chrom];
@@ -375,6 +402,15 @@ public final class BBIndex extends AbstractIndex {
 	}
 	
 	
+	/**
+	 * Counts the number of keys with hit lists shorter than maxLen.
+	 * Optionally clears keys that exceed the length threshold.
+	 *
+	 * @param keys Array of k-mer keys to evaluate
+	 * @param maxLen Maximum allowed hit list length
+	 * @param clearBadKeys If true, sets oversized keys to -1
+	 * @return Count of keys with acceptable hit list lengths
+	 */
 	private final int countHits(final int[] keys, final int maxLen, boolean clearBadKeys){
 		int numHits=0;
 		for(int i=0; i<keys.length; i++){
@@ -403,6 +439,21 @@ public final class BBIndex extends AbstractIndex {
 	}
 	
 	
+	/**
+	 * Main search method for finding alignment sites in the index.
+	 * Implements multi-stage filtering, key trimming, and scoring optimization.
+	 * Handles both forward and reverse strand searches across chromosome blocks.
+	 *
+	 * @param basesP Forward strand sequence bases
+	 * @param basesM Reverse strand sequence bases
+	 * @param qual Quality scores (may be null)
+	 * @param baseScoresP Per-base scores for forward strand
+	 * @param keyScoresP Per-key scores for forward strand
+	 * @param offsetsP Key positions within sequence
+	 * @param obeyLimits Whether to enforce search limits for speed
+	 * @param id Unique identifier for debugging
+	 * @return List of high-scoring alignment sites
+	 */
 	public final ArrayList<SiteScore> find(byte[] basesP, byte[] basesM, byte[] qual,  byte[] baseScoresP, int[] keyScoresP, int[] offsetsP, boolean obeyLimits, long id){
 		
 		assert(checkOffsets(offsetsP)) : Arrays.toString(offsetsP);
@@ -2299,6 +2350,22 @@ public final class BBIndex extends AbstractIndex {
 	}
 	
 	
+	/**
+	 * Finds the maximum quick score achievable from available k-mer hits.
+	 * Used for prescanning to set score thresholds and optimize search strategy.
+	 *
+	 * @param starts Hit start positions
+	 * @param stops Hit stop positions
+	 * @param offsets K-mer offsets in query
+	 * @param keyScores Scores for each k-mer
+	 * @param baseChrom_ Base chromosome number
+	 * @param triples Work array for site tracking
+	 * @param values Work array for site values
+	 * @param prevMaxHits Previous maximum hits found
+	 * @param earlyExit Whether to exit early on perfect score
+	 * @param perfectOnly Whether to require perfect alignment
+	 * @return Array containing [best quick score, max hits achieved]
+	 */
 	private final int[] findMaxQscore2(final int[] starts, final int[] stops, final int[] offsets, final int[] keyScores,
 			final int baseChrom_, final Quad[] triples, final int[] values, final int prevMaxHits,
 			boolean earlyExit, boolean perfectOnly){
@@ -2460,6 +2527,12 @@ public final class BBIndex extends AbstractIndex {
 	}
 	
 	
+	/**
+	 * Computes absolute difference between two integers.
+	 * @param a First integer
+	 * @param b Second integer
+	 * @return Absolute value of (a - b)
+	 */
 	private static final int absdif(int a, int b){
 		return a>b ? a-b : b-a;
 	}
@@ -2481,6 +2554,14 @@ public final class BBIndex extends AbstractIndex {
 	}
 	
 	
+	/**
+	 * Calculates maximum quick score from k-mer keys without extension.
+	 * Includes key scores, span bonus, and optional coverage bonus.
+	 *
+	 * @param offsets K-mer positions in query
+	 * @param keyScores Individual k-mer scores
+	 * @return Maximum quick score achievable
+	 */
 	public final int maxQuickScore(int[] offsets, int[] keyScores){
 
 //		int x=offsets.length*BASE_KEY_HIT_SCORE;
@@ -2498,6 +2579,20 @@ public final class BBIndex extends AbstractIndex {
 	}
 	
 	
+	/**
+	 * Computes rapid alignment score without full base-by-base extension.
+	 * Uses center-outward scoring with indel penalties and span bonuses.
+	 *
+	 * @param locs Genomic locations of k-mer hits
+	 * @param keyScores Score for each k-mer key
+	 * @param centerIndex Index of central/anchor k-mer
+	 * @param offsets K-mer positions within query
+	 * @param sizes Length of hit lists for each k-mer
+	 * @param penalizeIndels Whether to penalize insertions/deletions
+	 * @param numApproxHits Number of k-mers contributing to this site
+	 * @param numHits Total number of k-mer hits available
+	 * @return Quick alignment score for this site
+	 */
 	private final int quickScore(final int[] locs, final int[] keyScores, final int centerIndex, final int offsets[],
 			int[] sizes, final boolean penalizeIndels, final int numApproxHits, final int numHits){
 		
@@ -2566,6 +2661,22 @@ public final class BBIndex extends AbstractIndex {
 	
 	
 	
+	/**
+	 * Performs full base-by-base alignment scoring with extension.
+	 * Maps query bases to reference positions and calculates detailed alignment score.
+	 * Handles mismatches, indels, and quality score integration.
+	 *
+	 * @param bases Query sequence bases
+	 * @param baseScores Quality scores for each base
+	 * @param offsets K-mer positions within query
+	 * @param values Genomic locations of k-mer hits
+	 * @param chrom Target chromosome number
+	 * @param centerIndex Index of anchor k-mer
+	 * @param locArray Work array for tracking base alignments
+	 * @param numHits Total k-mers being used
+	 * @param numApproxHits K-mers near the alignment site
+	 * @return Extended alignment score including base-level details
+	 */
 	private final int extendScore(final byte[] bases, final byte[] baseScores, final int[] offsets, final int[] values,
 			final int chrom, final int centerIndex, final int[] locArray, final int numHits, final int numApproxHits){
 		callsToExtendScore++;
@@ -2988,6 +3099,18 @@ public final class BBIndex extends AbstractIndex {
 	}
 	
 
+	/**
+	 * Computes alignment score extending rightward from center k-mer.
+	 * Accumulates scores for k-mers with acceptable indel distances.
+	 *
+	 * @param locs Genomic locations of k-mer hits
+	 * @param keyScores Score values for each k-mer
+	 * @param centerIndex Index of central anchor k-mer
+	 * @param sizes Hit list sizes for bonus calculation
+	 * @param penalizeIndels Whether to subtract indel penalties
+	 * @param numHits Total number of k-mer hits
+	 * @return Rightward extension score
+	 */
 	private final int scoreRight(int[] locs, int[] keyScores, int centerIndex, int[] sizes, boolean penalizeIndels, int numHits){
 		
 		int score=0;
@@ -3023,6 +3146,17 @@ public final class BBIndex extends AbstractIndex {
 		
 	}
 	
+	/**
+	 * Computes alignment score extending leftward from center k-mer.
+	 * Mirrors scoreRight but processes k-mers in reverse order.
+	 *
+	 * @param locs Genomic locations of k-mer hits
+	 * @param keyScores Score values for each k-mer
+	 * @param centerIndex Index of central anchor k-mer
+	 * @param sizes Hit list sizes for bonus calculation
+	 * @param penalizeIndels Whether to subtract indel penalties
+	 * @return Leftward extension score
+	 */
 	private final int scoreLeft(int[] locs, int[] keyScores, int centerIndex, int[] sizes, boolean penalizeIndels){
 		
 		callsToScore++;
@@ -3080,24 +3214,60 @@ public final class BBIndex extends AbstractIndex {
 		return (number&SITE_MASK);
 	}
 
+	/**
+	 * Calculates minimum chromosome for a block containing the given chromosome.
+	 * @param chrom Input chromosome number
+	 * @return Minimum chromosome in the same block
+	 */
 	private static final int minChrom(int chrom){return Tools.max(MINCHROM, chrom&CHROM_MASK_HIGH);}
+	/**
+	 * Calculates base chromosome number for indexing purposes.
+	 * @param chrom Input chromosome number
+	 * @return Base chromosome for this block
+	 */
 	private static final int baseChrom(int chrom){return Tools.max(0, chrom&CHROM_MASK_HIGH);}
+	/**
+	 * Calculates maximum chromosome for a block containing the given chromosome.
+	 * @param chrom Input chromosome number
+	 * @return Maximum chromosome in the same block
+	 */
 	private static final int maxChrom(int chrom){return Tools.max(MINCHROM, Tools.min(MAXCHROM, chrom|CHROM_MASK_LOW));}
 	
 	
+	/**
+	 * Retrieves reusable offset array of specified length.
+	 * Uses array pooling to reduce memory allocation overhead.
+	 * @param len Required array length
+	 * @return Reusable integer array
+	 */
 	private final int[] getOffsetArray(int len){
 		if(offsetArrays[len]==null){offsetArrays[len]=new int[len];}
 		return offsetArrays[len];
 	}
+	/**
+	 * Retrieves reusable location array for alignment tracking.
+	 * @param len Required array length
+	 * @return Reusable integer array for position tracking
+	 */
 	private final int[] getLocArray(int len){
 		if(len>=locArrays.length){return new int[len];}
 		if(locArrays[len]==null){locArrays[len]=new int[len];}
 		return locArrays[len];
 	}
+	/**
+	 * Retrieves reusable array for greedy list trimming algorithm.
+	 * @param len Required array length
+	 * @return Reusable integer array for greedy processing
+	 */
 	private final int[] getGreedyListArray(int len){
 		if(greedyListArrays[len]==null){greedyListArrays[len]=new int[len];}
 		return greedyListArrays[len];
 	}
+	/**
+	 * Retrieves reusable generic integer array.
+	 * @param len Required array length
+	 * @return Reusable integer array for general use
+	 */
 	private final int[] getGenericArray(int len){
 		if(genericArrays[len]==null){genericArrays[len]=new int[len];}
 		return genericArrays[len];
@@ -3115,6 +3285,11 @@ public final class BBIndex extends AbstractIndex {
 		if(keyScoreArrays[strand][len]==null){keyScoreArrays[strand][len]=new int[len];}
 		return keyScoreArrays[strand][len];
 	}
+	/**
+	 * Retrieves reusable array for k-mer weighting in greedy algorithms.
+	 * @param len Required array length
+	 * @return Reusable float array for key weights
+	 */
 	private final float[] getKeyWeightArray(int len){
 		if(len>=keyWeightArrays.length){return new float[len];}
 		if(keyWeightArrays[len]==null){keyWeightArrays[len]=new float[len];}
@@ -3125,16 +3300,23 @@ public final class BBIndex extends AbstractIndex {
 		return keyProbArray;
 	}
 	
+	/** Buffer size for k-mer processing arrays */
 	private static final int KEY_BUFFER_LENGTH=256; //Boosted from 128 to 256 to deal with crashes from short kmers, long reads, and vslow.
 	
+	/** Reusable arrays for tracking genomic locations during alignment */
 	private final int[][] locArrays=new int[601][];
+	/** Work array for storing current genomic position values */
 	private final int[] valueArray=new int[KEY_BUFFER_LENGTH];
+	/** Work array for storing hit list sizes */
 	private final int[] sizeArray=new int[KEY_BUFFER_LENGTH];
 	private final int[][] offsetArrays=new int[KEY_BUFFER_LENGTH][];
 	private final int[][] greedyListArrays=new int[KEY_BUFFER_LENGTH][];
 	private final int[][] genericArrays=new int[KEY_BUFFER_LENGTH][];
+	/** Work array for hit list start positions */
 	private final int[] startArray=new int[KEY_BUFFER_LENGTH];
+	/** Work array for hit list stop positions */
 	private final int[] stopArray=new int[KEY_BUFFER_LENGTH];
+	/** Pre-allocated Quad objects for site tracking during searches */
 	private final Quad[] tripleStorage=makeQuadStorage(KEY_BUFFER_LENGTH);
 	private final int[] greedyReturn=KillSwitch.allocInt1D(2);
 	private final int[][] shrinkReturn2=new int[3][];
@@ -3149,6 +3331,12 @@ public final class BBIndex extends AbstractIndex {
 	private final float[][] keyWeightArrays=new float[KEY_BUFFER_LENGTH][];
 	
 	
+	/**
+	 * Creates array of Quad objects for site tracking during alignment.
+	 * Pre-initializes objects to avoid allocation during search.
+	 * @param number Number of Quad objects to create
+	 * @return Array of initialized Quad objects
+	 */
 	private final static Quad[] makeQuadStorage(int number){
 		Quad[] r=new Quad[number];
 		for(int i=0; i<number; i++){r[i]=new Quad(i, 0, 0);}
@@ -3156,10 +3344,14 @@ public final class BBIndex extends AbstractIndex {
 	}
 	
 
+	/** Primary heap for managing k-mer hit sites during alignment */
 	private final QuadHeap heap=new QuadHeap(KEY_BUFFER_LENGTH-1);
+	/** Active heap for camelWalk algorithm's dual-heap architecture */
 	private final QuadHeap active=new QuadHeap(KEY_BUFFER_LENGTH-1);
 	
+	/** Number of bits to shift for site/chromosome encoding */
 	static int SHIFT_LENGTH=(32-1-NUM_CHROM_BITS);
+	/** Maximum chromosome index that can be encoded */
 	static int MAX_ALLOWED_CHROM_INDEX=~((-1)<<SHIFT_LENGTH);
 	
 	/** Mask the number to get the site, which is in the lower bits */
@@ -3171,6 +3363,12 @@ public final class BBIndex extends AbstractIndex {
 	/** Mask the chromosome's lower bits to get the high bits */
 	static int CHROM_MASK_HIGH=~CHROM_MASK_LOW;
 	
+	/**
+	 * Configures chromosome bit encoding parameters for the index.
+	 * Updates all related masks and constants for chromosome/site packing.
+	 * Must be called before index creation to ensure proper bit allocation.
+	 * @param x Number of bits to allocate for chromosome encoding
+	 */
 	static void setChromBits(int x){
 		
 		NUM_CHROM_BITS=x;
@@ -3189,21 +3387,34 @@ public final class BBIndex extends AbstractIndex {
 		assert(Integer.numberOfLeadingZeros(SITE_MASK)==(NUM_CHROM_BITS+1)) : Integer.toHexString(SITE_MASK);
 	}
 	
+	/** Number of search cycles (forward/reverse for each chromosome block) */
 	private final int cycles;
 
+	/** Base score awarded for each matching k-mer hit */
 	public static final int BASE_HIT_SCORE=100;
+	/** Maximum number of alignment columns for processing */
 	public static final int ALIGN_COLUMNS=3000;
+	/** Maximum indel length allowed during alignment */
 	public static int MAX_INDEL=16000; //Max indel length, min 0, default 400; longer is more accurate
+	/** Double the maximum indel length for extended searches */
 	public static int MAX_INDEL2=2*MAX_INDEL;
 	
+	/** Inverse of base key hit score for normalization calculations */
 	private final float INV_BASE_KEY_HIT_SCORE;
+	/** Base penalty score for indel events */
 	private final int INDEL_PENALTY; //default (HIT_SCORE/2)-1
+	/** Multiplier for indel penalty based on indel length */
 	private final int INDEL_PENALTY_MULT; //default 20; penalty for indel length
+	/** Maximum penalty that can be applied for misaligned k-mer hits */
 	private final int MAX_PENALTY_FOR_MISALIGNED_HIT;
+	/** Coverage bonus score when only one k-mer is available */
 	private final int SCOREZ_1KEY;
 
+	/** Whether to include coverage bonus in alignment scoring */
 	public static final boolean ADD_SCORE_Z=true; //Increases quality, decreases speed
+	/** Multiplier for coverage bonus score calculation */
 	public static final int Z_SCORE_MULT=20;
+	/** Multiplier for span bonus score calculation */
 	public static final int Y_SCORE_MULT=10;
 	
 	
@@ -3237,8 +3448,15 @@ public final class BBIndex extends AbstractIndex {
 		MAX_INDEL2=0;
 	}
 	
+	/** Fraction of most frequent k-mers to exclude from searches */
 	static float FRACTION_GENOME_TO_EXCLUDE=0.03f; //Default .03; lower is slower and more accurate.  For perfect reads and small genomes, lower is FASTER.
 	
+	/**
+	 * Sets the fraction of most frequent k-mers to exclude from searches.
+	 * Adjusts search thresholds based on genome repetitiveness.
+	 * Lower values are slower but more thorough.
+	 * @param f Fraction to exclude, must be between 0 and 1
+	 */
 	public static final void setFractionToExclude(float f){
 		assert(f>=0 && f<1);
 		FRACTION_GENOME_TO_EXCLUDE=f;
@@ -3290,6 +3508,16 @@ public final class BBIndex extends AbstractIndex {
 	public static int MAXIMUM_MAX_HITS_REDUCTION=3;
 	public static int HIT_REDUCTION_DIV=5;
 	
+	/**
+	 * Calculates the minimum number of k-mer hits required to consider an alignment.
+	 * Dynamically adjusts based on available keys, current performance, and match quality.
+	 *
+	 * @param keys Total k-mers available for alignment
+	 * @param hits Maximum hits found so far
+	 * @param currentCutoff Current threshold setting
+	 * @param perfect Whether perfect matches have been found
+	 * @return Minimum hits required for alignment consideration
+	 */
 	private static final int calcApproxHitsCutoff(final int keys, final int hits, int currentCutoff, final boolean perfect){ //***$
 		assert(keys>=hits) : keys+", "+hits;
 		assert(hits>=0);

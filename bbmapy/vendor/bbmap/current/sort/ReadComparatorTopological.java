@@ -12,6 +12,7 @@ import stream.Read;
 
 public class ReadComparatorTopological extends ReadComparator{
 	
+	/** Private constructor to prevent instantiation */
 	private ReadComparatorTopological(){}
 	
 	@Override
@@ -19,6 +20,16 @@ public class ReadComparatorTopological extends ReadComparator{
 		return ascending*compare(r1, r2, true);
 	}
 	
+	/**
+	 * Performs hierarchical comparison of two reads in topological order.
+	 * Comparison hierarchy: sequence bases, mate bases, sequence lengths,
+	 * mate lengths, quality scores (inverted), numeric ID, then string ID.
+	 *
+	 * @param r1 First read to compare
+	 * @param r2 Second read to compare
+	 * @param compareMates Whether to include mate sequences in comparison
+	 * @return Negative if r1 < r2, zero if equal, positive if r1 > r2
+	 */
 	public int compare(Read r1, Read r2, boolean compareMates) {
 		
 		int x=compareVectors(r1.bases, r2.bases);
@@ -60,6 +71,15 @@ public class ReadComparatorTopological extends ReadComparator{
 		return 0;
 	}
 	
+	/**
+	 * Compares two byte arrays with special handling for 'N' characters.
+	 * 'N' characters are treated as greater than non-'N' characters.
+	 * Otherwise performs lexicographic comparison like compareVectors.
+	 *
+	 * @param a First byte array to compare
+	 * @param b Second byte array to compare
+	 * @return Negative if a < b, zero if equal up to minimum length, positive if a > b
+	 */
 	public int compareVectorsN(final byte[] a, final byte[] b){
 		if(a==null || b==null){
 			if(a==null && b!=null){return 1;}
@@ -81,7 +101,9 @@ public class ReadComparatorTopological extends ReadComparator{
 		ascending=(asc ? 1 : -1);
 	}
 	
+	/** Singleton instance of the topological read comparator */
 	public static final ReadComparatorTopological comparator=new ReadComparatorTopological();
 	
+	/** Direction multiplier: 1 for ascending order, -1 for descending order */
 	int ascending=1;
 }

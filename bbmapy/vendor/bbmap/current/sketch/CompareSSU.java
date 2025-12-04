@@ -319,6 +319,11 @@ public class CompareSSU implements Accumulator<CompareSSU.ProcessThread> {
 	/*----------------         Inner Methods        ----------------*/
 	/*--------------------------------------------------------------*/
 	
+	/**
+	 * Creates and starts a ByteStreamWriter for the given file format.
+	 * @param ff File format specification, or null for no output
+	 * @return Started ByteStreamWriter, or null if ff is null
+	 */
 	private static ByteStreamWriter makeBSW(FileFormat ff){
 		if(ff==null){return null;}
 		ByteStreamWriter bsw=new ByteStreamWriter(ff);
@@ -335,6 +340,14 @@ public class CompareSSU implements Accumulator<CompareSSU.ProcessThread> {
 	class ProcessThread extends Thread {
 		
 		//Constructor
+		/**
+		 * Constructs a ProcessThread with output stream and thread parameters.
+		 * Initializes local data structures and copies the SSU sequence list.
+		 *
+		 * @param bsw_ Output stream writer for comparison results
+		 * @param tid_ Thread identifier
+		 * @param threads_ Total number of processing threads
+		 */
 		ProcessThread(ByteStreamWriter bsw_, final int tid_, final int threads_){
 			bsw=bsw_;
 			threadID=tid_;
@@ -370,6 +383,12 @@ public class CompareSSU implements Accumulator<CompareSSU.ProcessThread> {
 			}
 		}
 		
+		/**
+		 * Processes a single query sequence against all reference sequences.
+		 * Finds taxonomic relationships and computes sequence identity scores.
+		 * Results are filtered by taxonomic level and output format requirements.
+		 * @param query Query sequence to compare against references
+		 */
 		void processRead(Read query){
 			if(query.numericID<1){return;}//invalid TID
 			final int qid=(int)query.numericID;
@@ -406,6 +425,14 @@ public class CompareSSU implements Accumulator<CompareSSU.ProcessThread> {
 			}
 		}
 		
+		/**
+		 * Compares two sequences and records identity statistics for the given taxonomic level.
+		 *
+		 * @param query Query sequence
+		 * @param ref Reference sequence
+		 * @param level Taxonomic level for statistical grouping
+		 * @return Sequence identity score between 0.0 and 1.0
+		 */
 		float compare(Read query, Read ref, int level){
 			comparisonsT++;
 			float identity=SketchObject.align(query.bases, ref.bases);
@@ -428,12 +455,17 @@ public class CompareSSU implements Accumulator<CompareSSU.ProcessThread> {
 		/** Thread ID */
 		final int threadID;
 		
+		/** Total number of processing threads */
 		final int threads;
 		
+		/** Thread-local copy of the SSU sequence list for processing */
 		ArrayList<Read> listCopy;
 		
+		/** Thread-local identity score lists, one per taxonomic level */
 		final FloatList[] idListsT=new FloatList[taxLevels];
+		/** Thread-local comparison counts, one per taxonomic level */
 		long[] countsT=new long[taxLevels];
+		/** Thread-local identity score sums, one per taxonomic level */
 		double[] sumsT=new double[taxLevels];
 	}
 	
@@ -444,19 +476,30 @@ public class CompareSSU implements Accumulator<CompareSSU.ProcessThread> {
 	/** Primary input file path */
 	private String in1=null;
 	
+	/** Taxonomic tree file path, defaults to "auto" */
 	private String treeFile="auto";
 
 	/** Primary output file path */
 	private String out1=null;
 	
+	/** List of SSU sequences loaded from input file */
 	public static ArrayList<Read> ssuList=null;
 
+	/** Number of taxonomic levels in the extended taxonomy system */
 	final static int taxLevels=TaxTree.numTaxLevelNamesExtended;
+	/** Array of taxonomic level names to include in output */
 	static final String[] printLevelsArray=new String[] {"strain", "species", "genus", "family", "order", "class", "phylum", "superkingdom", "life"};
+	/** Bitmask indicating which taxonomic levels to print */
 	static final long printLevels=makePrintLevels(printLevelsArray);
 	
+	/** Taxonomic tree for determining sequence relationships */
 	private final TaxTree tree;
 	
+	/**
+	 * Creates a bitmask representing which taxonomic levels should be printed.
+	 * @param names Array of taxonomic level names to include in output
+	 * @return Bitmask with bits set for each specified level
+	 */
 	private static final long makePrintLevels(String[] names){
 		long mask=0;
 		for(String s : names){
@@ -466,12 +509,18 @@ public class CompareSSU implements Accumulator<CompareSSU.ProcessThread> {
 		return mask;
 	}
 	
+	/** Array of identity score lists, one per taxonomic level */
 	private FloatList[] idLists=new FloatList[taxLevels];
+	/** Array of comparison counts, one per taxonomic level */
 	private long[] counts=new long[taxLevels];
+	/** Array of identity score sums, one per taxonomic level */
 	private double[] sums=new double[taxLevels];
 	
+	/** Minimum sequence length filter */
 	private int minlen=0;
+	/** Maximum sequence length filter */
 	private int maxlen=Integer.MAX_VALUE;
+	/** Maximum number of ambiguous bases allowed in sequences */
 	private int maxns=-1;
 	
 	/*--------------------------------------------------------------*/
@@ -484,9 +533,14 @@ public class CompareSSU implements Accumulator<CompareSSU.ProcessThread> {
 	/** Quit after processing this many input reads; -1 means no limit */
 	private long maxReads=-1;
 	
+	/** Thread-safe counter for distributing work among processing threads */
 	private AtomicInteger next=new AtomicInteger(0);
 
+	/**
+	 * Whether to perform all-to-all comparisons instead of selective comparisons
+	 */
 	private boolean allToAll=false;
+	/** Whether to store detailed results for statistical analysis */
 	private boolean storeResults=false;
 	
 	/*--------------------------------------------------------------*/
@@ -498,6 +552,7 @@ public class CompareSSU implements Accumulator<CompareSSU.ProcessThread> {
 	
 	@Override
 	public final ReadWriteLock rwlock() {return rwlock;}
+	/** Read-write lock for thread synchronization */
 	private final ReadWriteLock rwlock=new ReentrantReadWriteLock();
 	
 	/*--------------------------------------------------------------*/

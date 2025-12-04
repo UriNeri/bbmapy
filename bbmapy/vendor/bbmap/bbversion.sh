@@ -3,7 +3,7 @@
 usage(){
 echo "
 Written by Brian Bushnell
-Last modified May 4, 2017
+Last modified November 19, 2025
 
 Description:  Prints the BBTools version number.
 Add an argument to print the version name too.
@@ -12,21 +12,36 @@ Usage:  bbversion.sh
 "
 }
 
-pushd . > /dev/null
-DIR="${BASH_SOURCE[0]}"
-while [ -h "$DIR" ]; do
-  cd "$(dirname "$DIR")"
-  DIR="$(readlink "$(basename "$DIR")")"
-done
-cd "$(dirname "$DIR")"
-DIR="$(pwd)/"
-popd > /dev/null
+if [ "$1" = "-h" ] || [ "$1" = "--help" ]; then
+	usage
+	exit
+fi
 
-CP="$DIR""current/"
+resolveSymlinks(){
+	SCRIPT="$0"
+	while [ -h "$SCRIPT" ]; do
+		DIR="$(dirname "$SCRIPT")"
+		SCRIPT="$(readlink "$SCRIPT")"
+		[ "${SCRIPT#/}" = "$SCRIPT" ] && SCRIPT="$DIR/$SCRIPT"
+	done
+	DIR="$(cd "$(dirname "$SCRIPT")" && pwd)"
+	CP="$DIR/current/"
+}
 
-bbversion() {
-	local CMD="java -Xmx80m -cp $CP driver.BBVersion $@"
+setEnv(){
+	. "$DIR/javasetup.sh"
+	. "$DIR/memdetect.sh"
+
+	parseJavaArgs "--xmx=80m" "--xms=80m" "--mode=fixed" "$@"
+	setEnvironment
+}
+
+launch() {
+	CMD="java $EA $EOOM $XMX $XMS -cp $CP driver.BBVersion $@"
+	#echo "$CMD" >&2
 	eval $CMD
 }
 
-bbversion "$@"
+resolveSymlinks
+setEnv "$@"
+launch "$@"

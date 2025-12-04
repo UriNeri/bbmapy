@@ -24,7 +24,7 @@ Or this:
 splitnextera.sh in=reads.fq out=longmate.fq outf=frag.fq outu=unknown.fq outs=singleton.fq mask=t
 
 
-I/O parameters:
+I/O Parameters:
 in=<file>       Input reads.  Set to 'stdin.fq' to read from stdin.
 out=<file>      Output for pairs with LMP orientation.
 outf=<file>     Output for pairs with fragment orientation.
@@ -46,7 +46,7 @@ minlength=40    (ml) Do not output reads shorter than this.
 merge=f         Attempt to merge overlapping reads before looking for junctions.
 testmerge=0.0   If nonzero, only merge reads if at least the fraction of input reads are mergable.
 
-Sampling parameters:
+Sampling Parameters:
 
 reads=-1        Set to a positive number to only process this many INPUT reads (or pairs), then quit.
 samplerate=1    Randomly output only this fraction of reads; 1 means sampling is disabled.
@@ -61,42 +61,40 @@ Java Parameters:
 -da             Disable assertions.
 
 Please contact Brian Bushnell at bbushnell@lbl.gov if you encounter any problems.
+For documentation and the latest version, visit: https://bbmap.org
 "
 }
 
-#This block allows symlinked shellscripts to correctly set classpath.
-pushd . > /dev/null
-DIR="${BASH_SOURCE[0]}"
-while [ -h "$DIR" ]; do
-  cd "$(dirname "$DIR")"
-  DIR="$(readlink "$(basename "$DIR")")"
-done
-cd "$(dirname "$DIR")"
-DIR="$(pwd)/"
-popd > /dev/null
-
-#DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )/"
-CP="$DIR""current/"
-
-z="-Xmx200m"
-set=0
-
-if [ -z "$1" ] || [[ $1 == -h ]] || [[ $1 == --help ]]; then
+if [ -z "$1" ] || [ "$1" = "-h" ] || [ "$1" = "--help" ]; then
 	usage
 	exit
 fi
 
-calcXmx () {
-	source "$DIR""/calcmem.sh"
-	setEnvironment
-	parseXmx "$@"
+resolveSymlinks(){
+	SCRIPT="$0"
+	while [ -h "$SCRIPT" ]; do
+		DIR="$(dirname "$SCRIPT")"
+		SCRIPT="$(readlink "$SCRIPT")"
+		[ "${SCRIPT#/}" = "$SCRIPT" ] && SCRIPT="$DIR/$SCRIPT"
+	done
+	DIR="$(cd "$(dirname "$SCRIPT")" && pwd)"
+	CP="$DIR/current/"
 }
-calcXmx "$@"
 
-function splitnextera() {
-	local CMD="java $EA $EOOM $z -cp $CP jgi.SplitNexteraLMP $@"
-	echo $CMD >&2
+setEnv(){
+	. "$DIR/javasetup.sh"
+	. "$DIR/memdetect.sh"
+
+	parseJavaArgs "--xmx=200m" "--xms=200m" "--mode=fixed" "$@"
+	setEnvironment
+}
+
+launch() {
+	CMD="java $EA $EOOM $SIMD $XMX $XMS -cp $CP jgi.SplitNexteraLMP $@"
+	echo "$CMD" >&2
 	eval $CMD
 }
 
-splitnextera "$@"
+resolveSymlinks
+setEnv "$@"
+launch "$@"

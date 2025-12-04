@@ -27,6 +27,7 @@ import structures.LongList;
  */
 public class LegacyFileWriter {
 
+	/** Default constructor for LegacyFileWriter */
 	public LegacyFileWriter(){}
 	
 //	Top_Unknown_Barcodes.csv
@@ -35,6 +36,19 @@ public class LegacyFileWriter {
 //	7,TCGAATGATC,GGGGGGGGGG,2794420,0.015501,0.000729
 //	7,CTTACCTGCT,GGGGGGGGGG,2709266,0.015028,0.000707
 //	(1000 lines)
+	/**
+	 * Writes Top_Unknown_Barcodes.csv file containing most frequent unexpected barcodes.
+	 * Reports barcodes not in the expected set, sorted by frequency.
+	 *
+	 * @param expectedSet Set of expected barcode sequences
+	 * @param assignmentMap Map of barcode assignments
+	 * @param delimiter Delimiter character separating dual indices
+	 * @param fname Output filename for the CSV file
+	 * @param lane Sequencing lane number
+	 * @param lines Maximum number of lines to write
+	 * @param overwrite Whether to overwrite existing files
+	 * @return Total count of unexpected reads
+	 */
 	long writeTopUnknownBarcodes(final Set<String> expectedSet, 
 			HashMap<String, String> assignmentMap, final byte delimiter, 
 			final String fname, final int lane, final int lines, 
@@ -97,6 +111,18 @@ public class LegacyFileWriter {
 ////	(all valid then all invalid pairs)
 	
 	
+	/**
+	 * Writes Index_Hopping_Counts.csv file showing index hopping statistics.
+	 * First lists all expected barcode pairs, then all invalid combinations indicating index hopping.
+	 * Only processes dual-indexed samples (requires delimiter > 0).
+	 *
+	 * @param expectedSet Set of expected dual-indexed barcode pairs
+	 * @param sampleMap Map from barcodes to sample IDs
+	 * @param delimiter Delimiter separating dual indices
+	 * @param fname Output CSV filename
+	 * @param lane Sequencing lane number
+	 * @param overwrite Whether to overwrite existing files
+	 */
 	void writeIndexHoppingCounts(final Set<String> expectedSet, 
 			LinkedHashMap<String,String> sampleMap, final byte delimiter, final String fname, 
 			final int lane, boolean overwrite) {
@@ -220,6 +246,19 @@ public class LegacyFileWriter {
 //	...
 //	7,Undetermined,,,1,27221786230,23126098298,1001525318468,36.79,0.85
 //	7,Undetermined,,,2,27221786230,22727595251,990581252636,36.39,0.83
+	/**
+	 * Writes Quality_Metrics.csv file containing per-sample quality statistics.
+	 * Reports yield, Q30 metrics, and mean quality scores for each read pair.
+	 * Includes both determined samples and undetermined reads.
+	 *
+	 * @param expectedSet Set of expected barcode sequences
+	 * @param sampleMap Map from barcodes to sample IDs
+	 * @param delimiter Delimiter character for dual indices
+	 * @param fname Output CSV filename
+	 * @param lane Sequencing lane number
+	 * @param overwrite Whether to overwrite existing files
+	 * @return Number of lines written to the file
+	 */
 	int writeQualityMetrics(final Set<String> expectedSet, LinkedHashMap<String,String> sampleMap, 
 			final byte delimiter, final String fname, final int lane, boolean overwrite) {
 		if(fname==null) {return 0;}
@@ -256,6 +295,18 @@ public class LegacyFileWriter {
 //	7,529965,CCGTGCGGTC-CCCGATATGG,55663469,49490086,6173383,0,0.0145,0.8891,0.1109,0.0000
 //	7,529966,CACAGTTGTC-TAGGCAGGCT,52701428,48056108,4645320,0,0.0138,0.9119,0.0881,0.0000
 //	7,529967,CCTCTTCAGA-GATCCAGTAG,48686653,44431620,4255033,0,0.0127,0.9126,0.0874,0.0000
+	/**
+	 * Writes Demultiplex_Stats.csv file showing demultiplexing accuracy statistics.
+	 * Reports perfect matches and mismatches (up to 2) for each expected barcode.
+	 * Includes percentage breakdowns and undetermined reads summary.
+	 *
+	 * @param fname Output CSV filename
+	 * @param assignmentMap Map from observed barcodes to expected barcodes
+	 * @param expected Set of expected barcode sequences
+	 * @param sampleMap Map from barcodes to sample IDs
+	 * @param lane Sequencing lane number
+	 * @param overwrite Whether to overwrite existing files
+	 */
 	void writeDemultiplexStats(String fname, HashMap<String, String> assignmentMap,
 			Set<String> expected, LinkedHashMap<String,String> sampleMap,
 			int lane, boolean overwrite) {
@@ -333,6 +384,18 @@ public class LegacyFileWriter {
 //	7,529965,CCGTGCGGTC-CCCGATATGG,1103,67763,0.0000
 
 
+	/**
+	 * Writes Demultiplex_Tile_Stats.csv showing per-tile demultiplexing statistics.
+	 * Reports read counts and percentages for each barcode on each sequencing tile.
+	 * Only operates when tile tracking is enabled.
+	 *
+	 * @param fname Output CSV filename
+	 * @param sampleMap Map from barcodes to sample IDs
+	 * @param expected Collection of expected barcodes
+	 * @param lane Sequencing lane number
+	 * @param delimiter Delimiter for dual indices
+	 * @param overwrite Whether to overwrite existing files
+	 */
 	void writeDemultiplexTileStats(String fname, LinkedHashMap<String,String> sampleMap, 
 			Collection<String> expected, int lane, byte delimiter, boolean overwrite) {
 		if(tileMap==null) {return;}
@@ -372,6 +435,14 @@ public class LegacyFileWriter {
 	}
 	
 	
+	/**
+	 * Processes a read for statistics collection.
+	 * Updates quality metrics, read counts, and tile statistics if enabled.
+	 * Handles both single and paired-end reads.
+	 *
+	 * @param r The read to process
+	 * @param barcode Assigned barcode (null treated as undetermined)
+	 */
 	void add(Read r, String barcode) {
 		if(barcode==null) {barcode=UNDETERMINED;}
 		QTag[] qtags=tagMap.get(barcode);
@@ -410,6 +481,17 @@ public class LegacyFileWriter {
 	}
 	
 
+	/**
+	 * Loads sample mapping from CSV or TSV file.
+	 * Maps barcodes to sample IDs with optional reverse complement processing.
+	 * Supports both comma and tab delimited formats.
+	 *
+	 * @param fname Input filename containing barcode to sample mapping
+	 * @param barcodeDelimiter Delimiter between dual indices
+	 * @param rcIndex1 Whether to reverse complement first index
+	 * @param rcIndex2 Whether to reverse complement second index
+	 * @return Map from processed barcodes to sample IDs, null if fname is null
+	 */
 	LinkedHashMap<String, String> loadSampleMap(String fname, 
 			byte barcodeDelimiter, boolean rcIndex1, boolean rcIndex2){
 		if(fname==null) {return null;}
@@ -434,12 +516,28 @@ public class LegacyFileWriter {
 		return map;
 	}
 	
+	/**
+	 * Accumulates quality metrics for a single read direction.
+	 * Tracks base counts, quality score distributions, and Q30 statistics.
+	 * Used internally for generating quality metrics reports.
+	 */
 	static class QTag {
 		
+		/**
+		 * Adds quality statistics from a read.
+		 * @param r Read to process
+		 * @return Position of first base below Q30, or read length if all Q30+
+		 */
 		int add(Read r) {
 			return add(r.quality);
 		}
 		
+		/**
+		 * Processes quality scores to update statistics.
+		 * Counts bases, Q30 bases, and accumulates position-specific quality sums.
+		 * @param quals Array of quality scores
+		 * @return Position of first base below Q30, or array length if all Q30+
+		 */
 		int add(byte[] quals) {
 			reads++;
 			bases+=quals.length;
@@ -462,13 +560,30 @@ public class LegacyFileWriter {
 			return q30;
 		}
 		
+		/** Returns total number of bases processed */
 		long yieldBases() {return bases;}
+		/** Returns total number of Q30+ bases */
 		long yieldQ30() {return /*q30PositionSum*/q30CountSum;}
+		/** Returns sum of all quality scores */
 		long qualityScoreSum() {return (long)qsum.sum();}
+		/** Returns mean quality score across all bases */
 		double meanQualityScore() {return qsum.sum()/bases;}
+		/** Returns fraction of bases with quality score >= 30 */
 		double fractionQ30() {return yieldQ30()/(double)yieldBases();}
 		
 //		Lane,SampleID,index,index2,ReadNumber,Yield,YieldQ30,QualityScoreSum,Mean Quality Score (PF),% Q30
+		/**
+		 * Appends quality metrics as CSV row to ByteBuilder.
+		 * Formats all statistics for Quality_Metrics.csv output format.
+		 *
+		 * @param bb ByteBuilder to append to
+		 * @param lane Sequencing lane number
+		 * @param pairnum Read pair number (0 or 1)
+		 * @param sampleID Sample identifier
+		 * @param delimiter Delimiter for dual indices
+		 * @param barcode Barcode sequence
+		 * @return The modified ByteBuilder
+		 */
 		ByteBuilder appendTo(ByteBuilder bb, int lane, int pairnum, 
 				String sampleID, byte delimiter, String barcode) {
 			bb.append(lane);
@@ -484,28 +599,44 @@ public class LegacyFileWriter {
 			return bb;
 		}
 		
+		/** Returns CSV header line for Quality_Metrics.csv format */
 		static String header() {
 			return "Lane,SampleID,index,index2,ReadNumber,"
 					+ "Yield,YieldQ30,QualityScoreSum,Mean Quality Score (PF),% Q30";
 		}
 		
+		/** Number of reads processed */
 		long reads=0;
+		/** Total number of bases processed */
 		long bases=0;
+		/** Sum of positions where quality drops below Q30 */
 		long q30PositionSum=0;
+		/** Total count of Q30+ bases across all reads */
 		long q30CountSum=0;
+		/** Position-specific quality score sums */
 		LongList qsum=new LongList();
+		/** Position-specific base counts */
 		LongList qcount=new LongList();
 	}
 
+	/** Total count of R1 reads processed */
 	private long totalR1=0;
+	/** Total count of R2 reads processed */
 	private long totalR2=0;
+	/** Count of R1 reads assigned to determined barcodes */
 	private long totalR1Assigned=0;
+	/** Count of R2 reads assigned to determined barcodes */
 	private long totalR2Assigned=0;
 	
+	/** Collection of barcode counts for statistics generation */
 	Collection<Barcode> counts=null;
+	/** Maps barcodes to quality tag arrays for R1/R2 pair tracking */
 	final HashMap<String, QTag[]> tagMap=new HashMap<String, QTag[]>();
+	/** Constant string identifier for undetermined reads */
 	private final static String UNDETERMINED="Undetermined";;
+	/** Maps sequencing tiles to barcode counts for per-tile statistics */
 	LinkedHashMap<Integer, LinkedHashMap<String, Barcode>> tileMap=new LinkedHashMap<Integer, LinkedHashMap<String, Barcode>>();
+	/** Parser for extracting tile information from Illumina read headers */
 	final IlluminaHeaderParser2 ihp=new IlluminaHeaderParser2();
 	
 	

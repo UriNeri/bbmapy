@@ -29,7 +29,7 @@ silva=f         Parse headers in Silva format.
 shrinknames=f   Replace multiple concatenated headers with the first.
 deleteinvalid=f Delete the output file if there are any invalid headers.
 
-Taxonomy file flags:
+Taxonomy File Parameters:
 server=f        Use the taxonomy server instead of local files.
                 Server mode only works for accessions (like RefSeq).
 tree=           Specify a taxtree file.  On Genepool, use 'auto'.
@@ -46,52 +46,40 @@ Java Parameters:
 -da             Disable assertions.
 
 Please contact Brian Bushnell at bbushnell@lbl.gov if you encounter any problems.
+For documentation and the latest version, visit: https://bbmap.org
 "
 }
 
-#This block allows symlinked shellscripts to correctly set classpath.
-pushd . > /dev/null
-DIR="${BASH_SOURCE[0]}"
-while [ -h "$DIR" ]; do
-  cd "$(dirname "$DIR")"
-  DIR="$(readlink "$(basename "$DIR")")"
-done
-cd "$(dirname "$DIR")"
-DIR="$(pwd)/"
-popd > /dev/null
-
-#DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )/"
-CP="$DIR""current/"
-JNI="-Djava.library.path=""$DIR""jni/"
-JNI=""
-
-z="-Xmx7g"
-z2="-Xms7g"
-set=0
-
-if [ -z "$1" ] || [[ $1 == -h ]] || [[ $1 == --help ]]; then
+if [ -z "$1" ] || [ "$1" = "-h" ] || [ "$1" = "--help" ]; then
 	usage
 	exit
 fi
 
-calcXmx () {
-	source "$DIR""/calcmem.sh"
-	setEnvironment
-	parseXmx "$@"
-	if [[ $set == 1 ]]; then
-		return
-	fi
-	freeRam 7000m 84
-	z="-Xmx${RAM}m"
-	z2="-Xms${RAM}m"
+resolveSymlinks(){
+	SCRIPT="$0"
+	while [ -h "$SCRIPT" ]; do
+		DIR="$(dirname "$SCRIPT")"
+		SCRIPT="$(readlink "$SCRIPT")"
+		[ "${SCRIPT#/}" = "$SCRIPT" ] && SCRIPT="$DIR/$SCRIPT"
+	done
+	DIR="$(cd "$(dirname "$SCRIPT")" && pwd)"
+	CP="$DIR/current/"
 }
-calcXmx "$@"
 
+setEnv(){
+	. "$DIR/javasetup.sh"
+	. "$DIR/memdetect.sh"
 
-gi2taxid() {
-	local CMD="java $EA $EOOM $z $z2 -cp $CP tax.RenameGiToTaxid $@"
-	echo $CMD >&2
+	parseJavaArgs "--xmx=7g" "--xms=7g" "--percent=84" "--mode=auto" "$@"
+	setEnvironment
+}
+
+launch() {
+	CMD="java $EA $EOOM $SIMD $XMX $XMS -cp $CP tax.RenameGiToTaxid $@"
+	echo "$CMD" >&2
 	eval $CMD
 }
 
-gi2taxid "$@"
+resolveSymlinks
+setEnv "$@"
+launch "$@"

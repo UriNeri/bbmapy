@@ -19,6 +19,12 @@ public class CrisprTracker {
 	/*----------------        Initialization        ----------------*/
 	/*--------------------------------------------------------------*/
 	
+	/**
+	 * Adds CRISPR statistics from a single CRISPR structure to the tracker.
+	 * Calculates GC content, lengths, and increments appropriate counters and histograms.
+	 * @param p The CRISPR structure containing repeat ranges and alignment data
+	 * @param s The sequence bytes for GC content calculation
+	 */
 	public void add(final Crispr p, final byte[] s) {
 		Range r=(p.b.length()>p.a.length() ? p.b : p.a);
 		int sstart=p.a.b+1, sstop=p.b.a-1;
@@ -49,6 +55,12 @@ public class CrisprTracker {
 	/*----------------           Methods            ----------------*/
 	/*--------------------------------------------------------------*/
 	
+	/**
+	 * Merges statistics from another CrisprTracker into this one.
+	 * Combines all counters, histograms, and metrics from both trackers.
+	 * @param p The CrisprTracker to merge into this one
+	 * @return This CrisprTracker after merging
+	 */
 	public CrisprTracker add(CrisprTracker p) {
 		for(int i=0; i<lists.length; i++) {
 			lists[i].incrementBy(p.lists[i]);
@@ -66,6 +78,12 @@ public class CrisprTracker {
 	}
 
 	
+	/**
+	 * Appends formatted CRISPR statistics to a ByteBuilder.
+	 * Uses PalindromeTracker formatting for consistency with other trackers.
+	 * @param bb The ByteBuilder to append statistics to
+	 * @return The ByteBuilder with appended statistics
+	 */
 	public ByteBuilder appendTo(ByteBuilder bb) {
 		return PalindromeTracker.append(bb, 
 			"#Value\trepeat\tspacer\tperiod\ttotal\trGC\tsGC\tmatch\tmismtch\tcopies\trefmm\trefmmv", 
@@ -81,16 +99,26 @@ public class CrisprTracker {
 	/*----------------            Fields            ----------------*/
 	/*--------------------------------------------------------------*/
 
+	/** Array for tracking nucleotide composition (A, C, G, T, N) */
 	private final int[] acgtn=new int[5];
 
+	/** Total number of CRISPR sequences found */
 	public long crisprsFound=0;
+	/** Number of reads containing CRISPR sequences */
 	public long readsWithCrisprs=0;
+	/** Number of sequences trimmed based on consensus analysis */
 	public long trimmedByConsensus=0;
+	/** Number of repeats that are partial or at sequence tips */
 	public long partialTipRepeats=0;
+	/** Number of sequences successfully aligned to reference */
 	public long alignedToRef=0;
+	/** Number of sequences modified based on reference alignment */
 	public long modifiedByRef=0;
+	/** Number of sequences that failed alignment to reference */
 	public long failedAlignment=0;
+	/** Total number of alignments performed */
 	public long alignments=0;
+	/** Number of alignments that were requested */
 	public long alignmentRequested=0;
 	
 	/** Repeat length */
@@ -116,6 +144,7 @@ public class CrisprTracker {
 	/** Number of mismatches with reference for valid alignments */
 	public LongList refMismatchListValid=new LongList(51);
 	
+	/** Array containing all histogram lists for batch operations */
 	public final LongList[] lists={rlenList, slenList, ulenList, tlenList, 
 			rgcList, sgcList, matchList, mismatchList, 
 			copyList, refMismatchList, refMismatchListValid};
@@ -124,7 +153,11 @@ public class CrisprTracker {
 	/*----------------           Statics            ----------------*/
 	/*--------------------------------------------------------------*/
 
+	/** Maximum value for histogram binning */
 	public static int histmax=150;
+	/**
+	 * Multiplier for converting GC percentages to histogram bins (100 = 1% resolution)
+	 */
 	public static int gcMult=100;
 	
 }

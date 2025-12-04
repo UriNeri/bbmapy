@@ -3,7 +3,7 @@
 usage(){
 echo "
 Written by Brian Bushnell
-Last modified July 15, 2025
+Last modified December 2, 2025
 
 Description:  Generates synthetic reads from a set of fasta assemblies.
 Each assembly is assigned a random coverage level, with optional custom 
@@ -27,14 +27,13 @@ mindepth=1      Minimum assembly average depth.
 maxdepth=256    Maximum assembly average depth.
 depth=          Sets minimum and maximum to the same level.
 reads=-1        If positive, ignore depth and make this many reads per contig.
-variance=0.5    Coverage within an assembly will vary by up to this much;
-                one region can be up to this fraction deeper than another.
 mode=min4       Random depth distribution; can be min4, exp, root, or linear.
 cov_x=          Set a custom coverage level for the file named x.
                 x can alternatively be the taxID if the filename starts
                 with tid_x_; e.g. cov_foo.fa=5 for foo.fa, or cov_7=5
                 for file tid_7_foo.fa
 <file>=x        Alternate way to set custom depth; file will get depth x.
+circular=f      Treat each contig as circular, and create spanning reads.
 threads=        Set the max number of threads; default is logical core count.
                 By default each input file uses 1 thread.  This flag will
                 also force multithreaded processing when there is exactly 1
@@ -77,6 +76,9 @@ addadapters     Add adapter sequence to paired reads with insert
                 size shorter than read length.
 adapter1=       Optionally specify a custom R1 adapter (as observed in R1).
 adapter2=       Optionally specify a custom R2 adapter (as observed in R2).
+illuminanames=f Make headers look like normal Illumina headers.
+barcode=        Specify the barcode for Illumina headers.
+machine=        Specify the machine for Illumina headers.
 
 Long-read error parameters
 Note: These may be overriden for any platform, including Illumina.
@@ -86,9 +88,9 @@ drate=-1        Deletion rate; default 0.0045 ONT / 0.000045 PB.
 hrate=-1        Homopolymer error boost; default 0.02 ONT / 0.000015 PB.
                 The indel chance increases this much per homopolymer base.
 
-Coverage variation parameters (only used with 'sinewave' flag):
+Coverage variation parameters (used with 'sinewave' flag):
 sinewave        Enable realistic coverage variation within contigs.
-numwaves=4      Number of sine waves to combine; more waves create more 
+waves=4         Number of sine waves to combine; more waves create more 
                 complex coverage patterns with irregular peaks and valleys.
 waveamp=0.70    Controls the maximum variation in coverage due to the sine 
                 waves.  Higher values (0-1) create more dramatic differences 
@@ -100,6 +102,9 @@ minprob=0.10    Sets the minimum coverage probability as a fraction of target.
                 below this level, preventing assembly gaps.
 minperiod=2k    Minimum sine wave period, in bp.
 maxperiod=80k   Maximum sine wave period, in bp.
+variance=0.5    Vary coverage on a per-contig basis, within an assembly, by
+                plus/minus this factor.  Unrelated to sinewave mode, which
+		is generally superior.
 
 Java Parameters:
 -Xmx            This will set Java's memory usage, overriding autodetection.
@@ -110,50 +115,40 @@ Java Parameters:
 -da             Disable assertions.
 
 Please contact Brian Bushnell at bbushnell@lbl.gov if you encounter any problems.
+For documentation and the latest version, visit: https://bbmap.org
 "
 }
 
-#This block allows symlinked shellscripts to correctly set classpath.
-pushd . > /dev/null
-DIR="${BASH_SOURCE[0]}"
-while [ -h "$DIR" ]; do
-  cd "$(dirname "$DIR")"
-  DIR="$(readlink "$(basename "$DIR")")"
-done
-cd "$(dirname "$DIR")"
-DIR="$(pwd)/"
-popd > /dev/null
-
-#DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )/"
-CP="$DIR""current/"
-
-if [ -z "$1" ] || [[ $1 == -h ]] || [[ $1 == --help ]]; then
+if [ -z "$1" ] || [ "$1" = "-h" ] || [ "$1" = "--help" ]; then
 	usage
 	exit
 fi
 
-calcXmx () {
-    # Source the new scripts
-    source "$DIR""/memdetect.sh"
-    source "$DIR""/javasetup.sh"
-    
-    # Parse Java arguments with tool-specific defaults
-    # Use auto mode with 84% of available RAM, minimum 1000MB
-    parseJavaArgs "--mem=1000m" "--percent=84" "--mode=auto" "$@"
-    
-    # Set environment paths
-    setEnvironment
-    
-    # Set the Java memory parameters
-    z="-Xmx${RAM}m"
-    z2="-Xms${RAM}m"
+resolveSymlinks(){
+	SCRIPT="$0"
+	while [ -h "$SCRIPT" ]; do
+		DIR="$(dirname "$SCRIPT")"
+		SCRIPT="$(readlink "$SCRIPT")"
+		[ "${SCRIPT#/}" = "$SCRIPT" ] && SCRIPT="$DIR/$SCRIPT"
+	done
+	DIR="$(cd "$(dirname "$SCRIPT")" && pwd)"
+	CP="$DIR/current/"
 }
-calcXmx "$@"
 
-generate() {
-	local CMD="java $EA $EOOM $XMX $XMS -cp $CP synth.RandomReadsMG $@"
-	echo $CMD >&2
+setEnv(){
+	. "$DIR/javasetup.sh"
+	. "$DIR/memdetect.sh"
+
+	parseJavaArgs "--xmx=1000m" "--xms=1000m" "--percent=84" "--mode=auto" "$@"
+	setEnvironment
+}
+
+launch() {
+	CMD="java $EA $EOOM $SIMD $XMX $XMS -cp $CP synth.RandomReadsMG $@"
+	echo "$CMD" >&2
 	eval $CMD
 }
 
-generate "$@"
+resolveSymlinks
+setEnv "$@"
+launch "$@"

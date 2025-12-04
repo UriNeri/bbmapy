@@ -23,14 +23,23 @@ public final class IntHashMapBinary extends AbstractIntHashMap{
 	/*----------------        Initialization        ----------------*/
 	/*--------------------------------------------------------------*/
 	
+	/** Creates a new IntHashMapBinary with default size 256 and load factor 0.7 */
 	public IntHashMapBinary(){
 		this(256);
 	}
 	
+	/** Creates a new IntHashMapBinary with specified initial size and default load factor 0.7.
+	 * @param initialSize Initial table capacity, rounded up to next power of 2 */
 	public IntHashMapBinary(int initialSize){
 		this(initialSize, 0.7f);
 	}
 	
+	/**
+	 * Creates a new IntHashMapBinary with specified initial size and load factor.
+	 * Initial size is rounded up to the next power of 2 for bitwise optimization.
+	 * @param initialSize Initial table capacity, rounded up to next power of 2
+	 * @param loadFactor_ Load factor between 0.25 and 0.90, clamped to this range
+	 */
 	public IntHashMapBinary(int initialSize, float loadFactor_){
 		if(Integer.bitCount(initialSize)>1){
 			int zeros=Integer.numberOfLeadingZeros(initialSize);
@@ -121,6 +130,11 @@ public final class IntHashMapBinary extends AbstractIntHashMap{
 	/*----------------        Private Methods       ----------------*/
 	/*--------------------------------------------------------------*/
 	
+	/**
+	 * Rehashes all entries following a removed cell to maintain hash table integrity.
+	 * Scans forward from initial position, then wraps around to beginning.
+	 * @param initial Starting cell position for rehashing
+	 */
 	private void rehashFrom(int initial){
 		if(size<1){return;}
 		final int limit=keys.length;
@@ -136,6 +150,12 @@ public final class IntHashMapBinary extends AbstractIntHashMap{
 		}
 	}
 	
+	/**
+	 * Attempts to rehash a single cell to its optimal position.
+	 * Moves the key-value pair if a better position is found.
+	 * @param cell The cell index to rehash
+	 * @return true if the cell was moved, false if already optimal
+	 */
 	private boolean rehashCell(final int cell){
 		final int key=keys[cell];
 		final int value=values[cell];
@@ -152,6 +172,8 @@ public final class IntHashMapBinary extends AbstractIntHashMap{
 		return true;
 	}
 	
+	/** Generates a new invalid marker value when the current one conflicts with a key.
+	 * Ensures new invalid value doesn't exist in the map and updates all empty cells. */
 	private void resetInvalid(){
 		final int old=invalid;
 		int x=invalid;
@@ -184,6 +206,14 @@ public final class IntHashMapBinary extends AbstractIntHashMap{
 		return -1;
 	}
 	
+	/**
+	 * Locates the cell containing the specified key or first empty cell.
+	 * Uses linear probing with wraparound for collision resolution.
+	 *
+	 * @param key The key to search for
+	 * @return Cell index containing key or first empty cell suitable for insertion
+	 * @throws RuntimeException if no empty cells are found
+	 */
 	private int findCellOrEmpty(final int key){
 		assert(key!=invalid) : "Collision - this should have been intercepted.";
 		
@@ -199,11 +229,19 @@ public final class IntHashMapBinary extends AbstractIntHashMap{
 		throw new RuntimeException("No empty cells - size="+size+", limit="+limit);
 	}
 	
+	/**
+	 * Resizes the hash table by doubling its capacity when size limit is reached
+	 */
 	private final void resize(){
 		assert(size>=sizeLimit);
 		resize(Tools.max(2, modulus+1)*2L);
 	}
 	
+	/**
+	 * Resizes the hash table to the specified power-of-2 size.
+	 * Rehashes all existing entries into the new larger table.
+	 * @param size2 New table size, must be power of 2
+	 */
 	private final void resize(final long size2){
 		assert(size2>size) : size+", "+size2;
 		assert(Long.bitCount(size2)==1) : size+", "+size2;
@@ -273,15 +311,24 @@ public final class IntHashMapBinary extends AbstractIntHashMap{
 	/*----------------            Fields            ----------------*/
 	/*--------------------------------------------------------------*/
 	
+	/** Array storing hash table keys, with invalid entries marking empty cells */
 	private int[] keys;
+	/** Array storing hash table values parallel to keys array */
 	private int[] values;
+	/** Number of valid key-value pairs currently stored in the map */
 	private int size=0;
 	/** Value for empty cells */
 	private int invalid;
+	/**
+	 * Bitmask for hash calculation, always (table_size - 1) for power-of-2 sizes
+	 */
 	private int modulus;
+	/** Maximum number of entries before triggering resize, based on load factor */
 	private int sizeLimit;
+	/** Load factor determining when to resize, clamped between 0.25 and 0.90 */
 	private final float loadFactor;
 	
+	/** Random number generator for creating invalid marker values */
 	private static final Random randy=new Random(1);
 	
 }

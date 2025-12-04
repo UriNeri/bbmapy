@@ -8,8 +8,11 @@ Description:  Shreds sequences into shorter, possibly overlapping sequences.
 
 Usage: shred.sh in=<file> out=<file> length=<int>
 
+File Parameters:
 in=<file>       Input sequences.
 out=<file>      Destination of output shreds.
+
+Processing Parameters:
 length=500      Desired length of shreds if a uniform length is desired.
 minlen=-1       Shortest allowed shred.  The last shred of each input sequence
                 may be shorter than desired length if this is not set.
@@ -29,6 +32,7 @@ filetid=f       Name shreds with a tid parsed from the filename (e.g. tid_5).
 headertid=f     Name shreds with a tid parsed from sequence headers.
 
 Please contact Brian Bushnell at bbushnell@lbl.gov if you encounter any problems.
+For documentation and the latest version, visit: https://bbmap.org
 "
 }
 
@@ -46,25 +50,36 @@ popd > /dev/null
 #DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )/"
 CP="$DIR""current/"
 
-z="-Xmx4000m"
-set=0
-
-if [ -z "$1" ] || [[ $1 == -h ]] || [[ $1 == --help ]]; then
+if [ -z "$1" ] || [ "$1" = "-h" ] || [ "$1" = "--help" ]; then
 	usage
 	exit
 fi
 
-calcXmx () {
-	source "$DIR""/calcmem.sh"
-	setEnvironment
-	parseXmx "$@"
+resolveSymlinks(){
+	SCRIPT="$0"
+	while [ -h "$SCRIPT" ]; do
+		DIR="$(dirname "$SCRIPT")"
+		SCRIPT="$(readlink "$SCRIPT")"
+		[ "${SCRIPT#/}" = "$SCRIPT" ] && SCRIPT="$DIR/$SCRIPT"
+	done
+	DIR="$(cd "$(dirname "$SCRIPT")" && pwd)"
+	CP="$DIR/current/"
 }
-calcXmx "$@"
 
-stats() {
-	local CMD="java $EA $EOOM $z -cp $CP synth.Shred $@"
-#	echo $CMD >&2
+setEnv(){
+	. "$DIR/javasetup.sh"
+	. "$DIR/memdetect.sh"
+
+	parseJavaArgs "--xmx=4000m" "--xms=4000m" "--mode=fixed" "$@"
+	setEnvironment
+}
+
+launch() {
+	CMD="java $EA $EOOM $SIMD $XMX $XMS -cp $CP synth.Shred $@"
+	echo "$CMD" >&2
 	eval $CMD
 }
 
-stats "$@"
+resolveSymlinks
+setEnv "$@"
+launch "$@"

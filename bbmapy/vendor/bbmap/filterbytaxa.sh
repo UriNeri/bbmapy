@@ -40,7 +40,7 @@ tree=<file>     Specify a TaxTree file like tree.taxtree.gz.
 gi=<file>       Specify a gitable file like gitable.int1d.gz. Only needed
                 if gi numbers will be used.  On Genepool, use 'auto'.
 accession=      Specify one or more comma-delimited NCBI accession to taxid
-                files.  Only needed if accesions will be used; requires ~45GB
+                files.  Only needed if accessions will be used; requires ~45GB
                 of memory.  On Genepool, use 'auto'.
 printnodes=t    Print the names of nodes added to the filter.
 requirepresent=t   Crash with an error message if a header cannot be resolved
@@ -63,49 +63,40 @@ Java Parameters:
 -da             Disable assertions.
 
 Please contact Brian Bushnell at bbushnell@lbl.gov if you encounter any problems.
+For documentation and the latest version, visit: https://bbmap.org
 "
 }
 
-#This block allows symlinked shellscripts to correctly set classpath.
-pushd . > /dev/null
-DIR="${BASH_SOURCE[0]}"
-while [ -h "$DIR" ]; do
-  cd "$(dirname "$DIR")"
-  DIR="$(readlink "$(basename "$DIR")")"
-done
-cd "$(dirname "$DIR")"
-DIR="$(pwd)/"
-popd > /dev/null
-
-#DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )/"
-CP="$DIR""current/"
-
-z="-Xmx4g"
-z2="-Xms4g"
-set=0
-
-if [ -z "$1" ] || [[ $1 == -h ]] || [[ $1 == --help ]]; then
+if [ -z "$1" ] || [ "$1" = "-h" ] || [ "$1" = "--help" ]; then
 	usage
 	exit
 fi
 
-calcXmx () {
-	source "$DIR""/calcmem.sh"
-	setEnvironment
-	parseXmx "$@"
-	if [[ $set == 1 ]]; then
-		return
-	fi
-	freeRam 1000m 84
-	z="-Xmx${RAM}m"
-	z2="-Xms${RAM}m"
+resolveSymlinks(){
+	SCRIPT="$0"
+	while [ -h "$SCRIPT" ]; do
+		DIR="$(dirname "$SCRIPT")"
+		SCRIPT="$(readlink "$SCRIPT")"
+		[ "${SCRIPT#/}" = "$SCRIPT" ] && SCRIPT="$DIR/$SCRIPT"
+	done
+	DIR="$(cd "$(dirname "$SCRIPT")" && pwd)"
+	CP="$DIR/current/"
 }
-calcXmx "$@"
 
-filterbytaxa() {
-	local CMD="java $EA $EOOM $z -cp $CP tax.FilterByTaxa $@"
-	echo $CMD >&2
+setEnv(){
+	. "$DIR/javasetup.sh"
+	. "$DIR/memdetect.sh"
+
+	parseJavaArgs "--xmx=4g" "--xms=4g" "--percent=84" "--mode=auto" "$@"
+	setEnvironment
+}
+
+launch() {
+	CMD="java $EA $EOOM $SIMD $XMX $XMS -cp $CP tax.FilterByTaxa $@"
+	echo "$CMD" >&2
 	eval $CMD
 }
 
-filterbytaxa "$@"
+resolveSymlinks
+setEnv "$@"
+launch "$@"

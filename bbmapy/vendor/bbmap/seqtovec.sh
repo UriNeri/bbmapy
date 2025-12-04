@@ -8,7 +8,7 @@ Last modified January 29, 2024
 Description:  Generates vectors from sequence.
 These can be one-hot 4-bit vectors, or kmer frequency spectra.
 
-Usage:  sectovec.sh in=<sequence data> out=<text vectors>
+Usage:  seqtovec.sh in=<sequence data> out=<text vectors>
 
 Input may be fasta or fastq, compressed or uncompressed.
 
@@ -46,6 +46,7 @@ Java Parameters:
 -da             Disable assertions.
 
 Please contact Brian Bushnell at bbushnell@lbl.gov if you encounter any problems.
+For documentation and the latest version, visit: https://bbmap.org
 "
 }
 
@@ -63,26 +64,36 @@ popd > /dev/null
 #DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )/"
 CP="$DIR""current/"
 
-z="-Xmx1g"
-z2="-Xms1g"
-set=0
-
-if [ -z "$1" ] || [[ $1 == -h ]] || [[ $1 == --help ]]; then
+if [ -z "$1" ] || [ "$1" = "-h" ] || [ "$1" = "--help" ]; then
 	usage
 	exit
 fi
 
-calcXmx () {
-	source "$DIR""/calcmem.sh"
-	setEnvironment
-	parseXmx "$@"
+resolveSymlinks(){
+	SCRIPT="$0"
+	while [ -h "$SCRIPT" ]; do
+		DIR="$(dirname "$SCRIPT")"
+		SCRIPT="$(readlink "$SCRIPT")"
+		[ "${SCRIPT#/}" = "$SCRIPT" ] && SCRIPT="$DIR/$SCRIPT"
+	done
+	DIR="$(cd "$(dirname "$SCRIPT")" && pwd)"
+	CP="$DIR/current/"
 }
-calcXmx "$@"
 
-seqtovec() {
-	local CMD="java $EA $EOOM $z -cp $CP ml.SequenceToVector $@"
-	echo $CMD >&2
+setEnv(){
+	. "$DIR/javasetup.sh"
+	. "$DIR/memdetect.sh"
+
+	parseJavaArgs "--xmx=1g" "--xms=1g" "--mode=fixed" "$@"
+	setEnvironment
+}
+
+launch() {
+	CMD="java $EA $EOOM $SIMD $XMX $XMS -cp $CP ml.SequenceToVector $@"
+	echo "$CMD" >&2
 	eval $CMD
 }
 
-seqtovec "$@"
+resolveSymlinks
+setEnv "$@"
+launch "$@"

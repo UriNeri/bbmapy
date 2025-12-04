@@ -69,18 +69,21 @@ def get_bbmap_version(vendor_dir):
     """Get BBMap version by running bbmap.sh version"""
     try:
         # Run bbmap.sh version and capture output
-        bbmap_path = os.path.join(vendor_dir, 'bbmap', 'bbmap.sh')
+        bbmap_path = os.path.join(vendor_dir, 'bbmap', 'bbversion.sh')
         # print(bbmap_path)
         result = subprocess.run([bbmap_path, 'version'], capture_output=True)
         
         # Get second line and extract version
         # print(result.stderr)
-        version_line = result.stderr.decode('utf-8').split('\n')[1]
+        # version_line = result.stderr.decode('utf-8').split('\n')[0]
+        version_line = result.stdout.decode('utf-8').split('\n')[0]
+        print(f"identified bbtools version:{version_line}")
+        return version_line
         # print(version_line)
-        version_match = re.search(r'BBTools version (\d+\.\d+)', version_line)
-        if version_match:
-            return version_match.group(1)
-        raise ValueError("Could not parse BBMap version from output")
+    #     version_match = re.search(r'BBTools version (\d+\.\d+)', version_line)
+    #     if version_match:
+    #         return version_match.group(1)
+    #     raise ValueError("Could not parse BBMap version from output")
     except subprocess.CalledProcessError:
         raise RuntimeError("Failed to run bbmap.sh version")
 

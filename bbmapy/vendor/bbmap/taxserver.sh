@@ -3,7 +3,7 @@
 usage(){
 echo "
 Written by Brian Bushnell and Shijie Yao
-Last modified Jan 7, 2020
+Last modified December 2, 2025
 
 Description:   Starts a server that translates NCBI taxonomy.
 
@@ -12,15 +12,15 @@ Usage:  taxserver.sh tree=<taxtree file> table=<gitable file> port=<number>
 Usage examples:
 taxserver.sh tree=tree.taxtree.gz table=gitable.int1d.gz port=1234
 
-On Genepool:
+At LBL:
 taxserver.sh tree=auto table=auto port=1234
 
-For accession number support, add accession=<something>  E.g.:
+For accession number support, add accession=<file,file>  E.g.:
 
 External:
 taxserver.sh -Xmx45g tree=tree.taxtree.gz table=gitable.int1d.gz accession=prot.accession2taxid.gz,nucl_wgs.accession2taxid.gz port=1234
 
-On Genepool:
+At LBL:
 taxserver.sh tree=auto table=auto accession=auto port=1234
 
 If all expected files are in some specific location, you can also do this:
@@ -43,7 +43,7 @@ dbname=             Set the name of the database in the help message.
 sketchcomparethreads=16    Limit compare threads per connection.
 sketchloadthreads=4 Limit load threads (for local queries of fastq).
 sketchonly=f        Don't hash taxa names.
-k=31                Kmer length, 1-32.  To maximize sensitivity and 
+k=31                Kmer length, 1-32.  To maximize sensitivity and
                     specificity, dual kmer lengths may be used:  k=31,24
 prealloc=f          Preallocate some data structures for faster loading.
 
@@ -75,43 +75,40 @@ Java Parameters:
 -da                 Disable assertions.
 
 Please contact Brian Bushnell at bbushnell@lbl.gov if you encounter any problems.
+For documentation and the latest version, visit: https://bbmap.org
 "
 }
 
-#This block allows symlinked shellscripts to correctly set classpath.
-pushd . > /dev/null
-DIR="${BASH_SOURCE[0]}"
-while [ -h "$DIR" ]; do
-  cd "$(dirname "$DIR")"
-  DIR="$(readlink "$(basename "$DIR")")"
-done
-cd "$(dirname "$DIR")"
-DIR="$(pwd)/"
-popd > /dev/null
-
-#DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )/"
-CP="$DIR""current/"
-
-z="-Xmx45g"
-z2="-Xms45g"
-set=0
-
-if [ -z "$1" ] || [[ $1 == -h ]] || [[ $1 == --help ]]; then
+if [ -z "$1" ] || [ "$1" = "-h" ] || [ "$1" = "--help" ]; then
 	usage
 	exit
 fi
 
-calcXmx () {
-	source "$DIR""/calcmem.sh"
-	setEnvironment
-	parseXmx "$@"
+resolveSymlinks(){
+	SCRIPT="$0"
+	while [ -h "$SCRIPT" ]; do
+		DIR="$(dirname "$SCRIPT")"
+		SCRIPT="$(readlink "$SCRIPT")"
+		[ "${SCRIPT#/}" = "$SCRIPT" ] && SCRIPT="$DIR/$SCRIPT"
+	done
+	DIR="$(cd "$(dirname "$SCRIPT")" && pwd)"
+	CP="$DIR/current/"
 }
-calcXmx "$@"
 
-taxserver() {
-	local CMD="java $EA $EOOM $z $z2 -cp $CP tax.TaxServer $@"
-	echo $CMD >&2
+setEnv(){
+	. "$DIR/javasetup.sh"
+	. "$DIR/memdetect.sh"
+
+	parseJavaArgs "--xmx=45g" "--xms=45g" "--mode=fixed" "$@"
+	setEnvironment
+}
+
+launch() {
+	CMD="java $EA $EOOM $SIMD $XMX $XMS -cp $CP tax.TaxServer $@"
+	echo "$CMD" >&2
 	eval $CMD
 }
 
-taxserver "$@"
+resolveSymlinks
+setEnv "$@"
+launch "$@"

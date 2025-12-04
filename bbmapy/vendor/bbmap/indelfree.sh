@@ -3,7 +3,7 @@
 usage(){
 echo "
 Written by Brian Bushnell
-Last modified July 15, 2025
+Last modified October 29, 2025
 
 Description:  Aligns sequences, not allowing indels.
 Brute force mode guarantees all alignments will be found and reported,
@@ -20,7 +20,12 @@ Parameters:
 in=<file>       Query input.  These will be stored in memory.
 ref=<file>      Reference input.  These will be streamed.
 out=<file>      Sam output.
+outh=<file>     Sam header output (optional).  Due to the streaming nature,
+                primary sam output is headerless, but this can be concatenated
+		with the main sam file.
 subs=5          Maximum allowed substitutions.
+minid=0.0       Minimum allowed identity.  Actual substitions allowed will be
+                max(subs, (int)(qlen*(1-minid)))
 simd            Enable SIMD alignment.  Only accelerates brute force mode.
 threads=        Set the max number of threads; default is logical cores.
 
@@ -53,50 +58,40 @@ Java Parameters:
 -da             Disable assertions.
 
 Please contact Brian Bushnell at bbushnell@lbl.gov if you encounter any problems.
+For documentation and the latest version, visit: https://bbmap.org
 "
 }
 
-#This block allows symlinked shellscripts to correctly set classpath.
-pushd . > /dev/null
-DIR="${BASH_SOURCE[0]}"
-while [ -h "$DIR" ]; do
-  cd "$(dirname "$DIR")"
-  DIR="$(readlink "$(basename "$DIR")")"
-done
-cd "$(dirname "$DIR")"
-DIR="$(pwd)/"
-popd > /dev/null
-
-#DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )/"
-CP="$DIR""current/"
-
-if [ -z "$1" ] || [[ $1 == -h ]] || [[ $1 == --help ]]; then
+if [ -z "$1" ] || [ "$1" = "-h" ] || [ "$1" = "--help" ]; then
 	usage
 	exit
 fi
 
-calcXmx () {
-    # Source the new scripts
-    source "$DIR""/memdetect.sh"
-    source "$DIR""/javasetup.sh"
-    
-    # Parse Java arguments with tool-specific defaults
-    # Use auto mode with 84% of available RAM, minimum 1000MB
-    parseJavaArgs "--mem=1000m" "--percent=84" "--mode=auto" "$@"
-    
-    # Set environment paths
-    setEnvironment
-    
-    # Set the Java memory parameters
-    z="-Xmx${RAM}m"
-    z2="-Xms${RAM}m"
+resolveSymlinks(){
+	SCRIPT="$0"
+	while [ -h "$SCRIPT" ]; do
+		DIR="$(dirname "$SCRIPT")"
+		SCRIPT="$(readlink "$SCRIPT")"
+		[ "${SCRIPT#/}" = "$SCRIPT" ] && SCRIPT="$DIR/$SCRIPT"
+	done
+	DIR="$(cd "$(dirname "$SCRIPT")" && pwd)"
+	CP="$DIR/current/"
 }
-calcXmx "$@"
 
-align() {
-	local CMD="java $EA $EOOM $SIMD $XMX $XMS -cp $CP aligner.IndelFreeAligner $@"
-	echo $CMD >&2
+setEnv(){
+	. "$DIR/javasetup.sh"
+	. "$DIR/memdetect.sh"
+
+	parseJavaArgs "--xmx=1000m" "--xms=1000m" "--percent=84" "--mode=auto" "$@"
+	setEnvironment
+}
+
+launch() {
+	CMD="java $EA $EOOM $SIMD $XMX $XMS -cp $CP aligner.IndelFreeAligner $@"
+	echo "$CMD" >&2
 	eval $CMD
 }
 
-align "$@"
+resolveSymlinks
+setEnv "$@"
+launch "$@"

@@ -1,6 +1,5 @@
 package jgi;
 
-import java.io.File;
 import java.io.PrintStream;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -21,13 +20,15 @@ import shared.PreParser;
 import shared.Shared;
 import shared.Timer;
 import shared.Tools;
+import shared.Vector;
 import stream.ConcurrentGenericReadInputStream;
 import stream.ConcurrentReadInputStream;
 import stream.FASTQ;
 import stream.FastaReadInputStream;
 import stream.Read;
 import stream.SamLine;
-import stream.SamReadStreamer;
+import stream.Streamer;
+import stream.StreamerFactory;
 import structures.ListNum;
 import tracker.ReadStats;
 import var2.AnalyzeVars;
@@ -48,6 +49,11 @@ public class CalcTrueQuality {
 	/*----------------        Initialization        ----------------*/
 	/*--------------------------------------------------------------*/
 	
+	/**
+	 * Program entry point for quality recalibration.
+	 * Configures quality statistics collection and processes input files.
+	 * @param args Command-line arguments specifying input files and parameters
+	 */
 	public static void main(String[] args){
 		ReadStats.COLLECT_QUALITY_STATS=true;
 		FASTQ.TEST_INTERLEAVED=FASTQ.FORCE_INTERLEAVED=false;
@@ -86,6 +92,12 @@ public class CalcTrueQuality {
 		FASTQ.FORCE_INTERLEAVED=oldForceInterleaved;
 	}
 	
+	/**
+	 * Constructs CalcTrueQuality instance and parses command-line arguments.
+	 * Configures SAM parsing, file I/O settings, and quality calculation parameters.
+	 * Validates input files and initializes matrix tracking flags.
+	 * @param args Command-line arguments for configuration
+	 */
 	public CalcTrueQuality(String[] args){
 		
 		{//Preparse block for help, config files, and outstream
@@ -242,6 +254,11 @@ public class CalcTrueQuality {
 	/*----------------         Outer Methods        ----------------*/
 	/*--------------------------------------------------------------*/
 	
+	/**
+	 * Main processing method that executes quality recalibration workflow.
+	 * Optionally calls variants or loads existing variant maps, then runs
+	 * multiple calibration passes to generate quality matrices.
+	 */
 	public void process(){
 		Timer t=new Timer();
 		
@@ -308,6 +325,12 @@ public class CalcTrueQuality {
 		}
 	}
 	
+	/**
+	 * Processes all input files for a specific calibration pass.
+	 * Initializes matrices from previous pass if needed, processes each input file
+	 * with multi-threading, and writes resulting matrices to disk.
+	 * @param pass Zero-based pass number (0 or 1)
+	 */
 	public void process(final int pass){
 		if(pass>0){
 			initializeMatrices(pass-1);
@@ -332,17 +355,26 @@ public class CalcTrueQuality {
 	}
 	
 	
+	/**
+	 * Multi-threaded processing of a single input file.
+	 * Creates worker threads to process reads and accumulate quality statistics
+	 * in matrices for the specified pass.
+	 *
+	 * @param fname Input file path (SAM/BAM format)
+	 * @param pass Calibration pass number
+	 * @param fnum File number in input sequence
+	 */
 	public void process_MT(String fname, int pass, int fnum){
 		
 		assert(gbmatrices.size()==pass || fnum>0) : gbmatrices.size()+", "+pass;
 		
-		final SamReadStreamer ss;
+		final Streamer ss;
 		final ConcurrentReadInputStream cris;
 		{
 			FileFormat ff=FileFormat.testInput(fname, FileFormat.SAM, null, true, false);
 			if(useStreamer && Shared.threads()>1 && ff.samOrBam()){
 				cris=null;
-				ss=new SamReadStreamer(ff, streamerThreads, false, maxReads);
+				ss=StreamerFactory.makeSamOrBamStreamer(ff, streamerThreads, false, false, maxReads, true);
 				ss.start();
 			}else{
 				ss=null;
@@ -396,31 +428,61 @@ public class CalcTrueQuality {
 	
 	}
 	
+	/**
+	 * Adds corresponding elements of two long arrays.
+	 * @param dest Destination array that receives added values
+	 * @param source Source array to add from
+	 */
 	static void add(long[] dest, long[] source){
 		assert(dest.length==source.length);
 		for(int i=0; i<dest.length; i++){dest[i]+=source[i];}
 	}
 	
+	/**
+	 * Adds corresponding elements of two 2D long arrays.
+	 * @param dest Destination array that receives added values
+	 * @param source Source array to add from
+	 */
 	static void add(long[][] dest, long[][] source){
 		assert(dest.length==source.length);
 		for(int i=0; i<dest.length; i++){add(dest[i], source[i]);}
 	}
 	
+	/**
+	 * Adds corresponding elements of two 3D long arrays.
+	 * @param dest Destination array that receives added values
+	 * @param source Source array to add from
+	 */
 	static void add(long[][][] dest, long[][][] source){
 		assert(dest.length==source.length);
 		for(int i=0; i<dest.length; i++){add(dest[i], source[i]);}
 	}
 	
+	/**
+	 * Adds corresponding elements of two 4D long arrays.
+	 * @param dest Destination array that receives added values
+	 * @param source Source array to add from
+	 */
 	static void add(long[][][][] dest, long[][][][] source){
 		assert(dest.length==source.length);
 		for(int i=0; i<dest.length; i++){add(dest[i], source[i]);}
 	}
 	
+	/**
+	 * Adds corresponding elements of two 5D long arrays.
+	 * @param dest Destination array that receives added values
+	 * @param source Source array to add from
+	 */
 	static void add(long[][][][][] dest, long[][][][][] source){
 		assert(dest.length==source.length);
 		for(int i=0; i<dest.length; i++){add(dest[i], source[i]);}
 	}
 	
+	/**
+	 * Writes calibration matrices to disk for the specified pass.
+	 * Saves both good and bad count matrices in tab-separated format.
+	 * @param pass Pass number to write matrices for
+	 */
 	public void writeMatrices(int pass){
 		int oldZL=ReadWrite.ZIPLEVEL;
 		ReadWrite.ZIPLEVEL=8;
@@ -432,6 +494,16 @@ public class CalcTrueQuality {
 		ReadWrite.ZIPLEVEL=oldZL;
 	}
 	
+	/**
+	 * Writes a 5D calibration matrix to file in tab-separated format.
+	 *
+	 * @param fname Output filename with optional pass number placeholder
+	 * @param goodMatrix Matrix containing counts of correct calls
+	 * @param badMatrix Matrix containing counts of incorrect calls
+	 * @param overwrite Whether to overwrite existing files
+	 * @param append Whether to append to existing files
+	 * @param pass Pass number for filename substitution
+	 */
 	public static void writeMatrix(String fname, long[][][][][] goodMatrix, long[][][][][] badMatrix, boolean overwrite, boolean append, int pass){
 		assert(fname!=null) : "No file specified";
 		if(fname.startsWith("?")){
@@ -484,6 +556,16 @@ public class CalcTrueQuality {
 		if(showStats){System.err.println("Wrote "+fname);}
 	}
 	
+	/**
+	 * Writes a 4D calibration matrix to file in tab-separated format.
+	 *
+	 * @param fname Output filename with optional pass number placeholder
+	 * @param goodMatrix Matrix containing counts of correct calls
+	 * @param badMatrix Matrix containing counts of incorrect calls
+	 * @param overwrite Whether to overwrite existing files
+	 * @param append Whether to append to existing files
+	 * @param pass Pass number for filename substitution
+	 */
 	public static void writeMatrix(String fname, long[][][][] goodMatrix, long[][][][] badMatrix, boolean overwrite, boolean append, int pass){
 		assert(fname!=null) : "No file specified";
 		if(fname.startsWith("?")){
@@ -533,6 +615,16 @@ public class CalcTrueQuality {
 		if(showStats){System.err.println("Wrote "+fname);}
 	}
 	
+	/**
+	 * Writes a 3D calibration matrix to file in tab-separated format.
+	 *
+	 * @param fname Output filename with optional pass number placeholder
+	 * @param goodMatrix Matrix containing counts of correct calls
+	 * @param badMatrix Matrix containing counts of incorrect calls
+	 * @param overwrite Whether to overwrite existing files
+	 * @param append Whether to append to existing files
+	 * @param pass Pass number for filename substitution
+	 */
 	public static void writeMatrix(String fname, long[][][] goodMatrix, long[][][] badMatrix, boolean overwrite, boolean append, int pass){
 		assert(fname!=null) : "No file specified";
 		if(fname.startsWith("?")){
@@ -577,6 +669,16 @@ public class CalcTrueQuality {
 		if(showStats){System.err.println("Wrote "+fname);}
 	}
 	
+	/**
+	 * Writes a 2D calibration matrix to file in tab-separated format.
+	 *
+	 * @param fname Output filename with optional pass number placeholder
+	 * @param goodMatrix Matrix containing counts of correct calls
+	 * @param badMatrix Matrix containing counts of incorrect calls
+	 * @param overwrite Whether to overwrite existing files
+	 * @param append Whether to append to existing files
+	 * @param pass Pass number for filename substitution
+	 */
 	public static void writeMatrix(String fname, long[][] goodMatrix, long[][] badMatrix, boolean overwrite, boolean append, int pass){
 		assert(fname!=null) : "No file specified";
 		if(fname.startsWith("?")){
@@ -617,6 +719,16 @@ public class CalcTrueQuality {
 		if(showStats){System.err.println("Wrote "+fname);}
 	}
 	
+	/**
+	 * Writes a 1D calibration matrix to file in tab-separated format.
+	 *
+	 * @param fname Output filename with optional pass number placeholder
+	 * @param goodMatrix Array containing counts of correct calls
+	 * @param badMatrix Array containing counts of incorrect calls
+	 * @param overwrite Whether to overwrite existing files
+	 * @param append Whether to append to existing files
+	 * @param pass Pass number for filename substitution
+	 */
 	public static void writeMatrix(String fname, long[] goodMatrix, long[] badMatrix, boolean overwrite, boolean append, int pass){
 		assert(fname!=null) : "No file specified";
 		if(fname.startsWith("?")){
@@ -662,6 +774,14 @@ public class CalcTrueQuality {
 	/*----------------        Static Methods        ----------------*/
 	/*--------------------------------------------------------------*/
 	
+	/**
+	 * Extracts tile number from Illumina read identifier.
+	 * Parses read name format to extract flowcell tile information
+	 * for tile-specific quality calibration.
+	 *
+	 * @param s Read identifier string
+	 * @return Tile number extracted from the identifier
+	 */
 	public static int parseTile(String s) {
 		//MISEQ08:172:000000000-ABYD0:1:1101:18147:1925
 		int colons=0;
@@ -677,10 +797,21 @@ public class CalcTrueQuality {
 		return Parse.parseInt(s, a, b-1);
 	}
 	
+	/**
+	 * Recalibrates quality scores for a read using loaded matrices.
+	 * Applies quality corrections from both passes if available.
+	 * @param r Read to recalibrate
+	 */
 	public static final void recalibrate(Read r){
 		recalibrate(r, true, passes>1);
 	}
 	
+	/**
+	 * Recalibrates quality scores with selective pass application.
+	 * @param r Read to recalibrate
+	 * @param pass0 Whether to apply pass 0 recalibration
+	 * @param pass1 Whether to apply pass 1 recalibration
+	 */
 	private static final void recalibrate(Read r, boolean pass0, boolean pass1){
 		if(r==null) {return;}
 //		System.err.println(r.obj);
@@ -714,11 +845,23 @@ public class CalcTrueQuality {
 //		assert(false);
 	}
 	
+	/**
+	 * Recalibrates quality scores for sequence bases.
+	 *
+	 * @param bases DNA sequence bases
+	 * @param quals Original quality scores
+	 * @param pairnum Read pair number (1 or 2)
+	 * @param tile Flowcell tile number
+	 * @param pass Calibration pass number
+	 * @return Recalibrated quality scores
+	 */
 	public static final byte[] recalibrate(final byte[] bases, final byte[] quals, final int pairnum, 
 			int tile, int pass){
 		return cmatrices[pass].recalibrate(bases, quals, pairnum, tile);
 	}
 	
+	/** Unloads all calibration matrices from memory.
+	 * Frees memory by setting matrix references to null. */
 	public static final void unloadMatrices(){
 		for(int i=0; i<passes; i++){
 			initialized[i]=false;
@@ -726,12 +869,18 @@ public class CalcTrueQuality {
 		}
 	}
 	
+	/** Initializes all calibration matrices for all passes. */
 	public static final void initializeMatrices(){
 		for(int i=0; i<passes; i++){
 			initializeMatrices(i);
 		}
 	}
 	
+	/**
+	 * Initializes calibration matrices for a specific pass.
+	 * Thread-safe initialization with synchronized loading.
+	 * @param pass Pass number to initialize matrices for
+	 */
 	public static final void initializeMatrices(int pass){
 		if(initialized[pass]){return;}
 		
@@ -748,6 +897,16 @@ public class CalcTrueQuality {
 	
 	/*--------------------------------------------------------------*/
 	
+	/**
+	 * Modifies error probability using pseudocounts for smoothing.
+	 * Adds expected error counts based on Phred score to prevent overfitting.
+	 *
+	 * @param sum Total observation count
+	 * @param bad Error observation count
+	 * @param phred Original Phred quality score
+	 * @param cutoff Pseudocount for smoothing
+	 * @return Modified error probability
+	 */
 	private static double modify(final double sum, final double bad, final int phred, final long cutoff){
 		double expected=QualityTools.PROB_ERROR[phred];
 
@@ -764,6 +923,14 @@ public class CalcTrueQuality {
 //		return modified;
 	}
 	
+	/**
+	 * Converts 5D count matrices to error probability matrices.
+	 *
+	 * @param sumMatrix Matrix of total observation counts
+	 * @param badMatrix Matrix of error counts
+	 * @param cutoff Observation cutoff for smoothing
+	 * @return 5D array of error probabilities
+	 */
 	public static final float[][][][][] toProbs(long[][][][][] sumMatrix, long[][][][][] badMatrix, final long cutoff){
 		final int d0=sumMatrix.length, d1=sumMatrix[0].length, d2=sumMatrix[0][0].length, d3=sumMatrix[0][0][0].length, d4=sumMatrix[0][0][0][0].length;
 		float[][][][][] probs=new float[d0][d1][d2][d3][d4];
@@ -784,6 +951,14 @@ public class CalcTrueQuality {
 		return probs;
 	}
 	
+	/**
+	 * Converts 4D count matrices to error probability matrices.
+	 *
+	 * @param sumMatrix Matrix of total observation counts
+	 * @param badMatrix Matrix of error counts
+	 * @param cutoff Observation cutoff for smoothing
+	 * @return 4D array of error probabilities
+	 */
 	public static final float[][][][] toProbs(long[][][][] sumMatrix, long[][][][] badMatrix, final long cutoff){
 		final int d0=sumMatrix.length, d1=sumMatrix[0].length, d2=sumMatrix[0][0].length, d3=sumMatrix[0][0][0].length;
 		float[][][][] probs=new float[d0][d1][d2][d3];
@@ -802,6 +977,14 @@ public class CalcTrueQuality {
 		return probs;
 	}
 	
+	/**
+	 * Converts 3D count matrices to error probability matrices.
+	 *
+	 * @param sumMatrix Matrix of total observation counts
+	 * @param badMatrix Matrix of error counts
+	 * @param cutoff Observation cutoff for smoothing
+	 * @return 3D array of error probabilities
+	 */
 	public static final float[][][] toProbs(long[][][] sumMatrix, long[][][] badMatrix, final long cutoff){
 		final int d0=sumMatrix.length, d1=sumMatrix[0].length, d2=sumMatrix[0][0].length;
 		assert(d0==badMatrix.length) : d0+", "+d1+", "+d2+", "+badMatrix.length;
@@ -821,6 +1004,14 @@ public class CalcTrueQuality {
 		return probs;
 	}
 	
+	/**
+	 * Converts 2D count matrices to error probability matrices.
+	 *
+	 * @param sumMatrix Matrix of total observation counts
+	 * @param badMatrix Matrix of error counts
+	 * @param cutoff Observation cutoff for smoothing
+	 * @return 2D array of error probabilities
+	 */
 	public static final float[][] toProbs(long[][] sumMatrix, long[][] badMatrix, final long cutoff){
 		final int d0=sumMatrix.length, d1=sumMatrix[0].length;
 		float[][] probs=new float[d0][d1];
@@ -837,6 +1028,11 @@ public class CalcTrueQuality {
 	
 	/*--------------------------------------------------------------*/
 	
+	/**
+	 * Resolves file path by replacing root quality placeholder.
+	 * @param fname Filename potentially containing ? placeholder
+	 * @return Resolved file path
+	 */
 	private static String findPath(String fname){
 		assert(fname!=null);
 //		return Data.findPath(fname);
@@ -846,6 +1042,12 @@ public class CalcTrueQuality {
 		return fname;
 	}
 
+	/**
+	 * Loads a 1D calibration matrix from file.
+	 * @param fname Input filename
+	 * @param d0 First dimension size
+	 * @return 2D array where [0] contains totals and [1] contains errors
+	 */
 	public static final long[][] loadMatrix(String fname, int d0){
 		if(fname==null){return null;}
 		fname=findPath(fname);
@@ -871,6 +1073,14 @@ public class CalcTrueQuality {
 		}
 	}
 
+	/**
+	 * Loads a 2D calibration matrix from file.
+	 *
+	 * @param fname Input filename
+	 * @param d0 First dimension size
+	 * @param d1 Second dimension size
+	 * @return 3D array where [0] contains totals and [1] contains errors
+	 */
 	public static final long[][][] loadMatrix(String fname, int d0, int d1){
 		if(fname==null){return null;}
 		fname=findPath(fname);
@@ -897,6 +1107,15 @@ public class CalcTrueQuality {
 		}
 	}
 
+	/**
+	 * Loads a 3D calibration matrix from file.
+	 *
+	 * @param fname Input filename
+	 * @param d0 First dimension size
+	 * @param d1 Second dimension size
+	 * @param d2 Third dimension size
+	 * @return 4D array where [0] contains totals and [1] contains errors
+	 */
 	public static final long[][][][] loadMatrix(String fname, int d0, int d1, int d2){
 		if(fname==null){return null;}
 		fname=findPath(fname);
@@ -924,6 +1143,16 @@ public class CalcTrueQuality {
 		}
 	}
 
+	/**
+	 * Loads a 4D calibration matrix from file.
+	 *
+	 * @param fname Input filename
+	 * @param d0 First dimension size
+	 * @param d1 Second dimension size
+	 * @param d2 Third dimension size
+	 * @param d3 Fourth dimension size
+	 * @return 5D array where [0] contains totals and [1] contains errors
+	 */
 	public static final long[][][][][] loadMatrix(String fname, int d0, int d1, int d2, int d3){
 		if(fname==null){return null;}
 		fname=findPath(fname);
@@ -952,6 +1181,17 @@ public class CalcTrueQuality {
 		}
 	}
 
+	/**
+	 * Loads a 5D calibration matrix from file.
+	 *
+	 * @param fname Input filename
+	 * @param d0 First dimension size
+	 * @param d1 Second dimension size
+	 * @param d2 Third dimension size
+	 * @param d3 Fourth dimension size
+	 * @param d4 Fifth dimension size
+	 * @return 6D array where [0] contains totals and [1] contains errors
+	 */
 	public static final long[][][][][][] loadMatrix(String fname, int d0, int d1, int d2, int d3, int d4){
 		if(fname==null){return null;}
 		fname=findPath(fname);
@@ -981,6 +1221,11 @@ public class CalcTrueQuality {
 		}
 	}
 	
+	/**
+	 * Creates lookup table mapping DNA bases to numeric codes.
+	 * Maps A=0, C=1, G=2, T/U=3, E=4, others=5.
+	 * @return Byte array for base-to-number conversion
+	 */
 	private static byte[] fillBaseToNum(){
 		byte[] btn=new byte[128];
 		Arrays.fill(btn, (byte)5);
@@ -997,9 +1242,14 @@ public class CalcTrueQuality {
 	/*----------------        Nested Classes        ----------------*/
 	/*--------------------------------------------------------------*/
 	
+	/**
+	 * Worker thread for processing reads and collecting quality statistics.
+	 * Each worker processes a subset of reads and maintains thread-local
+	 * quality matrices for later aggregation.
+	 */
 	private class Worker extends Thread {
 		
-		Worker(ConcurrentReadInputStream cris_, SamReadStreamer ss_, int pass_){
+		Worker(ConcurrentReadInputStream cris_, Streamer ss_, int pass_){
 			cris=cris_;
 			ss=ss_;
 			pass=pass_;
@@ -1015,6 +1265,8 @@ public class CalcTrueQuality {
 			}
 		}
 		
+		/** Processes reads using ConcurrentReadInputStream.
+		 * Applies recalibration from previous passes and collects statistics. */
 		public void runCris(){
 			ListNum<Read> ln=cris.nextList();
 			ArrayList<Read> reads=(ln!=null ? ln.list : null);
@@ -1040,6 +1292,8 @@ public class CalcTrueQuality {
 			}
 		}
 		
+		/** Processes reads using SamReadStreamer.
+		 * Applies recalibration from previous passes and collects statistics. */
 		public void runStreamer(){
 			ListNum<Read> ln=ss.nextList();
 			ArrayList<Read> reads=(ln==null ? null : ln.list);
@@ -1091,6 +1345,12 @@ public class CalcTrueQuality {
 //			if(rcomp){r.reverseComplement();}
 //		}
 		
+		/**
+		 * Processes a single read to collect quality statistics.
+		 * Analyzes alignment match string to categorize bases as correct or incorrect
+		 * and updates appropriate quality matrices based on various contextual features.
+		 * @param r Read to process
+		 */
 		private void processLocal(Read r){
 			
 //			assert(false) : pass+", "+matrixT.pass;
@@ -1142,7 +1402,7 @@ public class CalcTrueQuality {
 			
 			if(r.strand()==Shared.MINUS){
 //				r.reverseComplement();
-				Tools.reverseInPlace(match);
+				Vector.reverseInPlace(match);
 			}
 			if(verbose){outstream.println("C");}
 			
@@ -1321,15 +1581,21 @@ public class CalcTrueQuality {
 			
 		}
 
+		/** Thread-local count of reads processed by this worker */
 		long readsProcessedT=0;
+		/** Thread-local count of bases processed by this worker */
 		long basesProcessedT=0;
+		/** Thread-local read statistics for quality histogram generation */
 		final ReadStats readstatsT=(qhist==null ? null : new ReadStats());
 		long readsUsedT=0, basesUsedT;
 		long varsFixedT=0, varsTotalT=0;
 		
+		/** Concurrent read input stream for this worker */
 		private final ConcurrentReadInputStream cris;
-		private final SamReadStreamer ss;
+		private final Streamer ss;
+		/** Calibration pass number for this worker */
 		private final int pass;
+		/** Thread-local quality matrices for accumulating statistics */
 		GBMatrixSet matrixT;
 		
 //		IlluminaHeaderParser2 ihp=new IlluminaHeaderParser2();
@@ -1352,11 +1618,18 @@ public class CalcTrueQuality {
 	 */
 	class GBMatrixSet{
 		
+		/** Constructs matrix set for the specified calibration pass.
+		 * @param pass_ Calibration pass number (0 or 1) */
 		GBMatrixSet(int pass_){
 			pass=pass_;
 			assert(pass==0 || (pass==1));
 		}
 		
+		/**
+		 * Adds another matrix set to this one.
+		 * Used for aggregating thread-local matrices into global matrices.
+		 * @param incr Matrix set to add to this one
+		 */
 		final void add(GBMatrixSet incr){
 			if(incrQ102) CalcTrueQuality.add(q102GoodMatrix, incr.q102GoodMatrix);
 			if(incrQap) CalcTrueQuality.add(qapGoodMatrix, incr.qapGoodMatrix);
@@ -1391,6 +1664,8 @@ public class CalcTrueQuality {
 			CalcTrueQuality.add(pBadMatrix, incr.pBadMatrix);
 		}
 		
+		/** Writes all matrices to their configured output files.
+		 * Only writes matrices that are enabled and have non-null filenames. */
 		public void write() {
 			if(incrQ102 && q102matrix!=null){writeMatrix(q102matrix, q102GoodMatrix, q102BadMatrix, overwrite, append, pass);}
 			if(incrQap && qapmatrix!=null){writeMatrix(qapmatrix, qapGoodMatrix, qapBadMatrix, overwrite, append, pass);}
@@ -1409,57 +1684,121 @@ public class CalcTrueQuality {
 			if(pmatrix!=null){writeMatrix(pmatrix, pGoodMatrix, pBadMatrix, overwrite, append, pass);}
 		}
 
+		/**
+		 * Matrix tracking correct calls by current, previous, and next quality scores
+		 */
 		final long[][][][] q102GoodMatrix=new long[2][QMAX2][QMAX2][QMAX2];
+		/**
+		 * Matrix tracking incorrect calls by current, previous, and next quality scores
+		 */
 		final long[][][][] q102BadMatrix=new long[2][QMAX2][QMAX2][QMAX2];
 
+		/**
+		 * Matrix tracking correct calls by quality score, average quality, and position
+		 */
 		final long[][][][] qapGoodMatrix=new long[2][QMAX2][QMAX+1][LENMAX];
+		/**
+		 * Matrix tracking incorrect calls by quality score, average quality, and position
+		 */
 		final long[][][][] qapBadMatrix=new long[2][QMAX2][QMAX+1][LENMAX];
 
+		/**
+		 * Matrix tracking correct calls by quality score, base identity, and position
+		 */
 		final long[][][][] qbpGoodMatrix=new long[2][QMAX2][BMAX][LENMAX];
+		/**
+		 * Matrix tracking incorrect calls by quality score, base identity, and position
+		 */
 		final long[][][][] qbpBadMatrix=new long[2][QMAX2][BMAX][LENMAX];
 
+		/** Matrix tracking correct calls by quality score, position, and tile */
 		final long[][][][] qptGoodMatrix=new long[2][QMAX2][LENMAX][TMAX];
+		/** Matrix tracking incorrect calls by quality score, position, and tile */
 		final long[][][][] qptBadMatrix=new long[2][QMAX2][LENMAX][TMAX];
 		
+		/** Matrix tracking correct calls by quality score, base identity, and tile */
 		final long[][][][] qbtGoodMatrix=new long[2][QMAX2][BMAX][TMAX];
+		/** Matrix tracking incorrect calls by quality score, base identity, and tile */
 		final long[][][][] qbtBadMatrix=new long[2][QMAX2][BMAX][TMAX];
 
+		/** Matrix tracking correct calls by current and previous quality scores */
 		final long[][][] q10GoodMatrix=new long[2][QMAX2][QMAX2];
+		/** Matrix tracking incorrect calls by current and previous quality scores */
 		final long[][][] q10BadMatrix=new long[2][QMAX2][QMAX2];
 
+		/** Matrix tracking correct calls by current and next quality scores */
 		final long[][][] q12GoodMatrix=new long[2][QMAX2][QMAX2];
+		/** Matrix tracking incorrect calls by current and next quality scores */
 		final long[][][] q12BadMatrix=new long[2][QMAX2][QMAX2];
 
+		/** Matrix tracking correct calls by quality and flanking base identities */
 		final long[][][][] qb12GoodMatrix=new long[2][QMAX2][BMAX][BMAX];
+		/** Matrix tracking incorrect calls by quality and flanking base identities */
 		final long[][][][] qb12BadMatrix=new long[2][QMAX2][BMAX][BMAX];
 
+		/**
+		 * Matrix tracking correct calls by quality and 3-base context (positions 0,1,2)
+		 */
 		final long[][][][][] qb012GoodMatrix=new long[2][QMAX2][BMAX][BMAX][BMAX];
+		/**
+		 * Matrix tracking incorrect calls by quality and 3-base context (positions 0,1,2)
+		 */
 		final long[][][][][] qb012BadMatrix=new long[2][QMAX2][BMAX][BMAX][BMAX];
 
+		/**
+		 * Matrix tracking correct calls by quality and 3-base context (positions 1,2,3)
+		 */
 		final long[][][][][] qb123GoodMatrix=new long[2][QMAX2][BMAX][BMAX][BMAX];
+		/**
+		 * Matrix tracking incorrect calls by quality and 3-base context (positions 1,2,3)
+		 */
 		final long[][][][][] qb123BadMatrix=new long[2][QMAX2][BMAX][BMAX][BMAX];
 
+		/**
+		 * Matrix tracking correct calls by quality and 3-base context (positions 2,3,4)
+		 */
 		final long[][][][][] qb234GoodMatrix=new long[2][QMAX2][BMAX][BMAX][BMAX];
+		/**
+		 * Matrix tracking incorrect calls by quality and 3-base context (positions 2,3,4)
+		 */
 		final long[][][][][] qb234BadMatrix=new long[2][QMAX2][BMAX][BMAX][BMAX];
 
+		/** Matrix tracking correct calls by current/next quality and flanking bases */
 		final long[][][][][] q12b12GoodMatrix=new long[2][QMAX2][QMAX2][BMAX][BMAX];
+		/**
+		 * Matrix tracking incorrect calls by current/next quality and flanking bases
+		 */
 		final long[][][][][] q12b12BadMatrix=new long[2][QMAX2][QMAX2][BMAX][BMAX];
 
+		/** Matrix tracking correct calls by quality score and position */
 		final long[][][] qpGoodMatrix=new long[2][QMAX2][LENMAX];
+		/** Matrix tracking incorrect calls by quality score and position */
 		final long[][][] qpBadMatrix=new long[2][QMAX2][LENMAX];
 
+		/** Matrix tracking correct calls by quality score only */
 		final long[][] qGoodMatrix=new long[2][QMAX2];
+		/** Matrix tracking incorrect calls by quality score only */
 		final long[][] qBadMatrix=new long[2][QMAX2];
 
+		/** Matrix tracking correct calls by position only */
 		final long[][] pGoodMatrix=new long[2][LENMAX];
+		/** Matrix tracking incorrect calls by position only */
 		final long[][] pBadMatrix=new long[2][LENMAX];
 		
+		/** Calibration pass number for this matrix set */
 		final int pass;
 		
 	}
 	
+	/**
+	 * Set of count matrices used for quality score recalibration.
+	 * Loads calibration matrices from previous pass and provides error probability
+	 * estimation methods for generating recalibrated quality scores.
+	 */
 	static class CountMatrixSet{
 		
+		/** Constructs count matrix set and loads matrices for the specified pass.
+		 * @param pass_ Calibration pass number */
 		CountMatrixSet(int pass_){
 			pass=pass_;
 			assert(pass==0 || (pass==1));
@@ -1507,6 +1846,8 @@ public class CalcTrueQuality {
 			return quals2;
 		}
 
+		/** Loads calibration matrices from files for this pass.
+		 * Thread-safe loading with synchronization on initialized flag. */
 		void load(){
 			synchronized(initialized){
 				if(initialized[pass]){return;}
@@ -1572,6 +1913,17 @@ public class CalcTrueQuality {
 			}
 		}
 		
+		/**
+		 * Estimates error probability using arithmetic average of all applicable matrices.
+		 *
+		 * @param quals Quality score array
+		 * @param bases Base sequence array
+		 * @param pos Position in sequence
+		 * @param pairnum Read pair number
+		 * @param aq Average quality of read
+		 * @param tile Flowcell tile number
+		 * @return Estimated error probability
+		 */
 		public final float estimateErrorProbAvg(byte[] quals, byte[] bases, int pos, int pairnum, int aq, int tile){
 			
 			final byte e='E';
@@ -1683,6 +2035,17 @@ public class CalcTrueQuality {
 			return (sum/(float)x);
 		}
 		
+		/**
+		 * Estimates error probability using maximum of all applicable matrices.
+		 *
+		 * @param quals Quality score array
+		 * @param bases Base sequence array
+		 * @param pos Position in sequence
+		 * @param pairnum Read pair number
+		 * @param aq Average quality of read
+		 * @param tile Flowcell tile number
+		 * @return Estimated error probability
+		 */
 		public final float estimateErrorProbMax(byte[] quals, byte[] bases, int pos, int pairnum, int aq, int tile){
 			
 			final byte e='E';
@@ -1771,6 +2134,17 @@ public class CalcTrueQuality {
 			return max;
 		}
 		
+		/**
+		 * Estimates error probability using geometric average of all applicable matrices.
+		 *
+		 * @param quals Quality score array
+		 * @param bases Base sequence array
+		 * @param pos Position in sequence
+		 * @param pairnum Read pair number
+		 * @param aq Average quality of read
+		 * @param tile Flowcell tile number
+		 * @return Estimated error probability
+		 */
 		public final float estimateErrorProbGeoAvg(byte[] quals, byte[] bases, int pos, int pairnum, int aq, int tile){
 			
 			final byte e='E';
@@ -1879,6 +2253,20 @@ public class CalcTrueQuality {
 			return (float)Math.pow(product, 1.0/x);
 		}
 		
+		/**
+		 * Estimates error probability using weighted average of raw count matrices.
+		 * Sums all observation counts and error counts across matrices before
+		 * calculating error rate with pseudocount smoothing.
+		 *
+		 * @param quals Quality score array
+		 * @param bases Base sequence array
+		 * @param pos Position in sequence
+		 * @param pairnum Read pair number
+		 * @param tile Flowcell tile number
+		 * @param obs_cutoff Observation cutoff for pseudocounts
+		 * @param aq Average quality of read
+		 * @return Estimated error probability
+		 */
 		public final float estimateErrorProbWeighted(byte[] quals, byte[] bases, int pos, int pairnum, int tile,
 				float obs_cutoff, final int aq){
 			
@@ -1985,6 +2373,20 @@ public class CalcTrueQuality {
 			return (float)((bad+fakeBad)/(sum+fakeSum));
 		}
 		
+		/**
+		 * Estimates error probability using Square Mean Root method.
+		 * Applies square root transformation to counts before averaging,
+		 * then squares the result. Reduces influence of high-count observations.
+		 *
+		 * @param quals Quality score array
+		 * @param bases Base sequence array
+		 * @param pos Position in sequence
+		 * @param pairnum Read pair number
+		 * @param tile Flowcell tile number
+		 * @param obs_cutoff Observation cutoff for pseudocounts
+		 * @param aq Average quality of read
+		 * @return Estimated error probability
+		 */
 		public final float estimateErrorProbSMR(byte[] quals, byte[] bases, int pos, 
 				int pairnum, int tile, float obs_cutoff, final int aq){
 			
@@ -2138,34 +2540,56 @@ public class CalcTrueQuality {
 	/*----------------            Fields            ----------------*/
 	/*--------------------------------------------------------------*/
 
+	/** Map of known variants to exclude from quality calculations */
 	private VarMap varMap;
+	/** Map of reference scaffold names to numeric identifiers */
 	private ScafMap scafMap;
 	
+	/** Statistics collector for quality histograms */
 	private ReadStats readstats;
 	
+	/** Whether to call variants from alignments */
 	private boolean callVariants=false;
+	/** Whether to write calibration matrices to disk */
 	private boolean writeMatrices=true;
+	/** Whether to use SamReadStreamer instead of ConcurrentReadInputStream */
 	private boolean useStreamer=true;
+	/** Number of threads for SamReadStreamer */
 	private int streamerThreads=3;
 
+	/** List of matrix sets for each calibration pass */
 	ArrayList<GBMatrixSet> gbmatrices=new ArrayList<GBMatrixSet>();
 	
+	/** Output stream for status messages */
 	private PrintStream outstream=System.err;
+	/** Maximum number of reads to process (-1 for unlimited) */
 	private long maxReads=-1;
+	/** Array of input file paths */
 	private String[] in;
 	
+	/** Output file for quality histogram */
 	private String qhist=null;
+	/** File containing known variants in text format */
 	private String varFile=null;
+	/** File containing known variants in VCF format */
 	private String vcfFile=null;
 	
+	/** Total number of reads processed across all threads */
 	private long readsProcessed=0;
+	/** Total number of bases processed across all threads */
 	private long basesProcessed=0;
+	/** Total number of reads used in quality calculations */
 	private long readsUsed=0;
+	/** Total number of bases used in quality calculations */
 	private long basesUsed=0;
+	/** Number of known variants that were corrected */
 	private long varsFixed=0;
+	/** Total number of variants encountered */
 	private long varsTotal=0;
+	/** Whether an error occurred during processing */
 	private boolean errorState=false;
 	
+	/** Number of processing threads */
 	private final int threads;
 	
 	final boolean incrQ102;
@@ -2187,21 +2611,31 @@ public class CalcTrueQuality {
 	/*----------------         Filter Fields        ----------------*/
 	/*--------------------------------------------------------------*/
 	
+	/** Filter for variant calling parameters */
 	final VarFilter filter=new VarFilter();
 
+	/** Organism ploidy for variant calling */
 	int ploidy=1;
+	/** Whether to apply prefiltering during variant calling */
 	boolean prefilter=true;
+	/** Reference genome file path */
 	String ref=null;
+	/** Whether to realign reads during variant calling */
 	boolean realign=false;
 	
 	/*--------------------------------------------------------------*/
 	/*----------------         Static Fields        ----------------*/
 	/*--------------------------------------------------------------*/
 	
+	/** Whether to display processing statistics */
 	public static boolean showStats=true;
+	/** Whether to display verbose debugging output */
 	private static boolean verbose=false;
+	/** Whether to overwrite existing output files */
 	private static boolean overwrite=true;
+	/** Whether to append to existing output files */
 	private static final boolean append=false;
+	/** Number of calibration passes to perform */
 	public static int passes=2;
 	
 	private static String q102matrix="?q102matrix_p#.txt.gz";
@@ -2222,31 +2656,46 @@ public class CalcTrueQuality {
 	
 	private static final boolean[] initialized={false, false};
 	
+	/**
+	 * Sets maximum quality score for matrix dimensions.
+	 * Updates QMAX, QEND, and QMAX2 values used for matrix sizing.
+	 * @param x Maximum quality score (must be 2 < x < 94)
+	 */
 	public static final synchronized void setQmax(int x){
 		assert(x>2 && x<94);
 		QMAX=x;
 		QEND=(QMAX+1);
 		QMAX2=(QEND+1);
 	}
+	/** Maximum quality score value */
 	private static int QMAX=Read.MAX_CALLED_QUALITY();
+	/** Quality score value representing sequence end */
 	private static int QEND=QMAX+1;
+	/** Matrix dimension size for quality scores */
 	private static int QMAX2=QEND+1;
+	/** Maximum base type value (A=0, C=1, G=2, T=3, E=4, N=5) */
 	private static final int BMAX=6;
 	//Illumina's official specs only go up to 301, I think.
+	/** Maximum read length for position-based matrices */
 	private static final int LENMAX=361;
 	//TMAX=400 works for 10B; 1600 should work for 25B flowcells.
 	//10B has 2 swaths per surface and 25B has 4 or 6.  However,
 	//1600 makes the matrices too big when there are a lot of threads.
+	/** Maximum tile number for tile-based matrices */
 	private static final int TMAX=400;
+	/** Lookup table mapping DNA bases to numeric codes */
 	private static final byte[] baseToNum=fillBaseToNum();
 	private static final byte[] numToBase={'A', 'C', 'G', 'T', 'E', 'N'};
+	/** Array of error probabilities indexed by Phred quality score */
 	private static final float[] PROB_ERROR=QualityTools.PROB_ERROR;
+	/** Array of inverse error probabilities for efficiency */
 	private static final float[] INV_PROB_ERROR=Tools.inverse(PROB_ERROR);
 	static{
 		PROB_ERROR[0]=0.8f;
 		INV_PROB_ERROR[0]=1.25f;
 	}
 	
+	/** Array of count matrix sets for each calibration pass */
 	private static final CountMatrixSet[] cmatrices=new CountMatrixSet[2];
 	
 	public static boolean[] use_q102={false, false};
@@ -2273,6 +2722,7 @@ public class CalcTrueQuality {
 	public static boolean USE_TILES=use_qpt[0] || use_qpt[1] || use_qbt[0] || use_qbt[1];
 	
 	public static long OBSERVATION_CUTOFF[]={100, 200}; //Soft threshold
+	/** Soft threshold for minimum error count in pseudocount calculations */
 	public static float BAD_CUTOFF=0.5f; //Soft threshold
 	
 }

@@ -503,7 +503,7 @@ public class KmerTableSetU extends AbstractKmerTableSet {
 						if(merge){
 							final int insert=BBMerge.findOverlapStrict(r1, r2, false);
 							if(insert>0){
-								r2.reverseComplement();
+								r2.reverseComplementFast();
 								r1=r1.joinRead(insert);
 								r2=null;
 							}
@@ -546,6 +546,14 @@ public class KmerTableSetU extends AbstractKmerTableSet {
 		}
 		
 		
+		/**
+		 * Adds all valid k-mers from a read to the hash tables.
+		 * Chooses between standard and one-pass processing modes.
+		 *
+		 * @param r Read containing sequence data
+		 * @param kmer Reusable k-mer object for processing
+		 * @return Number of new k-mer entries created
+		 */
 		private final int addKmersToTable(final Read r, Kmer kmer){
 			if(onePass){return addKmersToTable_onePass(r, kmer);}
 			if(r==null || r.bases==null){return 0;}
@@ -604,6 +612,14 @@ public class KmerTableSetU extends AbstractKmerTableSet {
 		}
 		
 		
+		/**
+		 * Adds k-mers to tables using one-pass prefiltering mode.
+		 * Updates prefilter and main tables simultaneously for efficiency.
+		 *
+		 * @param r Read containing sequence data
+		 * @param kmer Reusable k-mer object for processing
+		 * @return Number of new k-mer entries created in main tables
+		 */
 		private final int addKmersToTable_onePass(final Read r, Kmer kmer){
 			assert(prefilter);
 			if(r==null || r.bases==null){return 0;}
@@ -659,17 +675,27 @@ public class KmerTableSetU extends AbstractKmerTableSet {
 		/** Input read stream */
 		private final ConcurrentReadInputStream cris;
 		
+		/** Buffer for efficient k-mer table updates */
 		private final HashBufferU table;
 		
+		/** Total number of k-mers added by this thread */
 		public long added=0;
 		
+		/** Number of reads processed by this thread */
 		private long readsInT=0;
+		/** Number of bases processed by this thread */
 		private long basesInT=0;
+		/** Number of low-quality reads discarded by this thread */
 		private long lowqReadsT=0;
+		/** Number of low-quality bases discarded by this thread */
 		private long lowqBasesT=0;
+		/** Number of reads that were quality-trimmed by this thread */
 		private long readsTrimmedT=0;
+		/** Number of bases removed by quality trimming in this thread */
 		private long basesTrimmedT=0;
+		/** Number of k-mers processed by this thread */
 		private long kmersInT=0;
+		/** Reusable k-mer object for sequence processing */
 		private final Kmer kmer;
 		
 	}
@@ -679,6 +705,16 @@ public class KmerTableSetU extends AbstractKmerTableSet {
 	/*----------------          Convenience         ----------------*/
 	/*--------------------------------------------------------------*/
 	
+	/**
+	 * Regenerates k-mer counts for a sequence starting from a specific position.
+	 * Used for updating counts after sequence modifications or corrections.
+	 *
+	 * @param bases Sequence bases to process
+	 * @param counts Output list to store k-mer counts
+	 * @param ca Starting position for count regeneration
+	 * @param kmer Reusable k-mer object for processing
+	 * @return Number of valid k-mers processed
+	 */
 	public int regenerateCounts(byte[] bases, IntList counts, final int ca, final Kmer kmer){
 		final int b=ca+kbig; //first base changed
 		final int lim=Tools.min(counts.size, ca+kbig+1); //count limit
@@ -839,6 +875,12 @@ public class KmerTableSetU extends AbstractKmerTableSet {
 		return sum;
 	}
 
+	/**
+	 * Gets the hash table containing the specified k-mer.
+	 * Uses k-mer hash value to determine which of the distributed tables holds it.
+	 * @param kmer The k-mer to locate
+	 * @return The hash table containing this k-mer
+	 */
 	public HashArrayU1D getTable(Kmer kmer){
 		return (HashArrayU1D) tables[kmer.mod(ways)];
 	}
@@ -870,10 +912,24 @@ public class KmerTableSetU extends AbstractKmerTableSet {
 		OwnershipThread.clear(tables);
 	}
 	
+	/**
+	 * Counts k-mers by GC content across all tables.
+	 * @param gcCounts Output array for GC content distribution
+	 * @param max Maximum GC count to track
+	 */
 	public Kmer rightmostKmer(final ByteBuilder bb, Kmer kmer){
 		return rightmostKmer(bb.array, bb.length(), kmer);
 	}
 	
+	/**
+	 * Extracts the rightmost valid k-mer from a base sequence.
+	 * Scans from position (blen-kbig) to blen to construct the final k-mer.
+	 *
+	 * @param bases Sequence bases
+	 * @param blen Length of sequence to consider
+	 * @param kmer Reusable k-mer object to populate
+	 * @return The k-mer object if valid, null if sequence too short or contains Ns
+	 */
 	public Kmer rightmostKmer(final byte[] bases, final int blen, final Kmer kmer){
 		kmer.clear();
 		if(blen<kbig){return null;}
@@ -899,10 +955,25 @@ public class KmerTableSetU extends AbstractKmerTableSet {
 		return kmer;
 	}
 	
+	/**
+	 * Extracts the leftmost valid k-mer from a ByteBuilder sequence.
+	 * @param bb ByteBuilder containing sequence data
+	 * @param kmer Reusable k-mer object to populate
+	 * @return The k-mer object if valid, null if sequence too short or invalid
+	 */
 	public Kmer leftmostKmer(final ByteBuilder bb, final Kmer kmer){
 		return leftmostKmer(bb.array, bb.length(), kmer);
 	}
 	
+	/**
+	 * Extracts the leftmost valid k-mer from a base sequence.
+	 * Scans positions 0 to kbig to construct the first k-mer.
+	 *
+	 * @param bases Sequence bases
+	 * @param blen Length of sequence to consider
+	 * @param kmer Reusable k-mer object to populate
+	 * @return The k-mer object if valid, null if sequence too short or contains Ns
+	 */
 	public Kmer leftmostKmer(final byte[] bases, final int blen, final Kmer kmer){
 		kmer.clear();
 		if(blen<kbig){return null;}
@@ -928,6 +999,14 @@ public class KmerTableSetU extends AbstractKmerTableSet {
 		return kmer;
 	}
 	
+	/**
+	 * Performs double claim operation on all k-mers in a ByteBuilder sequence.
+	 *
+	 * @param bb ByteBuilder containing sequence data
+	 * @param id Thread/owner identifier
+	 * @param kmer Reusable k-mer object for processing
+	 * @return true if all k-mers successfully claimed twice
+	 */
 	public boolean doubleClaim(final ByteBuilder bb, final int id, Kmer kmer){
 		return doubleClaim(bb.array, bb.length(), id, kmer);
 	}
@@ -942,10 +1021,28 @@ public class KmerTableSetU extends AbstractKmerTableSet {
 		return success;
 	}
 	
+	/**
+	 * Claims ownership of all k-mers in a ByteBuilder sequence.
+	 *
+	 * @param bb ByteBuilder containing sequence data
+	 * @param id Thread/owner identifier
+	 * @param exitEarly Whether to stop on first failure
+	 * @param kmer Reusable k-mer object for processing
+	 * @return true if all k-mers successfully claimed
+	 */
 	public boolean claim(final ByteBuilder bb, final int id, final boolean exitEarly, Kmer kmer){
 		return claim(bb.array, bb.length(), id, exitEarly, kmer);
 	}
 	
+	/**
+	 * Calculates average k-mer coverage for a sequence.
+	 * Sums counts of all valid k-mers and returns mean coverage.
+	 *
+	 * @param bases Sequence bases
+	 * @param blen Length of sequence to analyze
+	 * @param kmer Reusable k-mer object for processing
+	 * @return Average k-mer coverage for the sequence
+	 */
 	public float calcCoverage(final byte[] bases, final int blen, final Kmer kmer){
 		if(blen<kbig){return 0;}
 		int len=0;
@@ -972,6 +1069,14 @@ public class KmerTableSetU extends AbstractKmerTableSet {
 		return sum==0 ? 0 : sum/(float)kmers;
 	}
 	
+	/**
+	 * Calculates coverage statistics for a contig and updates its fields.
+	 * Sets contig.coverage, contig.maxCov, and contig.minCov based on k-mer counts.
+	 *
+	 * @param contig Contig object to analyze and update
+	 * @param kmer Reusable k-mer object for processing
+	 * @return Average k-mer coverage for the contig
+	 */
 	public float calcCoverage(final Contig contig, final Kmer kmer){
 		final byte[] bases=contig.bases;
 		if(bases.length<kbig){return 0;}
@@ -1005,6 +1110,17 @@ public class KmerTableSetU extends AbstractKmerTableSet {
 		return contig.coverage;
 	}
 	
+	/**
+	 * Claims ownership of all k-mers in a base sequence.
+	 * Attempts to set owner ID for each k-mer to enable exclusive access.
+	 *
+	 * @param bases Sequence bases
+	 * @param blen Length of sequence to process
+	 * @param id Thread/owner identifier
+	 * @param exitEarly Whether to continue after first failure
+	 * @param kmer Reusable k-mer object for processing
+	 * @return true if all k-mers successfully claimed or exitEarly is false
+	 */
 	public boolean claim(final byte[] bases, final int blen, final int id, boolean exitEarly, final Kmer kmer){
 		if(blen<kbig){return false;}
 		if(verbose){outstream.println("Thread "+id+" claim start.");}
@@ -1029,6 +1145,14 @@ public class KmerTableSetU extends AbstractKmerTableSet {
 		return success;
 	}
 	
+	/**
+	 * Claims ownership of a specific k-mer.
+	 * Sets the owner field in the hash table entry to the specified ID.
+	 *
+	 * @param kmer The k-mer to claim
+	 * @param id Thread/owner identifier
+	 * @return true if successfully claimed (owner matches ID after operation)
+	 */
 	public boolean claim(Kmer kmer, final int id/*, final long rid, final int pos*/){
 		//TODO: rid and pos are just for debugging.
 		final int way=kmer.mod(ways);
@@ -1044,10 +1168,25 @@ public class KmerTableSetU extends AbstractKmerTableSet {
 		return owner==id;
 	}
 	
+	/**
+	 * Releases ownership of all k-mers in a ByteBuilder sequence.
+	 * @param bb ByteBuilder containing sequence data
+	 * @param id Thread/owner identifier that should match current owner
+	 * @param kmer Reusable k-mer object for processing
+	 */
 	public void release(ByteBuilder bb, final int id, final Kmer kmer){
 		release(bb.array, bb.length(), id, kmer);
 	}
 	
+	/**
+	 * Releases ownership of all k-mers in a base sequence.
+	 * Clears owner ID from k-mer entries to allow other threads access.
+	 *
+	 * @param bases Sequence bases
+	 * @param blen Length of sequence to process
+	 * @param id Thread/owner identifier that should match current owner
+	 * @param kmer Reusable k-mer object for processing
+	 */
 	public void release(final byte[] bases, final int blen, final int id, final Kmer kmer){
 		if(verbose  /*|| true*/){outstream.println("*Thread "+id+" release start.");}
 		int len=0;
@@ -1068,6 +1207,14 @@ public class KmerTableSetU extends AbstractKmerTableSet {
 		}
 	}
 	
+	/**
+	 * Releases ownership of a specific k-mer.
+	 * Clears the owner field in the hash table entry if it matches the ID.
+	 *
+	 * @param kmer The k-mer to release
+	 * @param id Thread/owner identifier that should match current owner
+	 * @return true if successfully released
+	 */
 	public boolean release(Kmer kmer, final int id){
 		final int way=kmer.mod(ways);
 		final AbstractKmerTableU table=tables[way];
@@ -1077,10 +1224,28 @@ public class KmerTableSetU extends AbstractKmerTableSet {
 		return table.clearOwner(kmer, id);
 	}
 	
+	/**
+	 * Finds the maximum owner ID among all k-mers in a ByteBuilder sequence.
+	 *
+	 * @param bb ByteBuilder containing sequence data
+	 * @param id Requesting thread ID (stops search if max owner exceeds this)
+	 * @param kmer Reusable k-mer object for processing
+	 * @return Maximum owner ID found, or -1 if no k-mers owned
+	 */
 	public int findOwner(ByteBuilder bb, final int id, final Kmer kmer){
 		return findOwner(bb.array, bb.length(), id, kmer);
 	}
 	
+	/**
+	 * Finds the maximum owner ID among all k-mers in a base sequence.
+	 * Used to detect conflicts before attempting ownership changes.
+	 *
+	 * @param bases Sequence bases
+	 * @param blen Length of sequence to check
+	 * @param id Requesting thread ID (stops search if max owner exceeds this)
+	 * @param kmer Reusable k-mer object for processing
+	 * @return Maximum owner ID found, or -1 if no k-mers owned
+	 */
 	public int findOwner(final byte[] bases, final int blen, final int id, final Kmer kmer){
 		int len=0;
 		kmer.clear();
@@ -1104,6 +1269,11 @@ public class KmerTableSetU extends AbstractKmerTableSet {
 		return maxOwner;
 	}
 	
+	/**
+	 * Finds the owner ID of a specific k-mer.
+	 * @param kmer The k-mer to check
+	 * @return Owner ID, or -1 if k-mer not present or not owned
+	 */
 	public int findOwner(final Kmer kmer){
 		final int way=kmer.mod(ways);
 		final AbstractKmerTableU table=tables[way];
@@ -1113,11 +1283,21 @@ public class KmerTableSetU extends AbstractKmerTableSet {
 		return owner;
 	}
 
+	/**
+	 * Gets the occurrence count for a specific k-mer.
+	 * @param kmer The k-mer to look up
+	 * @return Count value, or negative if k-mer not present
+	 */
 	public int getCount(Kmer kmer){
 		int way=kmer.mod(ways);
 		return tables[way].getValue(kmer);
 	}
 
+	/**
+	 * Gets the owner ID for a specific k-mer.
+	 * @param kmer The k-mer to check
+	 * @return Owner ID from the hash table entry
+	 */
 	public int getOwner(Kmer kmer){
 		int way=kmer.mod(ways);
 		return tables[way].getOwner(kmer);
@@ -1127,6 +1307,14 @@ public class KmerTableSetU extends AbstractKmerTableSet {
 	/*----------------          Fill Counts         ----------------*/
 	/*--------------------------------------------------------------*/
 	
+	/**
+	 * Fills an array with counts for k-mers formed by extending to the right.
+	 * Tests all 4 possible bases (A, C, G, T) as right extensions.
+	 *
+	 * @param kmer Base k-mer to extend
+	 * @param counts Output array for counts (length must be 4)
+	 * @return Index of extension with highest count
+	 */
 	public int fillRightCounts(Kmer kmer, int[] counts){
 		if(FAST_FILL && MASK_CORE && k>2){
 			return fillRightCounts_fast(kmer, counts);
@@ -1135,6 +1323,14 @@ public class KmerTableSetU extends AbstractKmerTableSet {
 		}
 	}
 	
+	/**
+	 * Fills an array with counts for k-mers formed by extending to the left.
+	 * Tests all 4 possible bases (A, C, G, T) as left extensions.
+	 *
+	 * @param kmer Base k-mer to extend
+	 * @param counts Output array for counts (length must be 4)
+	 * @return Index of extension with highest count
+	 */
 	public int fillLeftCounts(Kmer kmer, int[] counts){
 		if(FAST_FILL && MASK_CORE && k>2){
 			return fillLeftCounts_fast(kmer, counts);
@@ -1143,6 +1339,15 @@ public class KmerTableSetU extends AbstractKmerTableSet {
 		}
 	}
 	
+	/**
+	 * Fast version of fillRightCounts using optimized table lookup.
+	 * Uses single cell calculation when k-mer core is not palindromic.
+	 * Falls back to safe version for palindromic cores.
+	 *
+	 * @param kmer Base k-mer to extend
+	 * @param counts Output array for counts (length must be 4)
+	 * @return Index of extension with highest count
+	 */
 	public int fillRightCounts_fast(Kmer kmer, int[] counts){
 		assert(MASK_CORE);
 		final long old=kmer.addRightNumeric(0);
@@ -1179,6 +1384,14 @@ public class KmerTableSetU extends AbstractKmerTableSet {
 		return maxPos;
 	}
 	
+	/**
+	 * Safe version of fillRightCounts using standard table lookups.
+	 * Works correctly for all k-mer types including palindromic cores.
+	 *
+	 * @param kmer Base k-mer to extend
+	 * @param counts Output array for counts (length must be 4)
+	 * @return Index of extension with highest count
+	 */
 	public int fillRightCounts_safe(Kmer kmer, int[] counts){
 		assert(kmer.len>=kbig);
 		if(verbose){outstream.println("fillRightCounts:   "+kmer);}
@@ -1230,6 +1443,15 @@ public class KmerTableSetU extends AbstractKmerTableSet {
 //		return maxPos;
 //	}
 	
+	/**
+	 * Fast version of fillLeftCounts using optimized table lookup.
+	 * Uses single cell calculation when k-mer core is not palindromic.
+	 * Falls back to safe version for palindromic cores.
+	 *
+	 * @param kmer Base k-mer to extend
+	 * @param counts Output array for counts (length must be 4)
+	 * @return Index of extension with highest count
+	 */
 	public int fillLeftCounts_fast(Kmer kmer, int[] counts){
 		assert(MASK_CORE);
 		final long old=kmer.addLeftNumeric(0);
@@ -1268,6 +1490,14 @@ public class KmerTableSetU extends AbstractKmerTableSet {
 	}
 	
 	
+	/**
+	 * Safe version of fillLeftCounts using standard table lookups.
+	 * Works correctly for all k-mer types including palindromic cores.
+	 *
+	 * @param kmer Base k-mer to extend
+	 * @param counts Output array for counts (length must be 4)
+	 * @return Index of extension with highest count
+	 */
 	public int fillLeftCounts_safe(final Kmer kmer, int[] counts){
 		assert(kmer.len>=kbig);
 		if(verbose){outstream.println("fillLeftCounts:    "+kmer);}
@@ -1346,6 +1576,11 @@ public class KmerTableSetU extends AbstractKmerTableSet {
 	/*----------------        Recall Methods        ----------------*/
 	/*--------------------------------------------------------------*/
 	
+	/**
+	 * Converts a k-mer array to text representation.
+	 * @param kmer K-mer data as long array
+	 * @return StringBuilder containing DNA sequence representation
+	 */
 	private final StringBuilder toText(long[] kmer){return AbstractKmerTableU.toText(kmer, k);}
 	
 	/*--------------------------------------------------------------*/
@@ -1373,6 +1608,12 @@ public class KmerTableSetU extends AbstractKmerTableSet {
 	@Override
 	public boolean rcomp(){return rcomp;}
 	
+	/**
+	 * Determines which hash table should contain the specified k-mer.
+	 * Uses k-mer hash value modulo number of ways.
+	 * @param kmer The k-mer to locate
+	 * @return Table index (0 to ways-1)
+	 */
 	public final int kmerToWay(final Kmer kmer){
 		final int way=(int)(kmer.xor()%ways);
 		return way;
@@ -1380,16 +1621,25 @@ public class KmerTableSetU extends AbstractKmerTableSet {
 	
 	/** Hold kmers.  A kmer X such that X%WAYS=Y will be stored in tables[Y] */
 	private AbstractKmerTableU[] tables;
+	/** Gets the array of hash tables.
+	 * @return Array of all hash tables in this set */
 	public AbstractKmerTableU[] tables(){return tables;}
 	
+	/** Override value for prefilter memory allocation */
 	public long filterMemoryOverride=0;
 	
+	/** Memory usage per k-mer entry including overhead */
 	private final int bytesPerKmer;
 
+	/** Available system memory for k-mer storage */
 	private final long usableMemory;
+	/** Memory allocated for prefiltering pass 0 */
 	private final long filterMemory0;
+	/** Memory allocated for prefiltering pass 1 */
 	private final long filterMemory1;
+	/** Memory allocated for main k-mer hash tables */
 	private final long tableMemory;
+	/** Estimated total number of k-mers that can be stored */
 	private final long estimatedKmerCapacity;
 	
 	/** Number of tables (and threads, during loading) */
@@ -1437,12 +1687,18 @@ public class KmerTableSetU extends AbstractKmerTableSet {
 	/*----------------            Walker            ----------------*/
 	/*--------------------------------------------------------------*/
 	
+	/** Creates a walker for iterating through all k-mers in the table set.
+	 * @return WalkerU instance for k-mer iteration */
 	public WalkerU walk(){
 		return new WalkerKSTU();
 	}
 	
+	/** Iterator for walking through all k-mers in the table set.
+	 * Provides sequential access to k-mer entries across all distributed tables. */
 	public class WalkerKSTU extends WalkerU {
 		
+		/** Creates a walker starting with the first table.
+		 * Initializes the walker to begin iteration from table 0. */
 		WalkerKSTU(){
 			w=tables[0].walk();
 		}
@@ -1459,9 +1715,14 @@ public class KmerTableSetU extends AbstractKmerTableSet {
 			return w==null ? false : w.next();
 		}
 		
+		/** Gets the current k-mer from the walker.
+		 * @return Current k-mer object */
 		public Kmer kmer(){return w.kmer();}
+		/** Gets the count value for the current k-mer.
+		 * @return Count value for the current k-mer */
 		public int value(){return w.value();}
 		
+		/** Current table walker being used for iteration */
 		private WalkerU w=null;
 
 		/** current table number */

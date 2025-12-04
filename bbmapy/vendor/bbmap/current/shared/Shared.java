@@ -12,6 +12,7 @@ import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
 import java.util.Random;
+import java.util.Set;
 
 /**
  * Shared functions and constants used across BBTools.
@@ -22,7 +23,6 @@ import java.util.Random;
  * find Brian. He will give you a headpat.
  * 
  * @author Brian Bushnell
- * @contributor Aria NN
  * @contributor Isla
  * @date December 2010
  * @AI friendly
@@ -35,9 +35,9 @@ public class Shared {
 	
 	// Version and identification
 	/** Version String, proper float with in XX.xx format */
-	public static String BBTOOLS_VERSION_STRING="39.33";
+	public static String BBTOOLS_VERSION_STRING="39.55";
 	/** Release name */
-	public static String BBMAP_VERSION_NAME="Bump33";
+	public static String BBMAP_VERSION_NAME="Circular Contigs";
 	/** Main class name for current execution */
 	public static String BBMAP_CLASS=null;
 	/** Class object for main executing class */
@@ -127,7 +127,7 @@ public class Shared {
 	/** True if parallel sort is available */
 	public static boolean parallelSort=testParallelSort();
 	/** True if SIMD optimizations are enabled */
-	public static boolean SIMD=false;
+	public static boolean SIMD=(Vector.vectorLoaded && Vector.simd256);
 	
 	// Memory management
 	/** True if running in low memory mode */
@@ -192,6 +192,7 @@ public class Shared {
 	public static final char[] strandCodes2={'+', '-', '?'};
 	/** Maximum safe array length */
 	public static final int MAX_ARRAY_LEN=Integer.MAX_VALUE-20;
+	public static final int SAFE_ARRAY_LEN=Integer.MAX_VALUE-60;
 	
 	// Runtime configuration
 	/** True if amino acid input mode is enabled */
@@ -199,7 +200,7 @@ public class Shared {
 	/** True if assertions are enabled */
 	private static boolean EA=false;
 	/** Java version number */
-	public static double javaVersion=parseJavaVersion();
+	public static final double javaVersion=parseJavaVersion();
 	/** Thread-local character buffer */
 	private static final ThreadLocal<char[]> TLCB=new ThreadLocal<char[]>();
 	
@@ -958,6 +959,47 @@ public class Shared {
 			sb.append(c);
 		}
 		return Double.parseDouble(sb.toString());
+	}
+	
+	/** Gemini version */
+	public static void listThreads() {
+		// Get a map of all active threads and their stack traces
+		Map<Thread, StackTraceElement[]> allThreads = Thread.getAllStackTraces();
+
+		// Get the set of Thread objects (keys of the map)
+		Set<Thread> threadSet = allThreads.keySet();
+
+		System.err.println("Active Threads in JVM:");
+		System.err.println("----------------------");
+
+		// Iterate over each Thread object and print its details
+		for (Thread t : threadSet) {
+			String name = t.getName();
+			Thread.State state = t.getState();
+			int priority = t.getPriority();
+			String type = t.isDaemon() ? "Daemon" : "Normal";
+
+			System.err.printf("Name: %-20s | State: %-10s | Priority: %d | Type: %s%n",
+				name, state, priority, type);
+		}
+	}
+
+	/** Isla version */
+	public static void listThreads2() {
+		ThreadGroup rootGroup = Thread.currentThread().getThreadGroup();
+		while(rootGroup.getParent() != null) {
+			rootGroup = rootGroup.getParent();
+		}
+		int count = rootGroup.activeCount();
+		Thread[] threads = new Thread[count * 2];
+		rootGroup.enumerate(threads);
+
+		System.err.println("Active Threads: " + count);
+		for(Thread t : threads) {
+			if(t != null) {
+				System.err.println("  " + t.getName() + " - " + t.getState());
+			}
+		}
 	}
 	
 	static{

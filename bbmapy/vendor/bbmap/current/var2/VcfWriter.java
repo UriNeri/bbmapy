@@ -7,23 +7,24 @@ import java.util.concurrent.ArrayBlockingQueue;
 import fileIO.ByteStreamWriter;
 import fileIO.FileFormat;
 import gff.GffLine;
+import ml.CellNet;
 import shared.Shared;
 import shared.Tools;
 import structures.ByteBuilder;
 import structures.ListNum;
 
 /**
- * Multithreaded writer for variant data in VCF, VAR, or GFF formats.
- * Uses producer-consumer pattern with multiple threads formatting variants
- * while a single ByteStreamWriter handles ordered output to maintain
- * proper file structure.
- * 
- * Supports comprehensive filtering, statistical metadata inclusion,
- * and format-specific optimizations for each output type.
- * 
- * @author Brian Bushnell
- * @contributor Isla Winglet
- */
+* Multithreaded writer for variant data in VCF, VAR, or GFF formats.
+* Uses producer-consumer pattern with multiple threads formatting variants
+* while a single ByteStreamWriter handles ordered output to maintain
+* proper file structure.
+* 
+* Supports comprehensive filtering, statistical metadata inclusion,
+* and format-specific optimizations for each output type.
+* 
+* @author Brian Bushnell
+* @contributor Isla
+*/
 public class VcfWriter {
 	
 	/*--------------------------------------------------------------*/
@@ -31,18 +32,18 @@ public class VcfWriter {
 	/*--------------------------------------------------------------*/
 	
 	/**
-	 * Creates a VcfWriter with all necessary data and parameters.
-	 * 
-	 * @param varMap_ Source VarMap containing variants to write
-	 * @param filter_ Filtering criteria for variant selection
-	 * @param reads_ Total number of reads processed
-	 * @param pairs_ Number of paired reads
-	 * @param properPairs_ Number of properly paired reads
-	 * @param bases_ Total number of bases processed
-	 * @param ref_ Reference file path for header metadata
-	 * @param trimWhitespace_ Whether to trim whitespace from scaffold names
-	 * @param sampleName_ Sample name for VCF header
-	 */
+	* Creates a VcfWriter with all necessary data and parameters.
+	* 
+	* @param varMap_ Source VarMap containing variants to write
+	* @param filter_ Filtering criteria for variant selection
+	* @param reads_ Total number of reads processed
+	* @param pairs_ Number of paired reads
+	* @param properPairs_ Number of properly paired reads
+	* @param bases_ Total number of bases processed
+	* @param ref_ Reference file path for header metadata
+	* @param trimWhitespace_ Whether to trim whitespace from scaffold names
+	* @param sampleName_ Sample name for VCF header
+	*/
 	public VcfWriter(VarMap varMap_, VarFilter filter_, long reads_,
 			long pairs_, long properPairs_, long bases_, String ref_,
 			boolean trimWhitespace_, String sampleName_){
@@ -363,6 +364,7 @@ public class VcfWriter {
 		
 		/** Main thread execution - processes variant batches */
 		@Override
+		/** Main thread execution - processes variant batches */
 		public void run(){
 			makeBytes();
 		}
@@ -382,11 +384,11 @@ public class VcfWriter {
 				for(Var v : list){
 					if(v.forced() || filter==null || !filter.failNearby || v.nearbyVarCount<=filter.maxNearbyCount){
 						if(mode==VCFMODE){
-							v.toVCF(bb, properPairRate, totalQualityAvg, totalMapqAvg, readLengthAvg, ploidy, scafMap, filter, trimWhitespace);
+							v.toVCF(bb, properPairRate, totalQualityAvg, totalMapqAvg, readLengthAvg, ploidy, scafMap, filter, net, trimWhitespace);
 						}else if(mode==VARMODE){
-							v.toText(bb, properPairRate, totalQualityAvg, totalMapqAvg, readLengthAvg, filter.rarity, ploidy, scafMap);
+							v.toText(bb, properPairRate, totalQualityAvg, totalMapqAvg, readLengthAvg, filter.rarity, ploidy, scafMap, net);
 						}else if(mode==GFFMODE){
-							GffLine.toText(bb, v, properPairRate, totalQualityAvg, totalMapqAvg, readLengthAvg, filter.rarity, ploidy, scafMap);
+							GffLine.toText(bb, v, properPairRate, totalQualityAvg, totalMapqAvg, readLengthAvg, filter.rarity, ploidy, scafMap, net);
 						}
 						bb.nl();
 					}
@@ -429,6 +431,8 @@ public class VcfWriter {
 		final int tid;
 		/** ByteStreamWriter for ordered output */
 		final ByteStreamWriter bsw;
+		/** CellNet for prediction */
+		CellNet net;
 		/** Output format mode */
 		final int mode;
 		/** Success flag */
@@ -488,7 +492,7 @@ public class VcfWriter {
 	/** Output format constants */
 	public static final int VARMODE=0, VCFMODE=1, GFFMODE=2;
 	/** Poison pill for ending processing */
-	private static final ListNum<Var> POISON_VARS=new ListNum<Var>(null, -1);
+	private static final ListNum<Var> POISON_VARS=new ListNum<Var>(null, Long.MAX_VALUE, true, false);
 	
 	/** Verbose output flag */
 	private static boolean verbose=false;

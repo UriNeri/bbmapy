@@ -26,7 +26,7 @@ in2 and out2 are for paired reads and are optional.
 If input is paired and there is only one output file, it will be written interleaved.
 
 Parameters:
-ow=f                (overwrite) Overwrites files that already exist.
+ ow=f                (overwrite) Overwrites files that already exist.
 int=f               (interleaved) Determines whether INPUT file is considered interleaved.
 qin_file=auto            ASCII offset for input quality.  May be 33 (Sanger), 64 (Illumina), or auto.
 qout=auto           ASCII offset for output quality.  May be 33 (Sanger), 64 (Illumina), or auto (same as input).
@@ -42,6 +42,7 @@ arc=f               Add reverse-complemented adapters as well as forward.
 rate=0.5            Add adapters to this fraction of reads.
 
 Please contact Brian Bushnell at bbushnell@lbl.gov if you encounter any problems.
+For documentation and the latest version, visit: https://bbmap.org
 
     Args:
         capture_output (bool): If True, capture and return the output instead of printing it.
@@ -71,7 +72,7 @@ Standard parameters:
 in_file=<file>       Input sketch file.
 out=<file>      Output sketch file.
 
-Additional files (optional):
+Additional file parameters (optional):
 16S=<file>      A fasta file of 16S sequences.  These should be renamed
                 so that they start with tid|# where # is the taxID.
                 Should not contain organelle rRNA.
@@ -103,6 +104,7 @@ Java Parameters:
 
 For more detailed information, please read /bbmap/docs/guides/BBSketchGuide.txt.
 Please contact Brian Bushnell at bbushnell@lbl.gov if you encounter any problems.
+For documentation and the latest version, visit: https://bbmap.org
 
     Args:
         capture_output (bool): If True, capture and return the output instead of printing it.
@@ -151,6 +153,7 @@ Java Parameters:
 -da             Disable assertions.
 
 Please contact Brian Bushnell at bbushnell@lbl.gov if you encounter any problems.
+For documentation and the latest version, visit: https://bbmap.org
 
     Args:
         capture_output (bool): If True, capture and return the output instead of printing it.
@@ -171,16 +174,35 @@ def alignrandom(capture_output: bool = False, **kwargs) -> Union[None, Tuple[str
     Written by Brian Bushnell
 Last modified May 30, 2025
 
-Description:  Aligns a query sequence to a reference using BandedAligner.
-The sequences can be any characters, but N is a special case.
-Outputs the identity, rstart, and rstop positions.
-Optionally prints a state space exploration map.
-This map can be fed to visualizealignment.sh to make an image.
+Description:  Statistical analysis tool that calculates the Average Nucleotide
+Identity (ANI) between random DNA sequences. Generates pairs of random 
+sequences of specified lengths, aligns them, and produces a histogram of 
+identity distributions. This demonstrates that random sequences converge to
+varying, length-dependent identity approaching roughly approximately 55%,
+with standard deviation decreasing with length, providing a baseline for
+evaluating the significance of real sequence alignments.
 
-Usage:
-alignrandom.sh start mult steps iters buckets
+Usage:  alignrandom.sh <start> <mult> <steps> <iters> <buckets> <maxloops> <output>
+
+Positional Parameters and Defaults (optional, ordered, without the name):
+start=10        Starting sequence length for analysis
+mult=10         Length multiplier between intervals (each step: length*=mult)
+steps=4         Number of length intervals to test 
+iters=200       Number of random sequence pairs to align per interval
+buckets=100     Number of histogram bins for identity distribution
+maxloops=max    Maximum total alignments to prevent excessive runtime
+output=stdout   Output file for ANI histogram results
+
+Example:
+alignrandom.sh 20 5 6 500
+Tests lengths 20, 100, 500, 2500, 12500, 62500 with 500 iterations each.
+
+Output:
+Produces a tab-delimited histogram showing the distribution of alignment
+identities for random sequence pairs at each tested length.
 
 Please contact Brian Bushnell at bbushnell@lbl.gov if you encounter any problems.
+For documentation and the latest version, visit: https://bbmap.org
 
     Args:
         capture_output (bool): If True, capture and return the output instead of printing it.
@@ -227,6 +249,7 @@ Java Parameters:
 -da             Disable assertions.
 
 Please contact Brian Bushnell at bbushnell@lbl.gov if you encounter any problems.
+For documentation and the latest version, visit: https://bbmap.org
 
     Args:
         capture_output (bool): If True, capture and return the output instead of printing it.
@@ -263,6 +286,7 @@ Java Parameters:
 -da             Disable assertions.
 
 Please contact Brian Bushnell at bbushnell@lbl.gov if you encounter any problems.
+For documentation and the latest version, visit: https://bbmap.org
 
     Args:
         capture_output (bool): If True, capture and return the output instead of printing it.
@@ -298,6 +322,7 @@ gff=<file>      A gff file or comma-delimited list.  This is optional;
 out=<file>      Output pgm file.
 
 Please contact Brian Bushnell at bbushnell@lbl.gov if you encounter any problems.
+For documentation and the latest version, visit: https://bbmap.org
 
     Args:
         capture_output (bool): If True, capture and return the output instead of printing it.
@@ -346,6 +371,7 @@ Java Parameters:
 -da                 Disable assertions.
 
 Please contact Brian Bushnell at bbushnell@lbl.gov if you encounter any problems.
+For documentation and the latest version, visit: https://bbmap.org
 
     Args:
         capture_output (bool): If True, capture and return the output instead of printing it.
@@ -387,7 +413,7 @@ mincov=0        If positive and depth is below this, change ref to N.
 maxindel=-1     If positive, ignore indels longer than this.
 noframeshifts=f Ignore indels that are not a multiple of 3 in length.
 
-Renaming:
+Renaming parameters:
 name=           Optionally rename sequences to this.
 addnumbers=f    Add _1 and so forth to ensure sequence names are unique.
 prefix=t        Use the name as a prefix to the old name, instead of replacing
@@ -404,6 +430,7 @@ Java Parameters:
 -da             Disable assertions.
 
 Please contact Brian Bushnell at bbushnell@lbl.gov if you encounter any problems.
+For documentation and the latest version, visit: https://bbmap.org
 
     Args:
         capture_output (bool): If True, capture and return the output instead of printing it.
@@ -451,6 +478,7 @@ Java Parameters:
 -da             Disable assertions.
 
 Please contact Brian Bushnell at bbushnell@lbl.gov if you encounter any problems.
+For documentation and the latest version, visit: https://bbmap.org
 
     Args:
         capture_output (bool): If True, capture and return the output instead of printing it.
@@ -462,6 +490,45 @@ Please contact Brian Bushnell at bbushnell@lbl.gov if you encounter any problems
     """
     args = _pack_args(kwargs)
     return _run_command("a_sample_mt.sh", args, capture_output)
+
+def bamlinestreamer(capture_output: bool = False, **kwargs) -> Union[None, Tuple[str, str]]:
+    """
+    Wrapper for bamlinestreamer.sh
+
+    Help message:
+    Written by Chloe
+Last modified October 18, 2025
+
+Description:  Converts BAM (Binary Alignment/Map) files to SAM 
+(Sequence Alignment/Map) text format. Reads BGZF-compressed BAM files 
+and outputs tab-delimited SAM format.
+
+Usage:  bamlinestreamer.sh <input.bam> <output.sam>
+
+Standard parameters:
+in_file=<file>        Input BAM file (first positional argument).
+out=<file>       Output SAM file (second positional argument).
+
+Java Parameters:
+-Xmx             This will set Java's memory usage, overriding autodetection.
+                 -Xmx20g will specify 20 gigs of RAM, and -Xmx200m will
+                 specify 200 megs. The max is typically 85% of physical memory.
+-eoom            This flag will cause the process to exit if an out-of-memory
+                 exception occurs.  Requires Java 8u92+.
+-da              Disable assertions.
+
+Please contact Brian Bushnell at bbushnell@lbl.gov if you encounter any problems.
+
+    Args:
+        capture_output (bool): If True, capture and return the output instead of printing it.
+        in_file (str): Input file (replaces 'in=' parameter)
+        **kwargs: Other arguments for bamlinestreamer.sh
+
+    Returns:
+        Union[None, Tuple[str, str]]: If capture_output is True, returns (stdout, stderr), else None.
+    """
+    args = _pack_args(kwargs)
+    return _run_command("bamlinestreamer.sh", args, capture_output)
 
 def bandedaligner(capture_output: bool = False, **kwargs) -> Union[None, Tuple[str, str]]:
     """
@@ -491,6 +558,7 @@ iterations      Optional integer for benchmarking multiple iterations.
 simd            Enable SIMD mode.  Needs a large band to be effective.
 
 Please contact Brian Bushnell at bbushnell@lbl.gov if you encounter any problems.
+For documentation and the latest version, visit: https://bbmap.org
 
     Args:
         capture_output (bool): If True, capture and return the output instead of printing it.
@@ -531,6 +599,7 @@ iterations      Optional integer for benchmarking multiple iterations.
 simd            Enable SIMD mode.  Needs a large band to be effective.
 
 Please contact Brian Bushnell at bbushnell@lbl.gov if you encounter any problems.
+For documentation and the latest version, visit: https://bbmap.org
 
     Args:
         capture_output (bool): If True, capture and return the output instead of printing it.
@@ -650,6 +719,7 @@ Java Parameters:
 -da             Disable assertions.
 
 Please contact Brian Bushnell at bbushnell@lbl.gov if you encounter any problems.
+For documentation and the latest version, visit: https://bbmap.org
 
     Args:
         capture_output (bool): If True, capture and return the output instead of printing it.
@@ -710,6 +780,7 @@ Java Parameters:
 -da                 Disable assertions.
 
 Please contact Brian Bushnell at bbushnell@lbl.gov if you encounter any problems.
+For documentation and the latest version, visit: https://bbmap.org
 
     Args:
         capture_output (bool): If True, capture and return the output instead of printing it.
@@ -867,6 +938,7 @@ Java Parameters:
 -da             Disable assertions.
 
 Please contact Brian Bushnell at bbushnell@lbl.gov if you encounter any problems.
+For documentation and the latest version, visit: https://bbmap.org
 
     Args:
         capture_output (bool): If True, capture and return the output instead of printing it.
@@ -885,7 +957,7 @@ def bbduk(capture_output: bool = False, **kwargs) -> Union[None, Tuple[str, str]
 
     Help message:
     Written by Brian Bushnell
-Last modified November 18, 2024
+Last modified October 29, 2025
 
 Description:  Compares reads to the kmers in a reference dataset, optionally 
 allowing an edit distance. Splits the reads into two outputs - those that 
@@ -975,7 +1047,7 @@ maxhistlen=6000     Set an upper bound for histogram lengths; higher uses
                     more memory.  The default is 6000 for some histograms
                     and 80000 for others.
 
-Histograms for mapped sam/bam files only:
+Histogram parameters for mapped sam/bam files only:
 histbefore=t        Calculate histograms from reads before processing.
 ehist=<file>        Errors-per-read histogram.
 qahist=<file>       Quality accuracy histogram of error rates versus quality 
@@ -992,7 +1064,7 @@ vcf=<file>          Ignore substitution errors listed in this VCF file
 ignorevcfindels=t   Also ignore indels listed in the VCF.
 
 Processing parameters:
-k=27                Kmer length used for finding contaminants.  Contaminants 
+k=31                Kmer length used for finding contaminants.  Contaminants 
                     shorter than k will not be found.  k must be at least 1.
 rcomp=t             Look for reverse-complements of kmers in addition to 
                     forward kmers.
@@ -1065,7 +1137,7 @@ Reads only get sent to 'outm' purely based on kmer matches in kfilter mode.
 
 ktrim=f             Trim reads to remove bases matching reference kmers, plus
                     all bases to the left or right.
-                    Values: 
+                    Values:
                        f (don't trim), 
                        r (trim to the right), 
                        l (trim to the left)
@@ -1157,7 +1229,7 @@ ymin_file=-1             If positive, discard reads with a lesser Y coordinate.
 xmax=-1             If positive, discard reads with a greater X coordinate.
 ymax=-1             If positive, discard reads with a greater Y coordinate.
 
-Polymer trimming:
+Polymer trimming parameters:
 trimpolya=0         If greater than 0, trim poly-A or poly-T tails of
                     at least this length on either end of reads.
 trimpolygleft=0     If greater than 0, trim poly-G prefixes of at least this
@@ -1169,7 +1241,7 @@ filterpolyg=0       If greater than 0, remove reads with a poly-G prefix of
                     at least this length (on the left).
 Note: there are also equivalent poly-C flags.
 
-Polymer tracking:
+Polymer tracking parameters:
 pratio=base,base    'pratio=G,C' will print the ratio of G to C polymers.
 plen=20             Length of homopolymers to count.
 
@@ -1193,7 +1265,7 @@ entropymark=f       Mark each base with its entropy value.  This is on a scale
                     should be fastq or fasta+qual.
 NOTE: If set, entropytrim overrides entropymask.
 
-Cardinality estimation:
+Cardinality estimation parameters:
 cardinality=f       (loglog) Count unique kmers using the LogLog algorithm.
 cardinalityout=f    (loglogout) Count unique kmers in output reads.
 loglogk=31          Use this kmer length for counting.
@@ -1202,7 +1274,7 @@ khist=<file>        Kmer frequency histogram; plots number of kmers versus
                     kmer depth.  This is approximate.
 khistout=<file>     Kmer frequency histogram for output reads.
 
-Side Channel:
+Side Channel Parameters:
 sideout=<file>      Output for aligned reads.
 sideref=phix        Reference for side-channel alignment; must be a single
                     sequence and virtually repeat-free at selected k.
@@ -1230,6 +1302,7 @@ Java Parameters:
 -da                 Disable assertions.
 
 Please contact Brian Bushnell at bbushnell@lbl.gov if you encounter any problems.
+For documentation and the latest version, visit: https://bbmap.org
 
     Args:
         capture_output (bool): If True, capture and return the output instead of printing it.
@@ -1242,21 +1315,390 @@ Please contact Brian Bushnell at bbushnell@lbl.gov if you encounter any problems
     args = _pack_args(kwargs)
     return _run_command("bbduk.sh", args, capture_output)
 
+def bbdukS(capture_output: bool = False, **kwargs) -> Union[None, Tuple[str, str]]:
+    """
+    Wrapper for bbdukS.sh
+
+    Help message:
+    Written by Brian Bushnell
+Last modified December 1, 2025
+
+#This is an experimental new version of BBDuk using a faster I/O system
+
+Description:  Compares reads to the kmers in a reference dataset, optionally 
+allowing an edit distance. Splits the reads into two outputs - those that 
+match the reference, and those that don't. Can also trim (remove) the matching 
+parts of the reads rather than binning the reads.
+Please read bbmap/docs/guides/BBDukGuide.txt for more information.
+
+Usage:  bbduk.sh in_file=<input file> out=<output file> ref=<contaminant files>
+
+Input may be stdin or a fasta or fastq file, compressed or uncompressed.
+If you pipe via stdin/stdout, please include the file type; e.g. for gzipped 
+fasta input, set in_file=stdin.fa.gz
+
+Input parameters:
+in_file=<file>           Main input. in_file=stdin.fq will pipe from stdin.
+in2=<file>          Input for 2nd read of pairs in a different file.
+ref=<file,file>     Comma-delimited list of reference files.
+                    In addition to filenames, you may also use the keywords:
+                    adapters, artifacts, phix, lambda, pjet, mtst, kapa
+literal=<seq,seq>   Comma-delimited list of literal reference sequences.
+                    Polymers are also allowed with the 'poly' prefix;
+                    for example, 'literal=ATGGT,polyGC' will add both ATGGT
+                    and GCGCGCGCGCGCGCGCGCGCGCGCGCGCGCGCGCGC - 32+ of them,
+                    enough replicates to ensure that all kmers are present.
+touppercase=f       (tuc) Change all bases upper-case.
+interleaved=auto    (int) t/f overrides interleaved autodetection.
+                    Must be set mainually when streaming fastq input.
+qin_file=auto            Input quality offset: 33 (Sanger), 64, or auto.
+reads=-1            If positive, quit after processing X reads or pairs.
+copyundefined=f     (cu) Process non-AGCT IUPAC reference bases by making all
+                    possible unambiguous copies.  Intended for short motifs
+                    or adapter barcodes, as time/memory use is exponential.
+samplerate=1        Set lower to only process a fraction of input reads.
+samref=<file>       Optional reference fasta for processing sam files.
+
+Output parameters:
+out=<file>          (outnonmatch) Write reads here that do not contain 
+                    kmers matching the database.  'out=stdout.fq' will pipe 
+                    to standard out.
+out2=<file>         (outnonmatch2) Use this to write 2nd read of pairs to a 
+                    different file.
+outm=<file>         (outmatch) Write reads here that fail filters.  In default
+                    kfilter mode, this means any read with a matching kmer.
+                    In any mode, it also includes reads that fail filters such
+                    as minlength, mingc, maxgc, entropy, etc.  In other words,
+                    it includes all reads that do not go to 'out'.
+outm2=<file>        (outmatch2) Use this to write 2nd read of pairs to a 
+                    different file.
+outs=<file>         (outsingle) Use this to write singleton reads whose mate 
+                    was trimmed shorter than minlen.
+stats=<file>        Write statistics about which contamininants were detected.
+refstats=<file>     Write statistics on a per-reference-file basis.
+rpkm=<file>         Write RPKM for each reference sequence (for RNA-seq).
+dump=<file>         Dump kmer tables to a file, in fasta format.
+duk=<file>          Write statistics in duk's format. *DEPRECATED*
+nzo=t               Only write statistics about ref sequences with nonzero hits.
+overwrite=t         (ow) Grant permission to overwrite files.
+showspeed=t         (ss) 'f' suppresses display of processing speed.
+ziplevel=2          (zl) Compression level; 1 (min) through 9 (max).
+fastawrap=70        Length of lines in fasta output.
+qout=auto           Output quality offset: 33 (Sanger), 64, or auto.
+statscolumns=3      (cols) Number of columns for stats output, 3 or 5.
+                    5 includes base counts.
+rename=f            Rename reads to indicate which sequences they matched.
+refnames=f          Use names of reference files rather than scaffold IDs.
+trd=f               Truncate read and ref names at the first whitespace.
+ordered=f           Set to true to output reads in same order as input.
+maxbasesout=-1      If positive, quit after writing approximately this many
+                    bases to out (outu/outnonmatch).
+maxbasesoutm=-1     If positive, quit after writing approximately this many
+                    bases to outm (outmatch).
+json=f              Print to screen in json format.
+
+Histogram output parameters:
+bhist=<file>        Base composition histogram by position.
+qhist=<file>        Quality histogram by position.
+qchist=<file>       Count of bases with each quality value.
+aqhist=<file>       Histogram of average read quality.
+bqhist=<file>       Quality histogram designed for box plots.
+lhist=<file>        Read length histogram.
+phist=<file>        Polymer length histogram.
+gchist=<file>       Read GC content histogram.
+enthist=<file>      Read entropy histogram.
+ihist=<file>        Insert size histogram, for paired reads in mapped sam.
+gcbins=100          Number gchist bins.  Set to 'auto' to use read length.
+maxhistlen=6000     Set an upper bound for histogram lengths; higher uses 
+                    more memory.  The default is 6000 for some histograms
+                    and 80000 for others.
+
+Histogram parameters for mapped sam/bam files only:
+histbefore=t        Calculate histograms from reads before processing.
+ehist=<file>        Errors-per-read histogram.
+qahist=<file>       Quality accuracy histogram of error rates versus quality 
+                    score.
+indelhist=<file>    Indel length histogram.
+mhist=<file>        Histogram of match, sub, del, and ins rates by position.
+idhist=<file>       Histogram of read count versus percent identity.
+idbins=100          Number idhist bins.  Set to 'auto' to use read length.
+varfile=<file>      Ignore substitution errors listed in this file when 
+                    calculating error rates.  Can be generated with
+                    CallVariants.
+vcf=<file>          Ignore substitution errors listed in this VCF file 
+                    when calculating error rates.
+ignorevcfindels=t   Also ignore indels listed in the VCF.
+
+Processing parameters:
+k=31                Kmer length used for finding contaminants.  Contaminants 
+                    shorter than k will not be found.  k must be at least 1.
+rcomp=t             Look for reverse-complements of kmers in addition to 
+                    forward kmers.
+maskmiddle=t        (mm) Treat the middle base of a kmer as a wildcard, to 
+                    increase sensitivity in the presence of errors.  This may
+                    also be set to a number, e.g. mm=3, to mask that many bp.
+                    The default mm=t corresponds to mm=1 for odd-length kmers
+                    and mm=2 for even-length kmers (as of v39.04), while
+                    mm=f is always equivalent to mm=0.
+minkmerhits=1       (mkh) Reads need at least this many matching kmers 
+                    to be considered as matching the reference.
+minkmerfraction=0.0 (mkf) A reads needs at least this fraction of its total
+                    kmers to hit a ref, in order to be considered a match.
+                    If this and minkmerhits are set, the greater is used.
+mincovfraction=0.0  (mcf) A reads needs at least this fraction of its total
+                    bases to be covered by ref kmers to be considered a match.
+                    If specified, mcf overrides mkh and mkf.
+hammingdistance=0   (hdist) Maximum Hamming distance for ref kmers (subs only).
+                    Memory use is proportional to (3*K)^hdist.
+qhdist=0            Hamming distance for query kmers; impacts speed, not memory.
+editdistance=0      (edist) Maximum edit distance from ref kmers (subs 
+                    and indels).  Memory use is proportional to (8*K)^edist.
+hammingdistance2=0  (hdist2) Sets hdist for short kmers, when using mink.
+qhdist2=0           Sets qhdist for short kmers, when using mink.
+editdistance2=0     (edist2) Sets edist for short kmers, when using mink.
+forbidn=f           (fn) Forbids matching of read kmers containing N.
+                    By default, these will match a reference 'A' if 
+                    hdist>0 or edist>0, to increase sensitivity.
+removeifeitherbad=t (rieb) Paired reads get sent to 'outmatch' if either is 
+                    match (or either is trimmed shorter than minlen).  
+                    Set to false to require both.
+trimfailures=f      Instead of discarding failed reads, trim them to 1bp.
+                    This makes the statistics a bit odd.
+findbestmatch=f     (fbm) If multiple matches, associate read with sequence 
+                    sharing most kmers.  Reduces speed.
+skipr1=f            Don't do kmer-based operations on read 1.
+skipr2=f            Don't do kmer-based operations on read 2.
+ecco=f              For overlapping paired reads only.  Performs error-
+                    correction with BBMerge prior to kmer operations.
+recalibrate=f       (recal) Recalibrate quality scores.  Requires calibration
+                    matrices generated by CalcTrueQuality.
+sam=<file,file>     If recalibration is desired, and matrices have not already
+                    been generated, BBDuk will create them from the sam file.
+amino=f             Run in amino acid mode.  Some features have not been
+                    tested, but kmer-matching works fine.  Maximum k is 12.
+
+Speed and Memory parameters:
+threads=auto        (t) Set number of threads to use; default is number of 
+                    logical processors.
+prealloc=f          Preallocate memory in table.  Allows faster table loading 
+                    and more efficient memory usage, for a large reference.
+monitor=f           Kill this process if it crashes.  monitor=600,0.01 would 
+                    kill after 600 seconds under 1% usage.
+minrskip=1          (mns) Force minimal skip interval when indexing reference 
+                    kmers.  1 means use all, 2 means use every other kmer, etc.
+maxrskip=1          (mxs) Restrict maximal skip interval when indexing 
+                    reference kmers. Normally all are used for scaffolds<100kb, 
+                    but with longer scaffolds, up to maxrskip-1 are skipped.
+rskip=              Set both minrskip and maxrskip to the same value.
+                    If not set, rskip will vary based on sequence length.
+qskip=1             Skip query kmers to increase speed.  1 means use all.
+speed=0             Ignore this fraction of kmer space (0-15 out of 16) in both
+                    reads and reference.  Increases speed and reduces memory.
+Note: Do not use more than one of 'speed', 'qskip', and 'rskip'.
+
+Trimming/Filtering/Masking parameters:
+Note - if ktrim, kmask, and ksplit are unset, the default behavior is kfilter.
+All kmer processing modes are mutually exclusive.
+Reads only get sent to 'outm' purely based on kmer matches in kfilter mode.
+
+ktrim=f             Trim reads to remove bases matching reference kmers, plus
+                    all bases to the left or right.
+                    Values:
+                       f (don't trim), 
+                       r (trim to the right), 
+                       l (trim to the left)
+ktrimtips=0         Set this to a positive number to perform ktrim on both
+                    ends, examining only the outermost X bases.
+kmask=              Replace bases matching ref kmers with another symbol.
+                    Allows any non-whitespace character, and processes short
+                    kmers on both ends if mink is set.  'kmask=lc' will
+                    convert masked bases to lowercase.
+maskfullycovered=f  (mfc) Only mask bases that are fully covered by kmers.
+ksplit=f            For single-ended reads only.  Reads will be split into
+                    pairs around the kmer.  If the kmer is at the end of the
+                    read, it will be trimmed instead.  Singletons will go to
+                    out, and pairs will go to outm.  Do not use ksplit with
+                    other operations such as quality-trimming or filtering.
+mink=0              Look for shorter kmers at read tips down to this length, 
+                    when k-trimming or masking.  0 means disabled.  Enabling
+                    this will disable maskmiddle.
+qtrim=f             Trim read ends to remove bases with quality below trimq.
+                    Performed AFTER looking for kmers.  Values: 
+                       rl (trim both ends), 
+                       f (neither end), 
+                       r (right end only), 
+                       l (left end only),
+                       w (sliding window).
+trimq=6             Regions with average quality BELOW this will be trimmed,
+                    if qtrim is set to something other than f.  Can be a 
+                    floating-point number like 7.3.
+quantize            Bin quality scores to reduce file size.  quantize=2 will
+                    eliminate all odd quality scores, while quantize=0,10,37
+                    will only allow qualty scores of 0, 10, or 37.
+trimclip=f          Trim soft-clipped bases from sam files.
+minlength=10        (ml) Reads shorter than this after trimming will be 
+                    discarded.  Pairs will be discarded if both are shorter.
+mlf=0               (minlengthfraction) Reads shorter than this fraction of 
+                    original length after trimming will be discarded.
+maxlength=          Reads longer than this after trimming will be discarded.
+minavgquality=0     (maq) Reads with average quality (after trimming) below 
+                    this will be discarded.
+maqb=0              If positive, calculate maq from this many initial bases.
+minbasequality=0    (mbq) Reads with any base below this quality (after 
+                    trimming) will be discarded.
+maxns=-1            If non-negative, reads with more Ns than this 
+                    (after trimming) will be discarded.
+mcb=0               (minconsecutivebases) Discard reads without at least 
+                    this many consecutive called bases.
+ottm=f              (outputtrimmedtomatch) Output reads trimmed to shorter 
+                    than minlength to outm rather than discarding.
+tp=0                (trimpad) Trim this much extra around matching kmers.
+tbo=f               (trimbyoverlap) Trim adapters based on where paired 
+                    reads overlap.
+strictoverlap=t     Adjust sensitivity for trimbyoverlap mode.
+minoverlap=14       Require this many bases of overlap for detection.
+mininsert=40        Require insert size of at least this for overlap.
+                    Should be reduced to 16 for small RNA sequencing.
+tpe=f               (trimpairsevenly) When kmer right-trimming, trim both 
+                    reads to the minimum length of either.
+forcetrimleft=0     (ftl) If positive, trim bases to the left of this position
+                    (exclusive, 0-based).
+forcetrimright=0    (ftr) If positive, trim bases to the right of this position
+                    (exclusive, 0-based).
+forcetrimright2=0   (ftr2) If positive, trim this many bases on the right end.
+forcetrimmod=0      (ftm) If positive, right-trim length to be equal to zero,
+                    modulo this number.
+restrictleft=0      If positive, only look for kmer matches in the 
+                    leftmost X bases.
+restrictright=0     If positive, only look for kmer matches in the 
+                    rightmost X bases.
+NOTE:  restrictleft and restrictright are mutually exclusive.  If trimming
+       both ends is desired, use ktrimtips.
+mingc=0             Discard reads with GC content below this.
+maxgc=1             Discard reads with GC content above this.
+gcpairs=t           Use average GC of paired reads.
+                    Also affects gchist.
+tossjunk=f          Discard reads with invalid characters as bases.
+swift=f             Trim Swift sequences: Trailing C/T/N R1, leading G/A/N R2.
+
+Header-parsing parameters - these require Illumina headers:
+chastityfilter=f    (cf) Discard reads with id containing ' 1:Y:' or ' 2:Y:'.
+barcodefilter=f     Remove reads with unexpected barcodes if barcodes is set,
+                    or barcodes containing 'N' otherwise.  A barcode must be
+                    the last part of the read header.  Values:
+                       t:     Remove reads with bad barcodes.
+                       f:     Ignore barcodes.
+                       crash: Crash upon encountering bad barcodes.
+barcodes=           Comma-delimited list of barcodes or files of barcodes.
+xmin_file=-1             If positive, discard reads with a lesser X coordinate.
+ymin_file=-1             If positive, discard reads with a lesser Y coordinate.
+xmax=-1             If positive, discard reads with a greater X coordinate.
+ymax=-1             If positive, discard reads with a greater Y coordinate.
+
+Polymer trimming parameters:
+trimpolya=0         If greater than 0, trim poly-A or poly-T tails of
+                    at least this length on either end of reads.
+trimpolygleft=0     If greater than 0, trim poly-G prefixes of at least this
+                    length on the left end of reads.  Does not trim poly-C.
+trimpolygright=0    If greater than 0, trim poly-G tails of at least this 
+                    length on the right end of reads.  Does not trim poly-C.
+trimpolyg=0         This sets both left and right at once.
+filterpolyg=0       If greater than 0, remove reads with a poly-G prefix of
+                    at least this length (on the left).
+Note: there are also equivalent poly-C flags.
+
+Polymer tracking parameters:
+pratio=base,base    'pratio=G,C' will print the ratio of G to C polymers.
+plen=20             Length of homopolymers to count.
+
+Entropy/Complexity parameters:
+entropy=-1          Set between 0 and 1 to filter reads with entropy below
+                    that value.  Higher is more stringent.
+entropywindow=50    Calculate entropy using a sliding window of this length.
+entropyk=5          Calculate entropy using kmers of this length.
+minbasefrequency=0  Discard reads with a minimum base frequency below this.
+entropytrim=f       Values:
+                       f:  (false) Do not entropy-trim.
+                       r:  (right) Trim low entropy on the right end only.
+                       l:  (left) Trim low entropy on the left end only.
+                       rl: (both) Trim low entropy on both ends.
+entropymask=f       Values:
+                       f:  (filter) Discard low-entropy sequences.
+                       t:  (true) Mask low-entropy parts of sequences with N.
+                       lc: Change low-entropy parts of sequences to lowercase.
+entropymark=f       Mark each base with its entropy value.  This is on a scale
+                    of 0-41 and is reported as quality scores, so the output
+                    should be fastq or fasta+qual.
+NOTE: If set, entropytrim overrides entropymask.
+
+Cardinality estimation parameters:
+cardinality=f       (loglog) Count unique kmers using the LogLog algorithm.
+cardinalityout=f    (loglogout) Count unique kmers in output reads.
+loglogk=31          Use this kmer length for counting.
+loglogbuckets=2048  Use this many buckets for counting.
+khist=<file>        Kmer frequency histogram; plots number of kmers versus
+                    kmer depth.  This is approximate.
+khistout=<file>     Kmer frequency histogram for output reads.
+
+Side Channel Parameters:
+sideout=<file>      Output for aligned reads.
+sideref=phix        Reference for side-channel alignment; must be a single
+                    sequence and virtually repeat-free at selected k.
+sidek1=17           Kmer length for seeding alignment to reference.
+sidek2=13           Kmer length for seeding alignment of unaligned reads
+                    with an aligned mate.
+sideminid1=0.66     Minimum identity to accept individual alignments.
+sideminid2=0.58     Minimum identity for aligning reads with aligned mates.
+sidemm1=1           Middle mask length for sidek1.
+sidemm2=1           Middle mask length for sidek2.
+Note:  The side channel is a special additional output that allows alignment
+to a secondary reference while also doing trimming.  Alignment does not affect
+whether reads go to the normal outputs (out, outm).  The main purpose is to
+simplify pipelines that need trimmed, aligned phiX reads for recalibration.
+
+
+Java Parameters:
+
+-Xmx                This will set Java's memory usage, overriding autodetection.
+                    -Xmx20g will 
+                    specify 20 gigs of RAM, and -Xmx200m will specify 200 megs.  
+                    The max is typically 85% of physical memory.
+-eoom               This flag will cause the process to exit if an 
+                    out-of-memory exception occurs.  Requires Java 8u92+.
+-da                 Disable assertions.
+
+Please contact Brian Bushnell at bbushnell@lbl.gov if you encounter any problems.
+For documentation and the latest version, visit: https://bbmap.org
+
+    Args:
+        capture_output (bool): If True, capture and return the output instead of printing it.
+        in_file (str): Input file (replaces 'in=' parameter)
+        **kwargs: Other arguments for bbdukS.sh
+
+    Returns:
+        Union[None, Tuple[str, str]]: If capture_output is True, returns (stdout, stderr), else None.
+    """
+    args = _pack_args(kwargs)
+    return _run_command("bbdukS.sh", args, capture_output)
+
 def bbest(capture_output: bool = False, **kwargs) -> Union[None, Tuple[str, str]]:
     """
     Wrapper for bbest.sh
 
     Help message:
     Written by Brian Bushnell
-Last modified November 4, 2015
+Last modified November 13, 2025
 
 Description:  Calculates EST (expressed sequence tags) capture by an assembly from a sam file.
-Designed to use BBMap output generated with these flags: k=13 maxindel=100000 customtag ordered
+Designed to use BBMap output generated with these flags:
+k=13 maxindel=100000 customtag ordered nodisk
 
-Usage:        bbest.sh in_file=<sam file> out=<stats file>
+Usage:          bbest.sh in_file=<sam file> out=<stats file>
 
 Parameters:
 in_file=<file>       Specify a sam file (or stdin) containing mapped ests.
+                If a fastq file is specified it will be mapped to a temporary
+                sam file using BBMap, then deleted.
 out=<file>      Specify the output stats file (default is stdout).
 ref=<file>      Specify the reference file (optional).
 est=<file>      Specify the est fasta file (optional).
@@ -1264,6 +1706,7 @@ fraction=0.98   Min fraction of bases mapped to ref to be
                 considered 'all mapped'.
 
 Please contact Brian Bushnell at bbushnell@lbl.gov if you encounter any problems.
+For documentation and the latest version, visit: https://bbmap.org
 
     Args:
         capture_output (bool): If True, capture and return the output instead of printing it.
@@ -1321,6 +1764,7 @@ Java Parameters:
 -da                 Disable assertions.
 
 Please contact Brian Bushnell at bbushnell@lbl.gov if you encounter any problems.
+For documentation and the latest version, visit: https://bbmap.org
 
     Args:
         capture_output (bool): If True, capture and return the output instead of printing it.
@@ -1345,15 +1789,15 @@ Last modified September 15, 2022
 Description:  Fast and accurate splice-aware read aligner.
 Please read bbmap/docs/guides/BBMapGuide.txt for more information.
 
-To index:     bbmap.sh ref=<reference fasta>
-To map:       bbmap.sh in_file=<reads> out=<output sam>
-To map without writing an index:
-    bbmap.sh ref=<reference fasta> in_file=<reads> out=<output sam> nodisk
+Usage:                      bbmap.sh ref=<fasta> in_file=<reads> out=<sam>
+Index only:                 bbmap.sh ref=<fasta>
+Map to existing index:      bbmap.sh in_file=<reads> out=<sam>
+Map without writing index:  bbmap.sh ref=<fasta> in_file=<reads> out=<sam> nodisk
 
 in_file=stdin will accept reads from standard in, and out=stdout will write to 
 standard out, but file extensions are still needed to specify the format of the 
 input and output files e.g. in_file=stdin.fa.gz will read gzipped fasta from 
-standard in; out=stdout.sam.gz will write gzipped sam.
+standard in; out=stdout.sam.gz will write gzipped sam; out=x.bam writes bam.
 
 Indexing Parameters (required when building the index):
 nodisk=f                Set to true to build index in memory and write nothing 
@@ -1362,6 +1806,7 @@ ref=<file>              Specify the reference sequence.  Only do this ONCE,
                         when building the index (unless using 'nodisk').
 build=1                 If multiple references are indexed in the same directory,
                         each needs a unique numeric ID (unless using 'nodisk').
+                        Later, this flag can be used to select an index.
 k=13                    Kmer length, range 8-15.  Longer is faster but uses 
                         more memory.  Shorter is more sensitive.
                         If indexing and mapping are done in two steps, K should
@@ -1375,8 +1820,6 @@ usemodulo=f             Throw away ~80% of kmers based on remainder modulo a
 rebuild=f               Force a rebuild of the index (ref= should be set).
 
 Input Parameters:
-build=1                 Designate index to use.  Corresponds to the number 
-                        specified when building the index.
 in_file=<file>               Primary reads input; required parameter.
 in2=<file>              For paired reads in two files.
 interleaved=auto        True forces paired/interleaved input; false forces 
@@ -1642,6 +2085,7 @@ Java Parameters:
 
 Please contact Brian Bushnell at bbushnell@lbl.gov if you encounter 
 any problems, or post at: http://seqanswers.com/forums/showthread.php?t=41057
+For documentation and the latest version, visit: https://bbmap.org
 
     Args:
         capture_output (bool): If True, capture and return the output instead of printing it.
@@ -1737,6 +2181,7 @@ Java Parameters:
 -da                 Disable assertions.
 
 Please contact Brian Bushnell at bbushnell@lbl.gov if you encounter any problems.
+For documentation and the latest version, visit: https://bbmap.org
 
     Args:
         capture_output (bool): If True, capture and return the output instead of printing it.
@@ -1763,8 +2208,8 @@ Kmer modes (Tadpole or Bloom Filter) require much more memory, and should
 be used with the bbmerge-auto.sh script rather than bbmerge.sh.
 Please read bbmap/docs/guides/BBMergeGuide.txt for more information.
 
-Usage for interleaved files:	bbmerge.sh in_file=<reads> out=<merged reads> outu=<unmerged reads>
-Usage for paired files:     	bbmerge.sh in1=<read1> in2=<read2> out=<merged reads> outu1=<unmerged1> outu2=<unmerged2>
+Usage (interleaved):	bbmerge.sh in_file=<reads> out=<merged reads> outu=<unmerged reads>
+Usage (twin files):     bbmerge.sh in1=<read1> in2=<read2> out=<merged reads> outu1=<unmerged1> outu2=<unmerged2>
 
 Input may be stdin or a file, fasta or fastq, raw or gzipped.
 
@@ -1864,7 +2309,7 @@ adapter=             Specify the adapter sequences used for these reads, if
                      with the adapter1 and adapter2 flags.  adapter=default
                      will use a list of common adapter sequences.
 
-Neural Network Mode:
+Neural Network Mode Parameters:
 nn=t                 Use a neural network for increased merging accuracy.
                      This is highly recommended, but will conflict with
                      strictness and ratiomode flags.  Stringency in nn mode
@@ -1874,7 +2319,7 @@ cutoff=0.872857      Merge reads with nn score above this value. Lower will
 net=<file>           Optional network to specify (for developer use); the
                      default is bbmap/resources/bbmerge.bbnet.
 
-Ratio Mode: 
+Ratio Mode Parameters: 
 ratiomode=t          Score overlaps based on the ratio of matching to 
                      mismatching bases.
 maxratio=0.09        Max error rate; higher increases merge rate.
@@ -1965,6 +2410,7 @@ Java Parameters:
 -da                  Disable assertions.
 
 Please contact Brian Bushnell at bbushnell@lbl.gov if you encounter any problems.
+For documentation and the latest version, visit: https://bbmap.org
 
     Args:
         capture_output (bool): If True, capture and return the output instead of printing it.
@@ -2099,6 +2545,7 @@ Java Parameters:
 -da                 Disable assertions.
 
 Please contact Brian Bushnell at bbushnell@lbl.gov if you encounter any problems.
+For documentation and the latest version, visit: https://bbmap.org
 
     Args:
         capture_output (bool): If True, capture and return the output instead of printing it.
@@ -2162,7 +2609,7 @@ minreadmapq=4   Ignore alignments with lower mapq.
 contigs=        Comma-delimited list of contig names to include. These 
                 should have no spaces, or underscores instead of spaces.
 secondary=f     Include secondary alignments.
-supplimentary=f Include supplimentary alignments.
+supplementary=f Include supplementary alignments.
 invert=f        Invert sam filters.
 
 Java Parameters:
@@ -2174,6 +2621,7 @@ Java Parameters:
 -da             Disable assertions.
 
 Please contact Brian Bushnell at bbushnell@lbl.gov if you encounter any problems.
+For documentation and the latest version, visit: https://bbmap.org
 
     Args:
         capture_output (bool): If True, capture and return the output instead of printing it.
@@ -2254,6 +2702,7 @@ Java Parameters:
 -da             Disable assertions.
 
 Please contact Brian Bushnell at bbushnell@lbl.gov if you encounter any problems.
+For documentation and the latest version, visit: https://bbmap.org
 
     Args:
         capture_output (bool): If True, capture and return the output instead of printing it.
@@ -2278,28 +2727,25 @@ Last modified June 11, 2018
 Description:  Maps reads to multiple references simultaneously.
 Outputs reads to a file for the reference they best match, with multiple options for dealing with ambiguous mappings.
 
-To index:     bbsplit.sh build=<1> ref_x=<reference fasta> ref_y=<another reference fasta>
-To map:       bbsplit.sh build=<1> in_file=<reads> out_x=<output file> out_y=<another output file>
-
-To be concise, and do everything in one command:
-bbsplit.sh ref=x.fa,y.fa in_file=reads.fq basename=o%.fq
-
+Usage: bbsplit.sh ref=x.fa,y.fa in_file=reads.fq basename=o%.fq
 that is equivalent to
 bbsplit.sh build=1 in_file=reads.fq ref_x=x.fa ref_y=y.fa out_x=ox.fq out_y=oy.fq
+
+To index:     bbsplit.sh build=<1> ref_x=<reference fasta> ref_y=<another reference fasta>
+To map:       bbsplit.sh build=<1> in_file=<reads> out_x=<output file> out_y=<another output file>
 
 By default paired reads will yield interleaved output, but you can use the # symbol to produce twin output files.
 For example, basename=o%_#.fq will produce ox_1.fq, ox_2.fq, oy_1.fq, and oy_2.fq.
 
-     
+
 Indexing Parameters (required when building the index):
 ref=<file,file>     A list of references, or directories containing fasta files.
 ref_<name>=<ref.fa> Alternate, longer way to specify references. e.g., ref_ecoli=ecoli.fa
                     These can also be comma-delimited lists of files; e.g., ref_a=a1.fa,a2.fa,a3.fa
-build=<1>           If multiple references are indexed in the same directory, each needs a unique build ID.
+build=<1>           Designate index to use.  Corresponds to the number specified when building the index.
 path=<.>            Specify the location to write the index, if you don't want it in the current working directory.
 
 Input Parameters:
-build=<1>           Designate index to use.  Corresponds to the number specified when building the index.
 in_file=<reads.fq>       Primary reads input; required parameter.
 in2=<reads2.fq>     For paired reads in two files.
 qin_file=<auto>          Set to 33 or 64 to specify input quality value ASCII offset.
@@ -2350,6 +2796,7 @@ Java Parameters:
 
 This list is not complete.  For more information, please consult $DIRdocs/readme.txt
 Please contact Brian Bushnell at bbushnell@lbl.gov if you encounter any problems.
+For documentation and the latest version, visit: https://bbmap.org
 
     Args:
         capture_output (bool): If True, capture and return the output instead of printing it.
@@ -2406,6 +2853,7 @@ Java Parameters:
 -da                 Disable assertions.
 
 Please contact Brian Bushnell at bbushnell@lbl.gov if you encounter any problems.
+For documentation and the latest version, visit: https://bbmap.org
 
     Args:
         capture_output (bool): If True, capture and return the output instead of printing it.
@@ -2424,7 +2872,7 @@ def bbversion(capture_output: bool = False, **kwargs) -> Union[None, Tuple[str, 
 
     Help message:
     Written by Brian Bushnell
-Last modified May 4, 2017
+Last modified November 19, 2025
 
 Description:  Prints the BBTools version number.
 Add an argument to print the version name too.
@@ -2449,11 +2897,11 @@ def bbwrap(capture_output: bool = False, **kwargs) -> Union[None, Tuple[str, str
     Help message:
     Last modified February 13, 2020
 
-Description:  Wrapper for BBMap to allow multiple input and output files for the same reference.
+Description:  Wrapper for BBMap to allow multiple input and output files for the same reference without reloading the index each time.
 
-To index:                 bbwrap.sh ref=<reference fasta>
-To map:                   bbwrap.sh in_file=<file,file,...> out=<file,file,...>
-To map without an index:  bbwrap.sh ref=<reference fasta> in_file=<file,file,...> out=<file,file,...> nodisk
+Usage:  bbwrap.sh ref=<reference fasta> in_file=<file,file,...> out=<file,file,...> nodisk
+To index only:                bbwrap.sh ref=<reference fasta>
+To map to an existing index:  bbwrap.sh in_file=<file,file,...> out=<file,file,...>
 To map pairs and singletons and output them into the same file:
 bbwrap.sh in1=read1.fq,singleton.fq in2=read2.fq,null out=mapped.sam append
 
@@ -2465,9 +2913,9 @@ in_file=<file,file>  Input sequences to map.
 inlist=<fofn>   Alternately, input and output can be a file of filenames,
                 one line per file, using the flag inlist, outlist, outmlist,
                 in2list, etc.
-mapper=bbmap    Select mapper.  May be BBMap, BBMapPacBio, 
+mapper=bbmap    Select mapper.  May be BBMap, BBMapPacBio,
                 or BBMapPacBioSkimmer.
-append=f        Append to files rather than overwriting them.  
+append=f        Append to files rather than overwriting them.
                 If append is enabled, and there is exactly one output file,
                 all output will be written to that file.
 
@@ -2519,7 +2967,7 @@ overwrite=t     (ow) Set to false to force the program to abort rather than
 
 Hashing parameters:
 k=31            Kmer length.
-hashes=2        Number of hashes per kmer.  Higher generally reduces 
+hashes=2        Number of hashes per kmer.  Higher generally reduces
                 false positives at the expense of speed.
 sw=t            (symmetricwrite) Increases accuracy when bits>1 and hashes>1.
 minprob=0.5     Ignore reference kmers with probability of being correct
@@ -2536,7 +2984,7 @@ bits=           Bits per cell; it is set automatically from mincount.
 Reference-matching parameters:
 minhits=3       Consecutive kmer hits for a read to be considered matched.
                 Higher reduces false positives at the expense of sensitivity.
-mincount=1      Minimum number of times a read kmer must occur in the 
+mincount=1      Minimum number of times a read kmer must occur in the
                 reference to be considered a match (or printed to outc).
 requireboth=f   Require both reads in a pair to match the ref in order to go
                 to outm.  By default, pairs go to outm if either matches.
@@ -2550,6 +2998,7 @@ Java Parameters:
 -da             Disable assertions.
 
 Please contact Brian Bushnell at bbushnell@lbl.gov if you encounter any problems.
+For documentation and the latest version, visit: https://bbmap.org
 
     Args:
         capture_output (bool): If True, capture and return the output instead of printing it.
@@ -2582,6 +3031,7 @@ in_file=slurm-3249652.out out=summary.txt
 You get details of calls to increment() if you add the verbose flag.
 
 Please contact Brian Bushnell at bbushnell@lbl.gov if you encounter any problems.
+For documentation and the latest version, visit: https://bbmap.org
 
     Args:
         capture_output (bool): If True, capture and return the output instead of printing it.
@@ -2621,28 +3071,26 @@ def calctruequality(capture_output: bool = False, **kwargs) -> Union[None, Tuple
 Last modified October 8, 2024
 
 Description:  Calculates observed quality scores from mapped sam/bam files.
-Generates matrices for use in recalibrating quality scores.  By default, 
+Generates matrices for use in recalibrating quality scores.  By default,
 the matrices are written to /ref/qual/ in the current directory.
 
 If you have multiple sam/bam files demultiplexed from a single sequencing run,
 it is recommended to use all of them as input for increased statistical power.
 Once the matrices are generated, recalibration can be done on mapped or
-unmapped reads; you may get better results by recalibrating the fastq and 
+unmapped reads; you may get better results by recalibrating the fastq and
 remapping the calibrated reads.
 
 Note!  Diploid organisms with a high heterozygousity rate will induce
 inaccurate recalibration at the high end of the quality scale unless SNP
-locations are masked or variations are called.  For example, recalibrating 
-human reads mapped to an unmasked human reference would generate an 
+locations are masked or variations are called.  For example, recalibrating
+human reads mapped to an unmasked human reference would generate an
 expected maximal Q-score of roughly 30 due to the human 1/1000 SNP rate.
 Variations can be ignored by using the callvars flag or providing
 a file of variations.
 
-Usage:
+Usage: calctruequality.sh in_file=<sam,sam,...sam> path=<directory>
 
-Step 1.  Generate matrices (from mapped sam or bam files):
-calctruequality.sh in_file=<file,file,...file> path=<directory>
-
+Step 1.  Generate matrices as above.
 Step 2.  Recalibrate reads (any kind of files):
 bbduk.sh in_file=<file> out=<file> recalibrate
 
@@ -2650,7 +3098,7 @@ bbduk.sh in_file=<file> out=<file> recalibrate
 Parameters (and their defaults)
 
 Input parameters:
-in_file=<file,file>      Sam file or comma-delimited list of files.  Alignments 
+in_file=<file,file>      Sam/bam file or comma-delimited list of files.  Alignments
                     must use = and X cigar symbols, or have MD tags, or
                     ref must be specified.
 reads=-1            Stop after processing this many reads (if positive).
@@ -2671,7 +3119,7 @@ passes=2            Recalibration passes, 1 or 2.  2 is slower but gives more
 recalqmax=42        Adjust max quality scores tracked.  The actual highest
                     quality score allowed is recalqmax-1.
 trackall=f          Track all available quality metrics and produce all
-                    matrices, including the ones that are not selected for 
+                    matrices, including the ones that are not selected for
                     quality adjustment.  Reduces speed, but allows testing the
                     effects of different recalibration matrices.
 indels=t            Include indels in quality calculations.
@@ -2679,7 +3127,7 @@ usetiles=f          Use per-tile quality statistics to generate matrices.
                     If this is true, the flag must also be used during
                     recalibration (e.g. in BBDuk).
 
-Variation calling:
+Variation calling parameters:
 varfile=<file>      Use the variants in this var file, instead of calling
                     variants.  The format can be produced by CallVariants.
 vcf=<file>          Use the variants in this VCF file, instead of
@@ -2690,7 +3138,7 @@ ref=                Required for variation-calling.
 
 *** 'Variant-Calling Cutoffs' flags in callvariants.sh are also supported ***
 
-Selecting matrices:
+Matrix-selection parameters:
 loadq102=           For each recalibration matrix, enable or disable that matrix with t/f.
                     You can specify pass1 or pass2 like this: loadq102_p1=f loadq102_p2=t.
                     The default is loadqbp_p1=t loadqbp_p2=t loadqb123_p=t.
@@ -2698,7 +3146,7 @@ clearmatrices=f     If true, clear all the existing matrix selections.  For exam
                     'clearmatrices loadqbp_p1'
                     This would ignore defaults and select only qbp for the first pass.
 
-Available matrices:
+Avaliable matrix type parameters:
 q102                Quality, leading quality, trailing quality.
 qap                 Quality, average quality, position.
 qbp                 Quality, current base, position.
@@ -2722,6 +3170,7 @@ Java Parameters:
 -da                 Disable assertions.
 
 Please contact Brian Bushnell at bbushnell@lbl.gov if you encounter any problems.
+For documentation and the latest version, visit: https://bbmap.org
 
     Args:
         capture_output (bool): If True, capture and return the output instead of printing it.
@@ -2778,6 +3227,7 @@ recode=f        Re-encode nucleotide sequences over called genes, leaving
                 non-coding regions unchanged.
 
 Please contact Brian Bushnell at bbushnell@lbl.gov if you encounter any problems.
+For documentation and the latest version, visit: https://bbmap.org
 
     Args:
         capture_output (bool): If True, capture and return the output instead of printing it.
@@ -2808,19 +3258,19 @@ out=<file>          Write the peaks to this file.  Default is stdout.
 minHeight=2         (h) Ignore peaks shorter than this.
 minVolume=5         (v) Ignore peaks with less area than this.
 minWidth=3          (w) Ignore peaks narrower than this.
-minPeak=2           (minp) Ignore peaks with an X-value below this. 
+minPeak=2           (minp) Ignore peaks with an X-value below this.
                     Useful when low-count kmers are filtered).
 maxPeak=BIG         (maxp) Ignore peaks with an X-value above this.
 maxPeakCount=10     (maxpc) Print up to this many peaks (prioritizing height).
-countColumn=1       (col) For multi-column input, this column, zero-based, 
+countColumn=1       (col) For multi-column input, this column, zero-based,
                     contains the counts.
 ploidy=-1           Specify ploidy; otherwise it will be autodetected.
 logscale=f          Transform to log-scale prior to peak-calling.  Useful
                     for kmer-frequency histograms.
 
 Smoothing parameters:
-smoothradius=0      Integer radius of triangle filter.  Set above zero to 
-                    smooth data prior to peak-calling.  Higher values are 
+smoothradius=0      Integer radius of triangle filter.  Set above zero to
+                    smooth data prior to peak-calling.  Higher values are
                     smoother.
 smoothprogressive=f Set to true to widen the filter as the x-coordinate
                     increases.  Useful for kmer-frequency histograms.
@@ -2828,6 +3278,7 @@ maxradius=10        Maximum radius of progressive smoothing function.
 progressivemult=2   Increment radius each time depth increases by this factor.
 
 Please contact Brian Bushnell at bbushnell@lbl.gov if you encounter any problems.
+For documentation and the latest version, visit: https://bbmap.org
 
     Args:
         capture_output (bool): If True, capture and return the output instead of printing it.
@@ -2846,7 +3297,7 @@ def callvariants(capture_output: bool = False, **kwargs) -> Union[None, Tuple[st
 
     Help message:
     Written by Brian Bushnell
-Last modified October 6, 2020
+Last modified July 31, 2025
 
 Description:  Calls variants from sam or bam input.
 In default mode, all input files are combined and treated as a single sample.
@@ -2870,7 +3321,7 @@ out=<file>      Output variant list in var format.  If the name ends
 vcf=<file>      Output variant list in vcf format.
 outgff=<file>   Output variant list in gff format.
 ref=<file>      Reference fasta.  Required to display ref alleles.
-                Variant calling wil be more accurate with the reference.
+                Variant calling will be more accurate with the reference.
 vcfin_file=<file>    Force calls at these locations, even if allele count is 0.
 shist=<file>    (scorehist) Output for variant score histogram.
 zhist=<file>    (zygosityhist) Output for zygosity histogram.
@@ -2897,21 +3348,21 @@ prefilter=f     Use a Bloom filter to exclude variants seen fewer than
                 memory usage.  The results are identical.
 coverage=t      (cc) Calculate coverage, to better call variants.
 ploidy=1        Set the organism's ploidy.
-rarity=1.0      Penalize the quality of variants with allele fraction 
+rarity=1.0      Penalize the quality of variants with allele fraction
                 lower than this.  For example, if you are interested in
                 4% frequency variants, you could set both rarity and
-                minallelefraction to 0.04.  This is affected by ploidy - 
+                minallelefraction to 0.04.  This is affected by ploidy -
                 a variant with frequency indicating at least one copy
                 is never penalized.
-covpenalty=0.8  (lowcoveragepenalty) A lower penalty will increase the 
-                scores of low-coverage variants, and is useful for 
+covpenalty=0.8  (lowcoveragepenalty) A lower penalty will increase the
+                scores of low-coverage variants, and is useful for
                 low-coverage datasets.
 useidentity=t   Include average read identity in score calculation.
 usepairing=t    Include pairing rate in score calculation.
 usebias=t       Include strand bias in score calculation.
 useedist=t      Include read-end distance in score calculation.
 homopolymer=t   Penalize scores of substitutions matching adjacent bases.
-nscan=t         Consider the distance of a variant from contig ends when 
+nscan=t         Consider the distance of a variant from contig ends when
                 calculating strand bias.
 callsub=t       Call substitutions.
 calldel=t       Call deletions.
@@ -2945,7 +3396,7 @@ repadding=70    Pad alignment by this much on each end.  Typically,
                 reduces speed.
 rerows=602      Use this many rows maximum for realignment.  Reads longer
                 than this cannot be realigned.
-recols=2000     Reads may not be aligned to reference seqments longer 
+recols=2000     Reads may not be aligned to reference seqments longer
                 than this.  Needs to be at least read length plus
                 max deletion length plus twice padding.
 msa=            Select the aligner.  Options:
@@ -2957,14 +3408,14 @@ Sam-filtering Parameters:
 minpos=         Ignore alignments not overlapping this range.
 maxpos=         Ignore alignments not overlapping this range.
 minreadmapq=4   Ignore alignments with lower mapq.
-contigs=        Comma-delimited list of contig names to include. These 
+contigs=        Comma-delimited list of contig names to include. These
                 should have no spaces, or underscores instead of spaces.
 secondary=f     Include secondary alignments.
-supplimentary=f Include supplimentary alignments.
+supplementary=f Include supplementary alignments.
 duplicate=f     Include reads flagged as duplicates.
 invert=f        Invert sam filters.
 
-Variant-Calling Cutoffs:
+Variant-Calling Cutoff Parameters:
 minreads=2              (minad) Ignore variants seen in fewer reads.
 maxreads=BIG            (maxad) Ignore variants seen in more reads.
 mincov=0                Ignore variants in lower-coverage locations.
@@ -3003,6 +3454,7 @@ Java Parameters:
 -da             Disable assertions.
 
 Please contact Brian Bushnell at bbushnell@lbl.gov if you encounter any problems.
+For documentation and the latest version, visit: https://bbmap.org
 
     Args:
         capture_output (bool): If True, capture and return the output instead of printing it.
@@ -3023,7 +3475,9 @@ def cat(capture_output: bool = False, **kwargs) -> Union[None, Tuple[str, str]]:
     Written by Brian Bushnell
 Last modified January 20, 2025
 
-Description:  Concatenates and recompresses files.
+Description:  Concatenates and recompresses text files.
+Compressed files (gz and bz2) are decompressed first.
+Do not use with binary files, it replaces \r\n with \n.
 
 Usage:  cat.sh *.fna out=catted.fa.gz
 
@@ -3046,6 +3500,7 @@ Java Parameters:
 -da             Disable assertions.
 
 Please contact Brian Bushnell at bbushnell@lbl.gov if you encounter any problems.
+For documentation and the latest version, visit: https://bbmap.org
 
     Args:
         capture_output (bool): If True, capture and return the output instead of printing it.
@@ -3057,6 +3512,66 @@ Please contact Brian Bushnell at bbushnell@lbl.gov if you encounter any problems
     """
     args = _pack_args(kwargs)
     return _run_command("cat.sh", args, capture_output)
+
+def cbcl2text(capture_output: bool = False, **kwargs) -> Union[None, Tuple[str, str]]:
+    """
+    Wrapper for cbcl2text.sh
+
+    Help message:
+    Written by Chloe
+Last modified October 15, 2025
+
+Description:  Converts Illumina CBCL (Compressed Base Call) files to text format.
+Extracts base calls, quality scores, and flowcell coordinates from binary CBCL files.
+
+Usage:  cbcl2text.sh runfolder=<path> out=<file> lane=<int>
+
+
+Standard parameters:
+runfolder=<dir>  Path to Illumina run folder containing Data/Intensities.
+out=<file>       Output file (tab-delimited text).
+lane=<int>       Lane number to process (default 1).
+
+Optional parameters:
+tiles=<list>     Comma-separated tile numbers (e.g., tiles=1101,1102).
+                 Default: process all tiles found in lane directory.
+length=<mode>    Read splitting mode:
+                   (none)          - Concatenate all cycles (default)
+                   auto            - Parse RunInfo.xml for read structure
+                   151,19,10,151   - Manual read lengths (comma-delimited)
+
+Output format (default):
+tile    X       Y       PF      bases(all_cycles)       quals(all_cycles)
+
+Output format (with length):
+tile    X       Y       PF      R1,I1,I2,R2             Q1,QI1,QI2,Q2
+
+Coordinates:
+X and Y are transformed to Illumina FASTQ format: round(10*raw + 1000)
+
+Quality scores:
+Illumina bins qualities to 2 bits (values 0-3) in CBCL files.
+
+Java Parameters:
+-Xmx            This will set Java's memory usage, overriding autodetection.
+                -Xmx20g will specify 20 gigs of RAM, and -Xmx200m will
+                specify 200 megs. The max is typically 85% of physical memory.
+-eoom           This flag will cause the process to exit if an out-of-memory
+                exception occurs.  Requires Java 8u92+.
+-da             Disable assertions.
+
+Please contact Brian Bushnell at bbushnell@lbl.gov if you encounter any problems.
+
+    Args:
+        capture_output (bool): If True, capture and return the output instead of printing it.
+        in_file (str): Input file (replaces 'in=' parameter)
+        **kwargs: Other arguments for cbcl2text.sh
+
+    Returns:
+        Union[None, Tuple[str, str]]: If capture_output is True, returns (stdout, stderr), else None.
+    """
+    args = _pack_args(kwargs)
+    return _run_command("cbcl2text.sh", args, capture_output)
 
 def cg2illumina(capture_output: bool = False, **kwargs) -> Union[None, Tuple[str, str]]:
     """
@@ -3072,7 +3587,7 @@ and optionally appends barcodes/indexes. For example,
 would become
 @E200008112:0:FC:1:6396:1:1 1:N:0:
 
-Usage:  bgi2illumina.sh in_file=<input file> out=<output file> barcode=<string>
+Usage:  cg2illumina.sh in_file=<input file> out=<output file> barcode=<string>
 
 Input may be fasta or fastq, compressed or uncompressed.
 
@@ -3092,6 +3607,7 @@ parseextra=f    Set this to true if the reads headers have comments
                 delimited by a whitespace.
 
 Please contact Brian Bushnell at bbushnell@lbl.gov if you encounter any problems.
+For documentation and the latest version, visit: https://bbmap.org
 
     Args:
         capture_output (bool): If True, capture and return the output instead of printing it.
@@ -3123,6 +3639,8 @@ prokaryotic gene caller.  Strandedness and P/(P+M) ratios are similar but
 calculated in different ways, and thus will not exactly agree, but should be 
 close.  For most calculations, only read 1 is used, or the merge of read 1
 and read 2 if the merge flag is enabled and they overlap.
+
+Usage:  checkstrand.sh in_file=<input file>
 
 
 Output meaning:
@@ -3183,8 +3701,6 @@ PlusFeatures:   Fraction of features with majority plus-mapped reads.
 AlignmentRate:  Fraction of reads that aligned.
 Feature-Mapped: Fraction of reads that aligned to a feature in the gff.
 
-
-Usage:  checkstrand.sh in_file=<input file>
 
 Running on a fastq is simple, but there are multiple ways to run CheckStrand
 on aligned data (in_file=, ref=, and gff= flags are not needed if the files have
@@ -3258,6 +3774,7 @@ Java Parameters:
 -da             Disable assertions.
 
 Please contact Brian Bushnell at bbushnell@lbl.gov if you encounter any problems.
+For documentation and the latest version, visit: https://bbmap.org
 
     Args:
         capture_output (bool): If True, capture and return the output instead of printing it.
@@ -3276,7 +3793,7 @@ def cladeloader(capture_output: bool = False, **kwargs) -> Union[None, Tuple[str
 
     Help message:
     Written by Brian Bushnell
-Last modified May 4, 2025
+Last modified October 13, 2025
 
 Description:  Loads fasta files and writes clade files.
 
@@ -3302,6 +3819,7 @@ Java Parameters:
 -da             Disable assertions.
 
 Please contact Brian Bushnell at bbushnell@lbl.gov if you encounter any problems.
+For documentation and the latest version, visit: https://bbmap.org
 
     Args:
         capture_output (bool): If True, capture and return the output instead of printing it.
@@ -3313,6 +3831,234 @@ Please contact Brian Bushnell at bbushnell@lbl.gov if you encounter any problems
     """
     args = _pack_args(kwargs)
     return _run_command("cladeloader.sh", args, capture_output)
+
+def cladeserver(capture_output: bool = False, **kwargs) -> Union[None, Tuple[str, str]]:
+    """
+    Wrapper for cladeserver.sh
+
+    Help message:
+    Written by Chloe
+Last modified October 12, 2025
+
+Description:  Starts a CladeServer for taxonomic classification using QuickClade
+architecture.  CladeServer is a high-performance HTTP server that loads a
+reference clade database once into memory and then handles multiple client
+requests efficiently.  This server-based approach dramatically reduces memory
+requirements for clients and enables high-throughput taxonomic classification
+for multiple users or batch processing workflows.
+
+CladeServer receives text-encoded Clade objects (NOT raw FASTA) from SendClade
+clients and performs fast k-mer frequency comparisons against the preloaded
+reference database.  The server architecture separates database loading from
+query processing, allowing the expensive initialization to be done once while
+serving many classification requests quickly.
+
+Results can be returned in human-readable format or tab-delimited machine format
+suitable for downstream analysis pipelines.
+
+Usage Examples:
+cladeserver.sh ref=refseqA48_with_ribo.spectra.gz
+cladeserver.sh ref=refseqA48_with_ribo.spectra.gz port=3069 killcode=magical_girl_2025
+cladeserver.sh ref=refseqA48_with_ribo.spectra.gz verbose=t localhost=f
+cladeserver.sh ref=my_custom_db.spectra.gz port=8080 heap=10 verbose2=t
+cladeserver.sh ref=bacteria_only.spectra.gz port=3069 prefix=/10.0.0
+
+Server Parameters:
+port=3069       Server listening port.  Choose an available port for the HTTP
+                server.  Default is 3069.  Clients must specify this port
+                when connecting to the server.
+killcode=       Security code for remote server shutdown.  When specified,
+                allows remote shutdown by accessing /kill/<killcode> endpoint.
+                Without a kill code, the server can only be stopped locally.
+                Choose a secure, unpredictable password.
+localhost=t     Allow connections from localhost (127.0.0.1).  Set to false
+                to restrict localhost access in security-sensitive environments.
+prefix=<string> Required address prefix for client connections.  Only clients
+                connecting from IP addresses starting with this prefix will
+                be allowed.  Useful for restricting access to specific subnets
+                or IP ranges, e.g., prefix=/10.0.0 or prefix=/192.168.1.
+remotefileaccess=f
+                Allow remote file access through the server.  When enabled,
+                clients can potentially access files on the server filesystem.
+                Keep disabled unless specifically needed for security.
+
+Processing Parameters:
+ref=<file>      Reference clade database file (REQUIRED).  Should be a .spectra
+                file generated by CladeLoader or similar BBTools clade utilities.
+                This database is loaded once at server startup and used for all
+                subsequent taxonomic classifications.  Large databases may require
+                several minutes to load and significant memory.
+hits=1          Default number of top taxonomic hits to return per query.
+                Clients can override this parameter in their requests.  More
+                hits provide alternative classifications but increase response
+                size and processing time.
+heap=1          Default number of intermediate comparison results to store
+                during processing.  Higher values may improve accuracy for
+                complex queries but increase memory usage.  Clients can
+                override this in individual requests.
+format=human    Default output format.  Options are 'human' for readable
+                output with detailed information, or 'oneline'/'machine' for
+                tab-delimited format suitable for parsing.  Clients can
+                specify format preferences in their requests.
+banself=f       Default setting for banning self-matches.  When true, ignores
+                records with the same TaxID as the query, useful for accuracy
+                testing.  Clients can override this per request.
+bandupes=f      Default setting for banning duplicate matches.  When true,
+                prevents the same reference from appearing multiple times,
+                ensuring all hits represent distinct classifications.
+printqtid=f     Default setting for printing query TaxIDs when present in
+                sequence headers.  Useful for benchmarking with labeled data
+                containing taxonomic information in headers.
+
+Verbose Parameters:
+verbose=f       Enable standard verbose logging.  Shows request processing,
+                timing information, and basic server statistics.  Useful for
+                monitoring server activity and performance.
+verbose2=f      Enable detailed debug logging.  Shows extensive debugging
+                information including HTTP headers, request parsing details,
+                and step-by-step processing.  Generates significant log output;
+                use only for debugging specific issues.
+
+Server Architecture:
+CladeServer uses Java HTTP server infrastructure to handle concurrent requests
+efficiently.  The server creates separate handlers for different endpoints:
+- /clade: Main classification endpoint for processing taxonomic queries
+- /kill: Secure shutdown endpoint (requires kill code)
+- /stats: Server statistics including uptime and query counts
+- /: Help information and usage guidance
+
+Memory Requirements:
+Server memory usage depends primarily on reference database size.  Typical
+requirements range from 4-16GB for standard databases.  The default memory
+allocation is 8GB (-Xmx8g -Xms8g).  Large custom databases may require
+additional memory.  Memory is allocated once at startup and reused for all
+subsequent requests.
+
+Security Considerations:
+- Use killcode parameter for secure remote shutdown capability
+- Configure localhost and prefix parameters to restrict access appropriately
+- Keep remotefileaccess=false unless specifically required
+- Monitor logs for unauthorized access attempts
+- Choose non-standard ports for production deployments
+
+Performance Notes:
+Database loading occurs once at startup and may take several minutes for large
+references.  Once loaded, individual queries are processed quickly.  The server
+is designed for high-throughput scenarios where many classification requests
+need to be processed efficiently.  Concurrent requests are handled safely with
+thread-safe data structures.
+
+Server Endpoints:
+POST /clade - Main classification endpoint
+GET /kill/<code> - Shutdown server (requires kill code)
+GET /stats - Server statistics and uptime
+GET / - Usage help and server information
+
+To shutdown remotely:
+1. Start server with killcode: cladeserver.sh ref=db.spectra killcode=secret123
+2. Shutdown via HTTP: curl http://server:port/kill/secret123
+
+Please contact Brian Bushnell at bbushnell@lbl.gov if you encounter any problems.
+For documentation and the latest version, visit: https://bbmap.org
+
+    Args:
+        capture_output (bool): If True, capture and return the output instead of printing it.
+        in_file (str): Input file (replaces 'in=' parameter)
+        **kwargs: Other arguments for cladeserver.sh
+
+    Returns:
+        Union[None, Tuple[str, str]]: If capture_output is True, returns (stdout, stderr), else None.
+    """
+    args = _pack_args(kwargs)
+    return _run_command("cladeserver.sh", args, capture_output)
+
+def cloudplot(capture_output: bool = False, **kwargs) -> Union[None, Tuple[str, str]]:
+    """
+    Wrapper for cloudplot.sh
+
+    Help message:
+    Written by Brian Bushnell
+Last modified October 12, 2025
+
+Description:  Visualizes 3D compositional metrics (GC, HH, CAGA) as 2D scatter plots.
+Supports both TSV interval data and FASTA input (via ScalarIntervals).
+Generates PNG images with configurable scaling and point sizes.
+
+Usage:  cloudplot.sh in_file=<input file> out=<output file>
+e.g.
+cloudplot.sh in_file=data.tsv out=plot.png
+or
+cloudplot.sh in_file=ecoli.fasta out=plot.png shred=5k
+
+Standard parameters:
+in_file=<file>       Primary input; TSV (GC/HH/CAGA columns) or FASTA/FASTQ.
+out=<file>      Output PNG image file.
+
+Rendering parameters:
+order=caga,hh,gc  Plotting order of dimensions as x,y,z.
+scale=1         Image scale multiplier (1=1024x768).
+pointsize=3.5   Width of plotted points in pixels.
+autoscale=t     Autoscale dimensions with negative values based on data.
+                If false, they will be scaled to 0-1.
+xmin_file=-1         X-axis minimum.
+xmax=-1         X-axis maximum.
+ymin_file=-1         Y-axis minimum.
+ymax=-1         Y-axis maximum.
+zmin_file=-1         Z-axis (rotation/color) minimum.
+zmax=-1         Z-axis (rotation/color) maximum.
+xpct=0.998      Percentile of x-axis values to use for autoscaling.
+ypct=0.998      Percentile of y-axis values to use for autoscaling.
+zpct=0.99       Percentile of z-axis values to use for autoscaling.
+
+Taxonomy/Coloring parameters:
+colorbytax=f    Color by taxonomy.  Default coloring is by the 
+colorbyname=f   Color by contig name, so points on the same contig have
+                the same, random color.
+level=          Raise taxonomy to this level before assigning color.
+                Requires a taxonomic tree.  e.g. 'level=genus'
+                See https://sourceforge.net/projects/bbmap/files/Resources/
+parsetid=f      Parse TaxIDs from file and sequence headers.
+sketch=f        Use BBSketch (SendSketch) to assign taxonomy per contig.
+clade=f         Use QuickClade to assign taxonomy per contig.
+
+Decorrelation parameters:
+decorrelate=t   Modify plotted data to reduce inter-dimension correlation.
+GChh=-0.5       Correlation between GC and HH.
+GChhs=0.2       (GChhStrength) Modify HH by -GChhs*GC*GChh.
+hhGCs=1.4       (hhGCStrength) Modify GC by -hhGCs*hh*GChh.
+GCcaga=0.1      Correlation between GC and CAGA.
+GCcagas=0.5     (GCcagaStrength) Modify CAGA by -GCcagas*GC*GCcaga.
+cagaGCs=0.0     (cagaGCStrength) Modify GC by -cagaGCs*caga*GCcaga.
+
+Sequence processing parameters (not used with TSV input):
+window=50000    If nonzero, calculate metrics over sliding windows.
+                Otherwise calculate per contig.
+interval=10000  Generate a data point every this many bp.
+shred=-1        If positive, set window and interval to the same size.
+break=t         Reset metrics at contig boundaries.
+minlen=500      Minimum interval length to generate a point.
+maxreads=-1     Maximum number of reads/contigs to process.
+
+Java Parameters:
+-Xmx            This will set Java's memory usage, overriding autodetection.
+                -Xmx20g will specify 20 gigs of RAM, and -Xmx200m will
+                specify 200 megs. The max is typically 85% of physical memory.
+-eoom           This flag will cause the process to exit if an out-of-memory
+                exception occurs.  Requires Java 8u92+.
+-da             Disable assertions.
+
+Please contact Brian Bushnell at bbushnell@lbl.gov if you encounter any problems.
+
+    Args:
+        capture_output (bool): If True, capture and return the output instead of printing it.
+        in_file (str): Input file (replaces 'in=' parameter)
+        **kwargs: Other arguments for cloudplot.sh
+
+    Returns:
+        Union[None, Tuple[str, str]]: If capture_output is True, returns (stdout, stderr), else None.
+    """
+    args = _pack_args(kwargs)
+    return _run_command("cloudplot.sh", args, capture_output)
 
 def clumpify(capture_output: bool = False, **kwargs) -> Union[None, Tuple[str, str]]:
     """
@@ -3513,6 +4259,7 @@ Java Parameters:
 -da                 Disable assertions.
 
 Please contact Brian Bushnell at bbushnell@lbl.gov if you encounter any problems.
+For documentation and the latest version, visit: https://bbmap.org
 
     Args:
         capture_output (bool): If True, capture and return the output instead of printing it.
@@ -3557,6 +4304,7 @@ Java Parameters:
 -da             Disable assertions.
 
 Please contact Brian Bushnell at bbushnell@lbl.gov if you encounter any problems.
+For documentation and the latest version, visit: https://bbmap.org
 
     Args:
         capture_output (bool): If True, capture and return the output instead of printing it.
@@ -3586,6 +4334,7 @@ in_file=<file>       Query gff.
 ref=<file>      Reference gff.
 
 Please contact Brian Bushnell at bbushnell@lbl.gov if you encounter any problems.
+For documentation and the latest version, visit: https://bbmap.org
 
     Args:
         capture_output (bool): If True, capture and return the output instead of printing it.
@@ -3616,7 +4365,7 @@ and tophitonly.  The assumption is that a header will look like:
 ...in which case the labels CAAC would be compared and found equal.
 
 
-Usage:  comparelables.sh in_file=<input file> out=<output file>
+Usage:  comparelabels.sh in_file=<input file> out=<output file>
 
 Input may be fasta or fastq, compressed or uncompressed.
 
@@ -3654,6 +4403,7 @@ contam         Fraction of reads assigned to a different label, using the
                then contam1=ab/(aa+au+ab) = 2/13 = 153846 PPM.
 
 Please contact Brian Bushnell at bbushnell@lbl.gov if you encounter any problems.
+For documentation and the latest version, visit: https://bbmap.org
 
     Args:
         capture_output (bool): If True, capture and return the output instead of printing it.
@@ -3808,7 +4558,7 @@ requiressu=f        Ignore records without SSUs.
 minrefsize=0        Ignore ref sketches smaller than this (unique kmers).
 minrefsizebases=0   Ignore ref sketches smaller than this (total base pairs).
 
-Output format:
+Output format parameters:
 format=2            2: Default format with, per query, one query header line;
                        one column header line; and one reference line per hit.
                     3: One line per hit, with columns query, reference, ANI,
@@ -3819,7 +4569,7 @@ usetaxidname=f      For format 3, print the taxID in the name column.
 usetaxname          for format 3, print the taxonomic name in the name column.
 useimgname          For format 3, print the img ID in the name column.
 
-Output columns (for format=2):
+Output column parameters (for format=2):
 printall=f          Enable all output columns.
 printani=t          (ani) Print average nucleotide identity estimate.
 completeness=t      Genome completeness estimate.
@@ -3865,7 +4615,7 @@ printcal=f          Print common ancestor tax level, if query taxID is known.
 recordsperlevel=0   If query TaxID is known, and this is positive, print this
                     many records per common ancestor level.
 
-Sorting:
+Sorting parameters:
 sortbyscore=t       Default sort order is by score, a composite metric.
 sortbydepth=f       Include depth as a factor in sort order.
 sortbydepth2=f      Include depth2 as a factor in sort order.
@@ -3889,7 +4639,7 @@ color=family        Color records at the family level.  color=f will disable.
                     writing to a file.  Requires the taxtree to be loaded.
 intersect=f         Print sketch intersections.  delta=f is suggested.
 
-Metadata flags (optional, for the query sketch header):
+Metadata parameters (optional, for the query sketch header):
 taxid=-1            Set the NCBI taxid.
 imgid=-1            Set the IMG id.
 spid=-1             Set the JGI sequencing project id.
@@ -3915,6 +4665,7 @@ Java Parameters:
 
 For more detailed information, please read /bbmap/docs/guides/BBSketchGuide.txt.
 Please contact Brian Bushnell at bbushnell@lbl.gov if you encounter any problems.
+For documentation and the latest version, visit: https://bbmap.org
 
     Args:
         capture_output (bool): If True, capture and return the output instead of printing it.
@@ -3971,6 +4722,7 @@ Java Parameters:
 -da             Disable assertions.
 
 Please contact Brian Bushnell at bbushnell@lbl.gov if you encounter any problems.
+For documentation and the latest version, visit: https://bbmap.org
 
     Args:
         capture_output (bool): If True, capture and return the output instead of printing it.
@@ -4004,7 +4756,7 @@ shist=<file>    (scorehist) Output for variant score histogram.
 overwrite=f     (ow) Set to false to force the program to abort rather than
 bgzip=f         Use bgzip for gzip compression.
 
-Processing Mode (choose one only):
+Mode Parameters (choose one only):
 subtract=t      Subtract all other files from the first file.
 union=f         Make a union of all files.
 intersection=f  Make an intersection of all files.
@@ -4024,6 +4776,7 @@ Java Parameters:
 -da             Disable assertions.
 
 Please contact Brian Bushnell at bbushnell@lbl.gov if you encounter any problems.
+For documentation and the latest version, visit: https://bbmap.org
 
     Args:
         capture_output (bool): If True, capture and return the output instead of printing it.
@@ -4072,6 +4825,7 @@ Java Parameters:
 -da             Disable assertions.
 
 Please contact Brian Bushnell at bbushnell@lbl.gov if you encounter any problems.
+For documentation and the latest version, visit: https://bbmap.org
 
     Args:
         capture_output (bool): If True, capture and return the output instead of printing it.
@@ -4139,6 +4893,7 @@ Java Parameters:
 -da             Disable assertions.
 
 Please contact Brian Bushnell at bbushnell@lbl.gov if you encounter any problems.
+For documentation and the latest version, visit: https://bbmap.org
 
     Args:
         capture_output (bool): If True, capture and return the output instead of printing it.
@@ -4165,6 +4920,7 @@ The main purpose is to recompress it.
 Usage:  copyfile.sh in_file=<file> out=<file>
 
 Please contact Brian Bushnell at bbushnell@lbl.gov if you encounter any problems.
+For documentation and the latest version, visit: https://bbmap.org
 
     Args:
         capture_output (bool): If True, capture and return the output instead of printing it.
@@ -4216,6 +4972,7 @@ Java Parameters:
 -da                 Disable assertions.
 
 Please contact Brian Bushnell at bbushnell@lbl.gov if you encounter any problems.
+For documentation and the latest version, visit: https://bbmap.org
 
     Args:
         capture_output (bool): If True, capture and return the output instead of printing it.
@@ -4239,7 +4996,7 @@ Last modified May 14, 2024
 Description: Counts and summarizes the number of reads with each barcode,
 using class BarcodeStats.  Can also do barcode assignment.
 
-Usage:   countbarcodes.sh in_file=<file> counts=<file>
+Usage:   countbarcodes2.sh in_file=<file> counts=<file>
 
 Input may be stdin or a fasta or fastq file, raw or gzipped.
 
@@ -4274,6 +5031,7 @@ Java Parameters:
 -da                 Disable assertions.
 
 Please contact Brian Bushnell at bbushnell@lbl.gov if you encounter any problems.
+For documentation and the latest version, visit: https://bbmap.org
 
     Args:
         capture_output (bool): If True, capture and return the output instead of printing it.
@@ -4338,6 +5096,7 @@ Java Parameters:
 -da             Disable assertions.
 
 Please contact Brian Bushnell at bbushnell@lbl.gov if you encounter any problems.
+For documentation and the latest version, visit: https://bbmap.org
 
     Args:
         capture_output (bool): If True, capture and return the output instead of printing it.
@@ -4364,12 +5123,14 @@ Usage:  countgc in_file=<input> out=<output> format=<format>
 
 Input may be stdin or a fasta or fastq file, compressed or uncompressed.
 Output (which is optional) is tab-delimited.
+Parameters:
 format=1:   name   length   A   C   G   T   N
 format=2:   name   GC
 format=4:   name   length   GC
 Note that in format 1, A+C+G+T=1 even when N is nonzero.
 
 Please contact Brian Bushnell at bbushnell@lbl.gov if you encounter any problems.
+For documentation and the latest version, visit: https://bbmap.org
 
     Args:
         capture_output (bool): If True, capture and return the output instead of printing it.
@@ -4414,6 +5175,7 @@ Java Parameters:
 -da             Disable assertions.
 
 Please contact Brian Bushnell at bbushnell@lbl.gov if you encounter any problems.
+For documentation and the latest version, visit: https://bbmap.org
 
     Args:
         capture_output (bool): If True, capture and return the output instead of printing it.
@@ -4475,6 +5237,7 @@ Java Parameters:
 -da                 Disable assertions.
 
 Please contact Brian Bushnell at bbushnell@lbl.gov if you encounter any problems.
+For documentation and the latest version, visit: https://bbmap.org
 
     Args:
         capture_output (bool): If True, capture and return the output instead of printing it.
@@ -4518,6 +5281,7 @@ iterations      Optional integer for benchmarking multiple iterations.
 simd            Use vector instructions.
 
 Please contact Brian Bushnell at bbushnell@lbl.gov if you encounter any problems.
+For documentation and the latest version, visit: https://bbmap.org
 
     Args:
         capture_output (bool): If True, capture and return the output instead of printing it.
@@ -4544,8 +5308,7 @@ to a new fasta.  Features are output in their sense strand.
 Usage:  cutgff.sh in_file=<fna file> gff=<gff file> out=<fna file>
 
 in_file= is optional, and gff filenames will be automaitically assumed based on
-the fasta name if not specified.  This allows running on multiple files
-like this:
+the fasta name if not specified.  This allows running on multiple files:
 
 cutgff.sh types=rRNA out=16S.fa minlen=1440 maxlen=1620 attributes=16S bacteria/*.fna.gz
 
@@ -4628,6 +5391,7 @@ Java Parameters:
 -da             Disable assertions.
 
 Please contact Brian Bushnell at bbushnell@lbl.gov if you encounter any problems.
+For documentation and the latest version, visit: https://bbmap.org
 
     Args:
         capture_output (bool): If True, capture and return the output instead of printing it.
@@ -4720,6 +5484,7 @@ Java Parameters:
 -da                 Disable assertions.
 
 Please contact Brian Bushnell at bbushnell@lbl.gov if you encounter any problems.
+For documentation and the latest version, visit: https://bbmap.org
 
     Args:
         capture_output (bool): If True, capture and return the output instead of printing it.
@@ -4855,6 +5620,7 @@ Java Parameters:
 -da                   Disable assertions.
 
 Please contact Brian Bushnell at bbushnell@lbl.gov if you encounter any problems.
+For documentation and the latest version, visit: https://bbmap.org
 
     Args:
         capture_output (bool): If True, capture and return the output instead of printing it.
@@ -4908,17 +5674,17 @@ Description:  Deduplicates mapped reads based on pair mapping coordinates.
 Usage:   dedupebymapping.sh in_file=<file> out=<file>
 
 Parameters:
-in_file=<file>           The 'in_file=' flag is needed if the input file is not the 
+in_file=<file>           The 'in_file=' flag is needed if the input file is not the
                     first parameter.  'in_file=stdin' will pipe from standard in.
-out=<file>          The 'out=' flag is needed if the output file is not the 
+out=<file>          The 'out=' flag is needed if the output file is not the
                     second parameter.  'out=stdout' will pipe to standard out.
-overwrite=t         (ow) Set to false to force the program to abort rather 
+overwrite=t         (ow) Set to false to force the program to abort rather
                     than overwrite an existing file.
-ziplevel=2          (zl) Set to 1 (lowest) through 9 (max) to change 
+ziplevel=2          (zl) Set to 1 (lowest) through 9 (max) to change
                     compression level; lower compression is faster.
 keepunmapped=t      (ku) Keep unmapped reads.  This refers to unmapped
                     single-ended reads or pairs with both unmapped.
-keepsingletons=t    (ks) Keep all pairs in which only one read mapped.  If 
+keepsingletons=t    (ks) Keep all pairs in which only one read mapped.  If
                     false, duplicate singletons will be discarded.
 ignorepairorder=f   (ipo) If true, consider reverse-complementary pairs
                     as duplicates.
@@ -4932,6 +5698,7 @@ Java Parameters:
 -da                 Disable assertions.
 
 Please contact Brian Bushnell at bbushnell@lbl.gov if you encounter any problems.
+For documentation and the latest version, visit: https://bbmap.org
 
     Args:
         capture_output (bool): If True, capture and return the output instead of printing it.
@@ -4960,7 +5727,7 @@ open file handles.
 Usage:
 demuxbyname.sh in_file=<file> in2=<file> out=<file> out2=<file> names=<string,string,...>
 
-Alternately:
+Alternate Usage:
 demuxbyname.sh in_file=<file> out=<file> outu=<file> names=<file> barcode
 This will parse the barcode from Illumina reads with a header like this:
 @A00178:73:HH7H3DSXX:4:1101:13666:1047 1:N:0:ACGTTGGT+TGACGCAT
@@ -5000,7 +5767,7 @@ names=          List of strings (or files containing strings) to parse from
                 at most 2 files would be created, and anything not matching 
                 those names would go to outu.
 
-Processing Modes (determines how to convert a read into a name):
+Processing Mode Parameters (determine how to convert a read into a name):
 prefixmode=t    (pm) Match prefix of read header.  If false, match suffix of
                 read header.  prefixmode=f is equivalent to suffixmode=t.
 barcode=f       Parse barcodes from Illumina headers.
@@ -5043,7 +5810,7 @@ length=0        If positive, use a suffix or prefix of this length from read
                 characters of read names.
 hdist=0         Allow a hamming distance for demultiplexing barcodes.  This
                 requires a list of names (barcodes).  It is unrelated to 
-                probabiilty mode's hdist3.
+                probability mode's hdist3.
 replace=        Replace some characters in the output filenames.  For example,
                 replace=+- would replace the + symbol in headers with the - 
                 symbol in output filenames.  So you could match the barcode 
@@ -5080,6 +5847,7 @@ Java Parameters:
 -da             Disable assertions.
 
 Please contact Brian Bushnell at bbushnell@lbl.gov if you encounter any problems.
+For documentation and the latest version, visit: https://bbmap.org
 
     Args:
         capture_output (bool): If True, capture and return the output instead of printing it.
@@ -5120,6 +5888,7 @@ Java Parameters:
 -da                 Disable assertions.
 
 Please contact Brian Bushnell at bbushnell@lbl.gov if you encounter any problems.
+For documentation and the latest version, visit: https://bbmap.org
 
     Args:
         capture_output (bool): If True, capture and return the output instead of printing it.
@@ -5166,6 +5935,7 @@ Java Parameters:
 -da             Disable assertions.
 
 Please contact Brian Bushnell at bbushnell@lbl.gov if you encounter any problems.
+For documentation and the latest version, visit: https://bbmap.org
 
     Args:
         capture_output (bool): If True, capture and return the output instead of printing it.
@@ -5205,6 +5975,7 @@ map             Optional output text file for matrix score space.
 iterations      Optional integer for benchmarking multiple iterations.
 
 Please contact Brian Bushnell at bbushnell@lbl.gov if you encounter any problems.
+For documentation and the latest version, visit: https://bbmap.org
 
     Args:
         capture_output (bool): If True, capture and return the output instead of printing it.
@@ -5232,9 +6003,9 @@ Optionally prints a state space exploration map.
 This map can be fed to visualizealignment.sh to make an image.
 
 Usage:
-driftingalignerplus.sh <query> <ref>
-driftingalignerplus.sh <query> <ref> <map>
-driftingalignerplus.sh <query> <ref> <map> <iterations>
+driftingplusaligner.sh <query> <ref>
+driftingplusaligner.sh <query> <ref> <map>
+driftingplusaligner.sh <query> <ref> <map> <iterations>
 
 Parameters:
 query           A literal nucleotide sequence or fasta file.
@@ -5245,6 +6016,7 @@ iterations      Optional integer for benchmarking multiple iterations.
 simd            Add this flag to use simd mode.
 
 Please contact Brian Bushnell at bbushnell@lbl.gov if you encounter any problems.
+For documentation and the latest version, visit: https://bbmap.org
 
     Args:
         capture_output (bool): If True, capture and return the output instead of printing it.
@@ -5279,6 +6051,7 @@ estherfilter.sh reads.fasta genes.fasta 1000 > results.txt
 'fasta' can be used as a fourth argument to get output in Fasta format.  Requires more memory.
 
 Please contact Brian Bushnell at bbushnell@lbl.gov if you encounter any problems.
+For documentation and the latest version, visit: https://bbmap.org
 
     Args:
         capture_output (bool): If True, capture and return the output instead of printing it.
@@ -5305,7 +6078,7 @@ corresponding to a taxonomic tree.
 Usage:  explodetree.sh in_file=<file> out=<path> tree=<file>
 
 Parameters:
-in_file=             A fasta file annotated with taxonomic data in headers, 
+in_file=             A fasta file annotated with taxonomic data in headers,
                 such as modified RefSeq.
 out=            (path) Location to write the tree.
 tree=           Location of taxtree file.
@@ -5319,6 +6092,7 @@ Java Parameters:
 -da             Disable assertions.
 
 Please contact Brian Bushnell at bbushnell@lbl.gov if you encounter any problems.
+For documentation and the latest version, visit: https://bbmap.org
 
     Args:
         capture_output (bool): If True, capture and return the output instead of printing it.
@@ -5330,6 +6104,39 @@ Please contact Brian Bushnell at bbushnell@lbl.gov if you encounter any problems
     """
     args = _pack_args(kwargs)
     return _run_command("explodetree.sh", args, capture_output)
+
+def fastqscan(capture_output: bool = False, **kwargs) -> Union[None, Tuple[str, str]]:
+    """
+    Wrapper for fastqscan.sh
+
+    Help message:
+    Written by Brian Bushnell
+Last modified November 23, 2025
+
+Description:  Fast lightweight scanner that parses sequence files.
+Reports base and record counts.  Performs basic integrity checks;
+reports corruption and exits with code 1 when detected.
+Does not perform rigorous validation of all fields.
+
+Usage:  fastqscan.sh <file>
+
+Input may be fastq, fasta, sam, scarf, gfa, or fastg, 
+compressed or uncompressed.  To input stdin use e.g. stdin.fq
+as the argument (with proper extension).
+
+Please contact Brian Bushnell at bbushnell@lbl.gov if you encounter any problems.
+For documentation and the latest version, visit: https://bbmap.org
+
+    Args:
+        capture_output (bool): If True, capture and return the output instead of printing it.
+        in_file (str): Input file (replaces 'in=' parameter)
+        **kwargs: Other arguments for fastqscan.sh
+
+    Returns:
+        Union[None, Tuple[str, str]]: If capture_output is True, returns (stdout, stderr), else None.
+    """
+    args = _pack_args(kwargs)
+    return _run_command("fastqscan.sh", args, capture_output)
 
 def fetchproks(capture_output: bool = False, **kwargs) -> Union[None, Tuple[str, str]]:
     """
@@ -5362,6 +6169,7 @@ Processing parameters:
 None yet!
 
 Please contact Brian Bushnell at bbushnell@lbl.gov if you encounter any problems.
+For documentation and the latest version, visit: https://bbmap.org
 
     Args:
         capture_output (bool): If True, capture and return the output instead of printing it.
@@ -5424,6 +6232,7 @@ Java Parameters:
 -da             Disable assertions.
 
 Please contact Brian Bushnell at bbushnell@lbl.gov if you encounter any problems.
+For documentation and the latest version, visit: https://bbmap.org
 
     Args:
         capture_output (bool): If True, capture and return the output instead of printing it.
@@ -5479,6 +6288,7 @@ Java Parameters:
 -da                 Disable assertions.
 
 Please contact Brian Bushnell at bbushnell@lbl.gov if you encounter any problems.
+For documentation and the latest version, visit: https://bbmap.org
 
     Args:
         capture_output (bool): If True, capture and return the output instead of printing it.
@@ -5529,6 +6339,7 @@ Java Parameters:
 -da             Disable assertions.
 
 Please contact Brian Bushnell at bbushnell@lbl.gov if you encounter any problems.
+For documentation and the latest version, visit: https://bbmap.org
 
     Args:
         capture_output (bool): If True, capture and return the output instead of printing it.
@@ -5602,6 +6413,7 @@ To read from stdin, set 'in_file=stdin'.  The format should be specified with an
 To write to stdout, set 'out=stdout'.  The format should be specified with an extension, like 'out=stdout.fasta'
 
 Please contact Brian Bushnell at bbushnell@lbl.gov if you encounter any problems.
+For documentation and the latest version, visit: https://bbmap.org
 
     Args:
         capture_output (bool): If True, capture and return the output instead of printing it.
@@ -5658,6 +6470,7 @@ Java Parameters:
 -da             Disable assertions.
 
 Please contact Brian Bushnell at bbushnell@lbl.gov if you encounter any problems.
+For documentation and the latest version, visit: https://bbmap.org
 
     Args:
         capture_output (bool): If True, capture and return the output instead of printing it.
@@ -5713,7 +6526,7 @@ tree=<file>     Specify a TaxTree file like tree.taxtree.gz.
 gi=<file>       Specify a gitable file like gitable.int1d.gz. Only needed
                 if gi numbers will be used.  On Genepool, use 'auto'.
 accession=      Specify one or more comma-delimited NCBI accession to taxid
-                files.  Only needed if accesions will be used; requires ~45GB
+                files.  Only needed if accessions will be used; requires ~45GB
                 of memory.  On Genepool, use 'auto'.
 printnodes=t    Print the names of nodes added to the filter.
 requirepresent=t   Crash with an error message if a header cannot be resolved
@@ -5736,6 +6549,7 @@ Java Parameters:
 -da             Disable assertions.
 
 Please contact Brian Bushnell at bbushnell@lbl.gov if you encounter any problems.
+For documentation and the latest version, visit: https://bbmap.org
 
     Args:
         capture_output (bool): If True, capture and return the output instead of printing it.
@@ -5886,6 +6700,7 @@ Java Parameters:
 -da                 Disable assertions.
 
 Please contact Brian Bushnell at bbushnell@lbl.gov if you encounter any problems.
+For documentation and the latest version, visit: https://bbmap.org
 
     Args:
         capture_output (bool): If True, capture and return the output instead of printing it.
@@ -5936,6 +6751,7 @@ To read from stdin, set 'in_file=stdin'.  The format should be specified with an
 To write to stdout, set 'out=stdout'.  The format should be specified with an extension, like 'out=stdout.fasta'
 
 Please contact Brian Bushnell at bbushnell@lbl.gov if you encounter any problems.
+For documentation and the latest version, visit: https://bbmap.org
 
     Args:
         capture_output (bool): If True, capture and return the output instead of printing it.
@@ -5990,6 +6806,7 @@ ins=f           Consider bad insertions.
 del=f           Consider bad deletions.
 
 Please contact Brian Bushnell at bbushnell@lbl.gov if you encounter any problems.
+For documentation and the latest version, visit: https://bbmap.org
 
     Args:
         capture_output (bool): If True, capture and return the output instead of printing it.
@@ -6018,7 +6835,7 @@ Standard parameters:
 in_file=<file>       Input file.
 out=<file>      Output file.
 
-Additional files:
+Additional file parameters:
 tree=auto       Path to TaxTree.
 
 
@@ -6030,6 +6847,7 @@ Java Parameters:
 
 For more detailed information, please read /bbmap/docs/guides/BBSketchGuide.txt.
 Please contact Brian Bushnell at bbushnell@lbl.gov if you encounter any problems.
+For documentation and the latest version, visit: https://bbmap.org
 
     Args:
         capture_output (bool): If True, capture and return the output instead of printing it.
@@ -6051,7 +6869,7 @@ def filtersubs(capture_output: bool = False, **kwargs) -> Union[None, Tuple[str,
 Last modified August 22, 2024
 
 Description:  Filters a sam file to select only reads with substitution errors
-for bases with quality scores in a certain interval.  Used for manually 
+for bases with quality scores in a certain interval.  Used for manually
 examining specific reads that may have incorrectly calibrated quality scores.
 
 Usage:  filtersubs.sh in_file=<file> out=<file> minq=<number> maxq=<number>
@@ -6061,13 +6879,14 @@ in_file=<file>       Input sam or bam file.
 out=<file>      Output file.
 minq=0          Keep only reads with substitutions of at least this quality.
 maxq=99         Keep only reads with substitutions of at most this quality.
-countindels=t   Also keep reads with indels in the quality range. 
+countindels=t   Also keep reads with indels in the quality range.
 minsubs=1       Require at least this many substitutions.
 minclips=0      Discard reads with more clip operations than this.
 maxclips=-1     If nonnegative, discard reads with more clip operations.
 keepperfect=f   Also keep error-free reads.
 
 Please contact Brian Bushnell at bbushnell@lbl.gov if you encounter any problems.
+For documentation and the latest version, visit: https://bbmap.org
 
     Args:
         capture_output (bool): If True, capture and return the output instead of printing it.
@@ -6108,7 +6927,7 @@ canonize=t      Trim variations down to a canonical representation.
 Position-filtering parameters:
 minpos=         Ignore variants not overlapping this range.
 maxpos=         Ignore variants not overlapping this range.
-contigs=        Comma-delimited list of contig names to include. These 
+contigs=        Comma-delimited list of contig names to include. These
                 should have no spaces, or underscores instead of spaces.
 invert=f        Invert position filters.
 
@@ -6146,6 +6965,7 @@ Java Parameters:
 -da             Disable assertions.
 
 Please contact Brian Bushnell at bbushnell@lbl.gov if you encounter any problems.
+For documentation and the latest version, visit: https://bbmap.org
 
     Args:
         capture_output (bool): If True, capture and return the output instead of printing it.
@@ -6234,6 +7054,7 @@ Java Parameters:
 -da             Disable assertions.
 
 Please contact Brian Bushnell at bbushnell@lbl.gov if you encounter any problems.
+For documentation and the latest version, visit: https://bbmap.org
 
     Args:
         capture_output (bool): If True, capture and return the output instead of printing it.
@@ -6284,6 +7105,7 @@ Java Parameters:
 -da             Disable assertions.
 
 Please contact Brian Bushnell at bbushnell@lbl.gov if you encounter any problems.
+For documentation and the latest version, visit: https://bbmap.org
 
     Args:
         capture_output (bool): If True, capture and return the output instead of printing it.
@@ -6345,6 +7167,7 @@ Java Parameters:
 -da                 Disable assertions.
 
 Please contact Brian Bushnell at bbushnell@lbl.gov if you encounter any problems.
+For documentation and the latest version, visit: https://bbmap.org
 
     Args:
         capture_output (bool): If True, capture and return the output instead of printing it.
@@ -6395,6 +7218,7 @@ Java Parameters:
 -da             Disable assertions.
 
 Please contact Brian Bushnell at bbushnell@lbl.gov if you encounter any problems.
+For documentation and the latest version, visit: https://bbmap.org
 
     Args:
         capture_output (bool): If True, capture and return the output instead of printing it.
@@ -6452,6 +7276,7 @@ id=             Comma delimited list of numbers or ranges, in any order.
                 For example:  id=5,93,17-31,8,0,12-13
 
 Please contact Brian Bushnell at bbushnell@lbl.gov if you encounter any problems.
+For documentation and the latest version, visit: https://bbmap.org
 
     Args:
         capture_output (bool): If True, capture and return the output instead of printing it.
@@ -6494,6 +7319,7 @@ Java Parameters:
 -da             Disable assertions.
 
 Please contact Brian Bushnell at bbushnell@lbl.gov if you encounter any problems.
+For documentation and the latest version, visit: https://bbmap.org
 
     Args:
         capture_output (bool): If True, capture and return the output instead of printing it.
@@ -6538,7 +7364,7 @@ silva=f         Parse headers in Silva format.
 shrinknames=f   Replace multiple concatenated headers with the first.
 deleteinvalid=f Delete the output file if there are any invalid headers.
 
-Taxonomy file flags:
+Taxonomy File Parameters:
 server=f        Use the taxonomy server instead of local files.
                 Server mode only works for accessions (like RefSeq).
 tree=           Specify a taxtree file.  On Genepool, use 'auto'.
@@ -6555,6 +7381,7 @@ Java Parameters:
 -da             Disable assertions.
 
 Please contact Brian Bushnell at bbushnell@lbl.gov if you encounter any problems.
+For documentation and the latest version, visit: https://bbmap.org
 
     Args:
         capture_output (bool): If True, capture and return the output instead of printing it.
@@ -6577,8 +7404,8 @@ Last modified July 29, 2019
 
 Description:  Creates gitable.int1d from accession files:
 ftp://ftp.ncbi.nih.gov/pub/taxonomy/accession2taxid/*.accession2taxid.gz
-This is for use of gi numbers, which are deprecated by NCBI, and areneither 
-necessary nor recemmended if accession numbers are present.
+This is for use of gi numbers, which are deprecated by NCBI, and are neither
+necessary nor recommended if accession numbers are present.
 See TaxonomyGuide and fetchTaxonomy.sh for more information.
 
 Usage:  gitable.sh shrunk.dead_nucl.accession2taxid.gz,shrunk.dead_prot.accession2taxid.gz,shrunk.dead_wgs.accession2taxid.gz,shrunk.nucl_gb.accession2taxid.gz,shrunk.nucl_wgs.accession2taxid.gz,shrunk.pdb.accession2taxid.gz,shrunk.prot.accession2taxid.gz gitable.int1d.gz
@@ -6591,6 +7418,7 @@ Java Parameters:
 -da             Disable assertions.
 
 Please contact Brian Bushnell at bbushnell@lbl.gov if you encounter any problems.
+For documentation and the latest version, visit: https://bbmap.org
 
     Args:
         capture_output (bool): If True, capture and return the output instead of printing it.
@@ -6631,6 +7459,7 @@ map             Optional output text file for matrix score space.
 iterations      Optional integer for benchmarking multiple iterations.
 
 Please contact Brian Bushnell at bbushnell@lbl.gov if you encounter any problems.
+For documentation and the latest version, visit: https://bbmap.org
 
     Args:
         capture_output (bool): If True, capture and return the output instead of printing it.
@@ -6713,6 +7542,7 @@ Java Parameters:
 -da             Disable assertions.
 
 Please contact Brian Bushnell at bbushnell@lbl.gov if you encounter any problems.
+For documentation and the latest version, visit: https://bbmap.org
 
     Args:
         capture_output (bool): If True, capture and return the output instead of printing it.
@@ -6733,7 +7563,7 @@ def grademerge(capture_output: bool = False, **kwargs) -> Union[None, Tuple[str,
     Written by Brian Bushnell
 Last modified February 17, 2015
 
-Description:  Grades correctness of merging synthetic reads with headers 
+Description:  Grades correctness of merging synthetic reads with headers
 generated by RandomReads and re-headered by RenameReads.
 
 Usage:  grademerge.sh in_file=<file>
@@ -6742,6 +7572,7 @@ Parameters:
 in_file=<file>       Specify the input file, or 'stdin'.
 
 Please contact Brian Bushnell at bbushnell@lbl.gov if you encounter any problems.
+For documentation and the latest version, visit: https://bbmap.org
 
     Args:
         capture_output (bool): If True, capture and return the output instead of printing it.
@@ -6777,6 +7608,7 @@ bitset=t        Track read ID's to detect secondary alignments.
                 Necessary for mappers that incorrectly output multiple primary alignments per read.
 
 Please contact Brian Bushnell at bbushnell@lbl.gov if you encounter any problems.
+For documentation and the latest version, visit: https://bbmap.org
 
     Args:
         capture_output (bool): If True, capture and return the output instead of printing it.
@@ -6827,7 +7659,7 @@ ziplevel=2      (zl) Set to 1 (lowest) through 9 (max) to change compression
                 level; lower compression is faster.
 
 Processing parameters:
-alignrc=t       Align the reverse-complement of the read to itself to look 
+alignrc=t       Align the reverse-complement of the read to itself to look
                 for inverted repeats.
 alignadapter=t  Align adapter sequence to reads.
 adapter=        default: ATCTCTCTCAACAACAACAACGGAGGAGGAGGAAAAGAGAGAGAT
@@ -6841,7 +7673,7 @@ qlenfraction=0.15   Try to make queries at most this fraction of read length.
 minlen=40       Do not output reads shorter than this, after trimming.
 minqlen=100     Do not make queries shorter than this.  For very short
                 reads this will override qlenfraction.
-shortfraction=0.4   Only declare a read to be a triangle if the short half 
+shortfraction=0.4   Only declare a read to be a triangle if the short half
                 of the repeat is at least this fraction of read length.
 ccs=f           Input reads are CCS, meaning they are all full-pass.
                 In this case you should increase minratio.
@@ -6852,7 +7684,7 @@ minpolymer=5    Don't trim poly-A sequence shorter than this.
 polyerror=0.2   Max error rate for trimming poly-A.
 
 
-Speed and sensitivity:
+Speed and sensitivity parameters:
 jni=f           Enable C code for higher speed and identical results.
 minratio=       Fraction of maximal alignment score to consider as matching.
                 Higher is more stringent; lower allows more sequencing errors.
@@ -6887,6 +7719,7 @@ Java Parameters:
 -da             Disable assertions.
 
 Please contact Brian Bushnell at bbushnell@lbl.gov if you encounter any problems.
+For documentation and the latest version, visit: https://bbmap.org
 
     Args:
         capture_output (bool): If True, capture and return the output instead of printing it.
@@ -6916,6 +7749,7 @@ Standard parameters:
 in_file=<file>       Reads to grade.
 
 Please contact Brian Bushnell at bbushnell@lbl.gov if you encounter any problems.
+For documentation and the latest version, visit: https://bbmap.org
 
     Args:
         capture_output (bool): If True, capture and return the output instead of printing it.
@@ -6937,7 +7771,7 @@ def icecreammaker(capture_output: bool = False, **kwargs) -> Union[None, Tuple[s
 Last modified January 21, 2020
 
 Description:  Generates synthetic PacBio reads to mimic the chimeric
-inverted repeats from 'triangle reads', aka 'ice cream cones' - 
+inverted repeats from 'triangle reads', aka 'ice cream cones' -
 reads missing one adapter.
 
 Usage:  icecreammaker.sh in_file=<file> out=<file> reads=100k minlen=500 maxlen=5000
@@ -6983,25 +7817,26 @@ Usage:	idmatrix.sh in_file=<file> out=<file>
 Parameters:
 in_file=<file>       File containing reads. in_file=stdin.fa will pipe from stdin.
 out=<file>      Matrix output. out=stdout will pipe to stdout.
-threads=auto    (t) Set number of threads to use; default is number of 
+threads=auto    (t) Set number of threads to use; default is number of
                 logical processors.
 percent=f       Output identity as percent rather than a fraction.
 edits=          Allow at most this much edit distance.  Default is the
                 length of the longest input sequence. Lower is faster.
 width=          Alignment bandwidth, lower is faster.  Default: 2*edits+1.
-usejni=f        (jni) Do alignments faster, in C code.  Requires 
+usejni=f        (jni) Do alignments faster, in C code.  Requires
                 compiling the C code; details are in /jni/README.txt.
 
 Java Parameters:
 -Xmx            This will set Java's memory usage, overriding automatic
-                memory detection. -Xmx20g will specify 
-                20 gigs of RAM, and -Xmx200m will specify 200 megs.  
+                memory detection. -Xmx20g will specify
+                20 gigs of RAM, and -Xmx200m will specify 200 megs.
                 The max is typically 85% of physical memory.
 -eoom           This flag will cause the process to exit if an out-of-memory
                 exception occurs.  Requires Java 8u92+.
 -da             Disable assertions.
 
 Please contact Brian Bushnell at bbushnell@lbl.gov if you encounter any problems.
+For documentation and the latest version, visit: https://bbmap.org
 
     Args:
         capture_output (bool): If True, capture and return the output instead of printing it.
@@ -7045,6 +7880,7 @@ Java Parameters:
 -da             Disable assertions.
 
 Please contact Brian Bushnell at bbushnell@lbl.gov if you encounter any problems.
+For documentation and the latest version, visit: https://bbmap.org
 
     Args:
         capture_output (bool): If True, capture and return the output instead of printing it.
@@ -7063,7 +7899,7 @@ def indelfree(capture_output: bool = False, **kwargs) -> Union[None, Tuple[str, 
 
     Help message:
     Written by Brian Bushnell
-Last modified July 15, 2025
+Last modified October 29, 2025
 
 Description:  Aligns sequences, not allowing indels.
 Brute force mode guarantees all alignments will be found and reported,
@@ -7080,7 +7916,12 @@ Parameters:
 in_file=<file>       Query input.  These will be stored in memory.
 ref=<file>      Reference input.  These will be streamed.
 out=<file>      Sam output.
+outh=<file>     Sam header output (optional).  Due to the streaming nature,
+                primary sam output is headerless, but this can be concatenated
+		with the main sam file.
 subs=5          Maximum allowed substitutions.
+minid=0.0       Minimum allowed identity.  Actual substitions allowed will be
+                max(subs, (int)(qlen*(1-minid)))
 simd            Enable SIMD alignment.  Only accelerates brute force mode.
 threads=        Set the max number of threads; default is logical cores.
 
@@ -7113,6 +7954,7 @@ Java Parameters:
 -da             Disable assertions.
 
 Please contact Brian Bushnell at bbushnell@lbl.gov if you encounter any problems.
+For documentation and the latest version, visit: https://bbmap.org
 
     Args:
         capture_output (bool): If True, capture and return the output instead of printing it.
@@ -7135,7 +7977,7 @@ Last modified October 2, 2017
 
 Description:  Inverts a sketch key, given a matching reference.
 
-Usage:  invertsketch.sh in_file=<reference> key=<key> k=<31>
+Usage:  invertkey.sh in_file=<reference> key=<key> k=<31>
 
 I/O parameters:
 out=<file>      Output file.
@@ -7154,6 +7996,7 @@ Java Parameters:
 -da             Disable assertions.
 
 Please contact Brian Bushnell at bbushnell@lbl.gov if you encounter any problems.
+For documentation and the latest version, visit: https://bbmap.org
 
     Args:
         capture_output (bool): If True, capture and return the output instead of printing it.
@@ -7212,6 +8055,7 @@ Java Parameters:
 -da             Disable assertions.
 
 Please contact Brian Bushnell at bbushnell@lbl.gov if you encounter any problems.
+For documentation and the latest version, visit: https://bbmap.org
 
     Args:
         capture_output (bool): If True, capture and return the output instead of printing it.
@@ -7306,7 +8150,7 @@ Description:  Discards all but the best copy of a ribosomal gene per TaxID.
 Gene sequences should be named like this: >tid|123|whatever
 Sequences are selected based on the number of fully defined bases.
 
-Usage:  keepbest.sh in_file=<input file> out=<output file> rate=<float>
+Usage:  keepbestcopy.sh in_file=<input file> out=<output file> rate=<float>
 
 Input may be fasta or fastq, compressed or uncompressed.
 
@@ -7330,6 +8174,7 @@ Java Parameters:
 -da             Disable assertions.
 
 Please contact Brian Bushnell at bbushnell@lbl.gov if you encounter any problems.
+For documentation and the latest version, visit: https://bbmap.org
 
     Args:
         capture_output (bool): If True, capture and return the output instead of printing it.
@@ -7501,6 +8346,7 @@ Java Parameters:
 -da                 Disable assertions.
 
 Please contact Brian Bushnell at bbushnell@lbl.gov if you encounter any problems.
+For documentation and the latest version, visit: https://bbmap.org
 
     Args:
         capture_output (bool): If True, capture and return the output instead of printing it.
@@ -7512,6 +8358,61 @@ Please contact Brian Bushnell at bbushnell@lbl.gov if you encounter any problems
     """
     args = _pack_args(kwargs)
     return _run_command("kmercountmulti.sh", args, capture_output)
+
+def kmercountshort(capture_output: bool = False, **kwargs) -> Union[None, Tuple[str, str]]:
+    """
+    Wrapper for kmercountshort.sh
+
+    Help message:
+    Written by Brian Bushnell
+Last modified October 14, 2025
+
+Description:  Counts the number of unique kmers in a file.
+Prints a fasta or tsv file containing all kmers and their counts.
+Supports K=1 to 15, though values above 8 should use KmerCountExact.
+SEE ALSO: kmercountexact.sh
+
+Usage:   kmercountshort.sh in_file=<file> out=<file> k=4
+
+Input may be fasta or fastq, compressed or uncompressed.
+Output may be stdout or a file.  out, khist, and peaks are optional.
+
+
+Input parameters:
+in_file=<file>           Primary input file.
+in2=<file>          Second input file for paired reads.
+
+Output parameters:
+out=<file>          Print kmers and their counts.  Extension sensitive;
+                    .fa or .fasta will produce fasta, otherwise tsv.
+mincount=0          Only print kmers with at least this depth.
+reads=-1            Only process this number of reads, then quit (-1 means all).
+rcomp=t             Store and count each kmer together and its reverse-complement.
+comment=            Denotes start of the tsv header.  E.g. 'comment=#'
+skip=1              Count every Nth kmer.  If skip=2, count every 2nd kmer, etc.
+
+Counting parameters:
+k=4                 Kmer length - needs at least (threads+1)*8*4^k memory.
+
+
+Java Parameters:
+-Xmx                This will set Java's memory usage, overriding autodetection.
+                    -Xmx20g will specify 20 gigs of RAM, and -Xmx200m will specify 200 megs.
+                    The max is typically 85% of physical memory.
+-eoom               This flag will cause the process to exit if an
+                    out-of-memory exception occurs.  Requires Java 8u92+.
+-da                 Disable assertions.
+
+    Args:
+        capture_output (bool): If True, capture and return the output instead of printing it.
+        in_file (str): Input file (replaces 'in=' parameter)
+        **kwargs: Other arguments for kmercountshort.sh
+
+    Returns:
+        Union[None, Tuple[str, str]]: If capture_output is True, returns (stdout, stderr), else None.
+    """
+    args = _pack_args(kwargs)
+    return _run_command("kmercountshort.sh", args, capture_output)
 
 def kmercoverage(capture_output: bool = False, **kwargs) -> Union[None, Tuple[str, str]]:
     """
@@ -7570,6 +8471,7 @@ Java Parameters:
 -da                 Disable assertions.
 
 Please contact Brian Bushnell at bbushnell@lbl.gov if you encounter any problems.
+For documentation and the latest version, visit: https://bbmap.org
 
     Args:
         capture_output (bool): If True, capture and return the output instead of printing it.
@@ -7628,6 +8530,7 @@ Java Parameters:
 -da             Disable assertions.
 
 Please contact Brian Bushnell at bbushnell@lbl.gov if you encounter any problems.
+For documentation and the latest version, visit: https://bbmap.org
 
     Args:
         capture_output (bool): If True, capture and return the output instead of printing it.
@@ -7686,6 +8589,7 @@ Java Parameters:
 -da             Disable assertions.
 
 Please contact Brian Bushnell at bbushnell@lbl.gov if you encounter any problems.
+For documentation and the latest version, visit: https://bbmap.org
 
     Args:
         capture_output (bool): If True, capture and return the output instead of printing it.
@@ -7745,6 +8649,7 @@ Java Parameters:
 -da             Disable assertions.
 
 Please contact Brian Bushnell at bbushnell@lbl.gov if you encounter any problems.
+For documentation and the latest version, visit: https://bbmap.org
 
     Args:
         capture_output (bool): If True, capture and return the output instead of printing it.
@@ -7790,6 +8695,7 @@ Java Parameters:
 -da             Disable assertions.
 
 Please contact Brian Bushnell at bbushnell@lbl.gov if you encounter any problems.
+For documentation and the latest version, visit: https://bbmap.org
 
     Args:
         capture_output (bool): If True, capture and return the output instead of printing it.
@@ -7810,8 +8716,8 @@ def kmutate(capture_output: bool = False, **kwargs) -> Union[None, Tuple[str, st
     Written by Brian Bushnell
 Last modified January 26, 2021
 
-Description:  Given a reference, generates a kmer spectrum including a 
-specified number of substitutions, insertions, and deletions.  The output is 
+Description:  Given a reference, generates a kmer spectrum including a
+specified number of substitutions, insertions, and deletions.  The output is
 useful for analyzing barcodes or other short oligos, and filtering using
 BBDuk or Seal. Input may be fasta or fastq, compressed or raw.
 See also kcompress, kmercountexact, and bbkmerset.
@@ -7829,9 +8735,9 @@ and deletions that sum to 0, 1, or 2.
         kmutate.sh in_file=x.fa out=y.fa k=31 idist=1 ddist=3
 This will generate all 31-mers in x.fa, along with all 31-mer mutants allowing
 up to 1 insertion and 3 deletions, but no substitutions.  For example,
-1 insertion and 3 deletions is possible (edit distance 4), but 1 deletion and 
+1 insertion and 3 deletions is possible (edit distance 4), but 1 deletion and
 1 substitution is not directly possible (though some equivalent mutants would
-still be generated because a deletion and subsequent insertion is equivalent 
+still be generated because a deletion and subsequent insertion is equivalent
 to a substitution).
 
 Note that deletion events have limitations; e.g., they cannot occur on input
@@ -7852,13 +8758,13 @@ Processing parameters:
 k=31            Kmer length; 1-31.
 rcomp=t         Consider kmers equivalent to their reverse-complements.
 
-Edit mode flags (used if edist>0):
+Edit mode parameters (used if edist>0):
 edist=0         Set the maximal edit distance (0-3).
 smax=99         (optional) Don't allow more than this many total substitutions.
 dmax=99         (optional) Don't allow more than this many total deletions.
 imax=99         (optional) Don't allow more than this many total insertions.
 
-SDI mode flags:
+SDI mode parameters:
 sdist=0         Maximum substitutions allowed.
 idist=0         Maximum insertions allowed.
 ddist=0         Maximum deletions allowed (0-3).
@@ -7876,6 +8782,7 @@ Java Parameters:
 -da             Disable assertions.
 
 Please contact Brian Bushnell at bbushnell@lbl.gov if you encounter any problems.
+For documentation and the latest version, visit: https://bbmap.org
 
     Args:
         capture_output (bool): If True, capture and return the output instead of printing it.
@@ -7912,12 +8819,12 @@ Processing parameters:
 gap=10          Pad gaps with a minimum of this many Ns.
 mindepth=4      Minimum spanning read pairs to join contigs.
 maxinsert=3000  Maximum allowed insert size for proper pairs.
-mincontig=200   Ignore contigs under this length if there is a 
+mincontig=200   Ignore contigs under this length if there is a
                 longer alternative.
-minwr=0.8       (minWeightRatio) Minimum fraction of outgoing edges 
+minwr=0.8       (minWeightRatio) Minimum fraction of outgoing edges
                 pointing to the same contig.  Lower values will increase
                 continuity at a risk of misassemblies.
-minsr=0.8       (minStrandRatio) Minimum fraction of outgoing edges 
+minsr=0.8       (minStrandRatio) Minimum fraction of outgoing edges
                 indicating the same orientation.  Lower values will increase
                 continuity at a possible risk of inversions.
 passes=8        More passes may increase continuity.
@@ -7932,6 +8839,7 @@ Java Parameters:
 -da             Disable assertions.
 
 Please contact Brian Bushnell at bbushnell@lbl.gov if you encounter any problems.
+For documentation and the latest version, visit: https://bbmap.org
 
     Args:
         capture_output (bool): If True, capture and return the output instead of printing it.
@@ -7970,6 +8878,7 @@ Java Parameters:
 -da             Disable assertions.
 
 Please contact Brian Bushnell at bbushnell@lbl.gov if you encounter any problems.
+For documentation and the latest version, visit: https://bbmap.org
 
     Args:
         capture_output (bool): If True, capture and return the output instead of printing it.
@@ -7997,13 +8906,13 @@ Usage:  loglog.sh in_file=<file> k=<31>
 
 Parameters:
 in_file=<file>       (in1) Input file, or comma-delimited list of files.
-in2=<file>      ptional second file for paired reads.
+in2=<file>      Optional second file for paired reads.
 k=31            Use this kmer length for counting.
 buckets=2048    Use this many buckets for counting; higher decreases
                 variance, for large datasets.  Must be a power of 2.
 seed=-1         Use this seed for hash functions.  A negative number forces
                 a random seed.
-minprob=0       Set to a value between 0 and 1 to exclude kmers with a lower 
+minprob=0       Set to a value between 0 and 1 to exclude kmers with a lower
                 probability of being correct.
 
 
@@ -8027,6 +8936,7 @@ Supported compression formats are gzip and bz2.
 To read from stdin, set 'in_file=stdin'.  The format should be specified with an extension, like 'in_file=stdin.fq.gz'
 
 Please contact Brian Bushnell at bbushnell@lbl.gov if you encounter any problems.
+For documentation and the latest version, visit: https://bbmap.org
 
     Args:
         capture_output (bool): If True, capture and return the output instead of printing it.
@@ -8070,6 +8980,7 @@ Java Parameters:
 -da             Disable assertions.
 
 Please contact Brian Bushnell at bbushnell@lbl.gov if you encounter any problems.
+For documentation and the latest version, visit: https://bbmap.org
 
     Args:
         capture_output (bool): If True, capture and return the output instead of printing it.
@@ -8119,6 +9030,7 @@ Java Parameters:
 -da             Disable assertions.
 
 Please contact Brian Bushnell at bbushnell@lbl.gov if you encounter any problems.
+For documentation and the latest version, visit: https://bbmap.org
 
     Args:
         capture_output (bool): If True, capture and return the output instead of printing it.
@@ -8166,6 +9078,7 @@ Java Parameters:
 -da             Disable assertions.
 
 Please contact Brian Bushnell at bbushnell@lbl.gov if you encounter any problems.
+For documentation and the latest version, visit: https://bbmap.org
 
     Args:
         capture_output (bool): If True, capture and return the output instead of printing it.
@@ -8215,6 +9128,7 @@ Java Parameters:
 -da             Disable assertions.
 
 Please contact Brian Bushnell at bbushnell@lbl.gov if you encounter any problems.
+For documentation and the latest version, visit: https://bbmap.org
 
     Args:
         capture_output (bool): If True, capture and return the output instead of printing it.
@@ -8267,6 +9181,7 @@ Java Parameters:
 -da             Disable assertions.
 
 Please contact Brian Bushnell at bbushnell@lbl.gov if you encounter any problems.
+For documentation and the latest version, visit: https://bbmap.org
 
     Args:
         capture_output (bool): If True, capture and return the output instead of printing it.
@@ -8339,6 +9254,7 @@ Java Parameters:
 -da             Disable assertions.
 
 Please contact Brian Bushnell at bbushnell@lbl.gov if you encounter any problems.
+For documentation and the latest version, visit: https://bbmap.org
 
     Args:
         capture_output (bool): If True, capture and return the output instead of printing it.
@@ -8365,6 +9281,7 @@ Description:    Merges coverage stats lines (from pileup) for the same OTU,
 Usage:          mergeOTUs.sh in_file=<file> out=<file>
 
 Please contact Brian Bushnell at bbushnell@lbl.gov if you encounter any problems.
+For documentation and the latest version, visit: https://bbmap.org
 
     Args:
         capture_output (bool): If True, capture and return the output instead of printing it.
@@ -8399,6 +9316,7 @@ normalize=f     Merge proportionally to base counts, so small models
                 a multiplier applied to that model prior to merging.
 
 Please contact Brian Bushnell at bbushnell@lbl.gov if you encounter any problems.
+For documentation and the latest version, visit: https://bbmap.org
 
     Args:
         capture_output (bool): If True, capture and return the output instead of printing it.
@@ -8470,6 +9388,7 @@ Java Parameters:
 -da             Disable assertions.
 
 Please contact Brian Bushnell at bbushnell@lbl.gov if you encounter any problems.
+For documentation and the latest version, visit: https://bbmap.org
 
     Args:
         capture_output (bool): If True, capture and return the output instead of printing it.
@@ -8498,6 +9417,7 @@ Java Parameters:
 -da             Disable assertions.
 
 Please contact Brian Bushnell at bbushnell@lbl.gov if you encounter any problems.
+For documentation and the latest version, visit: https://bbmap.org
 
     Args:
         capture_output (bool): If True, capture and return the output instead of printing it.
@@ -8535,7 +9455,7 @@ Sketch-making parameters:
 mode=single     Possible modes, for fasta input:
                    single: Generate one sketch per file.
                    sequence: Generate one sketch per sequence.
-autosize=t      Produce an output sketch of whatever size the union 
+autosize=t      Produce an output sketch of whatever size the union
                 happens to be.
 size=           Restrict output sketch to this upper bound of size.
 k=32,24         Kmer length, 1-32.
@@ -8564,6 +9484,7 @@ Java Parameters:
 
 For more detailed information, please read /bbmap/docs/guides/BBSketchGuide.txt.
 Please contact Brian Bushnell at bbushnell@lbl.gov if you encounter any problems.
+For documentation and the latest version, visit: https://bbmap.org
 
     Args:
         capture_output (bool): If True, capture and return the output instead of printing it.
@@ -8621,11 +9542,12 @@ Java Parameters:
 -Xmx                This will set Java's memory usage, overriding autodetection.
                     -Xmx20g will specify 20 gigs of RAM, and -Xmx200m will specify 200 megs.
                     The max is typically 85% of physical memory.
--eoom               This flag will cause the process to exit if an 
+-eoom               This flag will cause the process to exit if an
                     out-of-memory exception occurs.  Requires Java 8u92+.
 -da                 Disable assertions.
 
 Please contact Brian Bushnell at bbushnell@lbl.gov if you encounter any problems.
+For documentation and the latest version, visit: https://bbmap.org
 
     Args:
         capture_output (bool): If True, capture and return the output instead of printing it.
@@ -8681,6 +9603,7 @@ Java Parameters:
 -da             Disable assertions.
 
 Please contact Brian Bushnell at bbushnell@lbl.gov if you encounter any problems.
+For documentation and the latest version, visit: https://bbmap.org
 
     Args:
         capture_output (bool): If True, capture and return the output instead of printing it.
@@ -8728,14 +9651,15 @@ swap=f          Swap the reference and query; e.g., report read alignments
 
 Java Parameters:
 -Xmx            This will set Java's memory usage, overriding automatic
-                memory detection. -Xmx20g will specify 
-                20 gigs of RAM, and -Xmx200m will specify 200 megs.  
+                memory detection. -Xmx20g will specify
+                20 gigs of RAM, and -Xmx200m will specify 200 megs.
                 The max is typically 85% of physical memory.
 -eoom           This flag will cause the process to exit if an out-of-memory
                 exception occurs.  Requires Java 8u92+.
 -da             Disable assertions.
 
 Please contact Brian Bushnell at bbushnell@lbl.gov if you encounter any problems.
+For documentation and the latest version, visit: https://bbmap.org
 
     Args:
         capture_output (bool): If True, capture and return the output instead of printing it.
@@ -8754,10 +9678,11 @@ def mutate(capture_output: bool = False, **kwargs) -> Union[None, Tuple[str, str
 
     Help message:
     Written by Brian Bushnell
-Last modified May 25, 2025
+Last modified October 13, 2025
 
 Description:  Creates a mutant version of a genome.
 Also produces a VCF listing the added mutations.
+To create a mutant from a vcf, see applyvariants.sh.
 
 Usage:  mutate.sh in_file=<input file> out=<output file> id=<identity>
 
@@ -8796,9 +9721,13 @@ nohomopolymers=f  If true, prevent indels in homopolymers that lead to
                 AC or deleting T from TTTT.  This is mainly for grading 
                 purposes.  It does not fully solve the problem, but greatly
                 improves concordance (reducing disagreements by 70%).
-                NOTE! nohomopolymers is temporarily disabled.
 pad=0           Add this many random bases to the ends of input sequences.
                 Padleft and padright may also be specified independently.
+sinewaves=0     Vary mutation rate across the genome, yielding more- and
+                less-mutated areas, when >1.  More sinewaves will give
+		a more complicated conservation pattern.
+mod3=f		Forbid indels that are not a multiple of 3 in length.
+preservegc=t    Substitutions are selected to maintain GC fraction.
 
 Java Parameters:
 -Xmx            This will set Java's memory usage, overriding autodetection.
@@ -8809,6 +9738,7 @@ Java Parameters:
 -da             Disable assertions.
 
 Please contact Brian Bushnell at bbushnell@lbl.gov if you encounter any problems.
+For documentation and the latest version, visit: https://bbmap.org
 
     Args:
         capture_output (bool): If True, capture and return the output instead of printing it.
@@ -8860,6 +9790,7 @@ Java Parameters:
 -da             Disable assertions.
 
 Please contact Brian Bushnell at bbushnell@lbl.gov if you encounter any problems.
+For documentation and the latest version, visit: https://bbmap.org
 
     Args:
         capture_output (bool): If True, capture and return the output instead of printing it.
@@ -8934,6 +9865,7 @@ Java Parameters:
 -da             Disable assertions.
 
 Please contact Brian Bushnell at bbushnell@lbl.gov if you encounter any problems.
+For documentation and the latest version, visit: https://bbmap.org
 
     Args:
         capture_output (bool): If True, capture and return the output instead of printing it.
@@ -8960,8 +9892,7 @@ minimal crosstalk in the presence of errors.  Barcodes (indexes) must be
 embedded in read headers, and the expected barcodes must be provided
 as a text file with one barcode (or barcode pair) per line.
 
-Usage example for single-ended or interleaved files:
-
+Usage:
 novademux.sh in_file=reads.fq out=out_%.fq outu=unknown.fq expected=barcodes.txt
 
 For twin files:
@@ -9004,13 +9935,13 @@ addpolyg=f      It is recommended to set this to true on a platform where
 remap=          Change symbols for output filenames.  For example, remap=+-
                 would output barcode ACGT+TGCA to file ACGT-TCGA.fq.gz.
 
-Legacy Output Stats File Support:
+Legacy Output Stats File Support Parameters:
 legacy=         Set this to a path like '.' to output legacy stats files.
 samplemap=      An input csv or tsv containing barcodes and sample names,
                 for legacy stats.  If present 'expected' can be omitted.
 lane=0          Set this to a number to print the lane in legacy files.
 
-Barcode Parsing Modes (choose one):
+Barcode Parsing Mode Parameters (choose one):
 barcode         Parse the barcode automatically, assuming the standard
                 Illumina header format.  This is the default.
 header          Match the entire read header.
@@ -9036,7 +9967,7 @@ length=0        For prefix or suffix mode, use this many characters from
 column=0        Select the term when using a header delimiter.  This is
                 1-based (first term is column 1) so it must be positive.
 
-Barcode Assignment Mode (choose one):
+Barcode Assignment Mode Parameters (choose one):
 mode=prob       prob: Default mode.  Assigns reads to the bin where they most
                    likely belong, from gathering statistics across the pool.
                 tile: Similar to prob, but calculates statistics on a per-tile
@@ -9054,7 +9985,7 @@ server=auto     true:  Barcode counts are sent to a remote server for
                 auto:  Sets flag to false unless the local machine contains
                        proprietary probabilistic processing code.
 
-Sensitivity Cutoffs for Prob/Tile Mode:
+Sensitivity Cutoff Parameters for Prob/Tile Mode:
 maxhdist=6     Maximum Hamming distance (number of mismatches) allowed.
                 Lower values will reduce yield with little benefit.
 pairhdist=f     When true, maxhdist will apply to the Hamming distance of
@@ -9073,7 +10004,7 @@ matrixthreads=1 More threads is faster but adds nondeterminism.
 Note: These cutoffs are optimized for dual 10bp indexes.  For single 10bp
 indexes, 'minratio=5000 minprob=-3.2' is recommended.
 
-Sensitivity Cutoffs for HDist Mode
+Sensitivity Cutoff Parameters for HDist Mode:
 maxhdist=1      Maximum Hamming distance (number of mismatches) allowed.
                 Lower values will reduce yield and decrease crosstalk.
                 Setting maxhdist=0 will allow exact matches only.
@@ -9087,7 +10018,7 @@ clearzone=1     (cz) Minimum difference between the closest and second-closest
                 clearzone is set to at most 2.  Lower values increase both
                 yield and crosstalk.
 
-Buffering Parameters
+Buffering Parameters:
 streams=8       Allow at most this many active streams.  The actual number
                 of open files will be 1 greater than this if outu is set,
                 and doubled if output is paired and written in twin files 
@@ -9101,7 +10032,7 @@ rpb=8000        Dump buffers to files when they fill with this many reads.
 bpb=8000000     Dump buffers to files when they contain this many bytes.
                 Higher can be faster; lower uses less memory.
 
-Special Processing of Spike-ins (particularly for spike-ins with no barcodes)
+Spike-in Processing Parameters (particularly for spike-ins with no barcodes):
 spikelabel=     If and only if a spike-in label is set here, reads will be
                 aligned to a reference, and matching reads will be sent to
                 the file with this label.  May be a barcode or other string.
@@ -9111,7 +10042,7 @@ minid=0.7       Identity cutoff for matching the reference.
 mapall=f        Map all reads to the reference, instead of just unassigned
                 reads.
 
-Common parameters:
+Common Parameters:
 ow=t            (overwrite) Overwrites files that already exist.
 zl=4            (ziplevel) Set compression level, 1 (low) to 9 (max).
 int=auto        (interleaved) Determines whether INPUT file is considered 
@@ -9126,6 +10057,7 @@ Java Parameters:
 -da             Disable assertions.
 
 Please contact Brian Bushnell at bbushnell@lbl.gov if you encounter any problems.
+For documentation and the latest version, visit: https://bbmap.org
 
     Args:
         capture_output (bool): If True, capture and return the output instead of printing it.
@@ -9137,6 +10069,45 @@ Please contact Brian Bushnell at bbushnell@lbl.gov if you encounter any problems
     """
     args = _pack_args(kwargs)
     return _run_command("novademux.sh", args, capture_output)
+
+def parallelogram(capture_output: bool = False, **kwargs) -> Union[None, Tuple[str, str]]:
+    """
+    Wrapper for parallelogram.sh
+
+    Help message:
+    Written by Brian Bushnell
+Last modified May 4, 2025
+
+Description:  Converts a parallelogram-shaped alignment visualization to a rectangle.
+This tool transforms the output from CrossCutAligner so it can be properly
+visualized by visualizealignment.sh. The transformation shifts coordinates
+to create a rectangular matrix from the parallelogram pattern.
+
+Usage:
+parallelogram.sh <input_map> <output_map>
+
+Parameters:
+input_map       Input text file containing parallelogram-shaped matrix data.
+output_map      Output text file with rectangular matrix data.
+
+Example workflow:
+crosscutaligner.sh ATCGATCG GCATGCTA map1.txt
+parallelogram.sh map1.txt map2.txt
+visualizealignment.sh map2.txt alignment.png
+
+Please contact Brian Bushnell at bbushnell@lbl.gov if you encounter any problems.
+For documentation and the latest version, visit: https://bbmap.org
+
+    Args:
+        capture_output (bool): If True, capture and return the output instead of printing it.
+        in_file (str): Input file (replaces 'in=' parameter)
+        **kwargs: Other arguments for parallelogram.sh
+
+    Returns:
+        Union[None, Tuple[str, str]]: If capture_output is True, returns (stdout, stderr), else None.
+    """
+    args = _pack_args(kwargs)
+    return _run_command("parallelogram.sh", args, capture_output)
 
 def partition(capture_output: bool = False, **kwargs) -> Union[None, Tuple[str, str]]:
     """
@@ -9177,6 +10148,7 @@ Java Parameters:
 -da             Disable assertions.
 
 Please contact Brian Bushnell at bbushnell@lbl.gov if you encounter any problems.
+For documentation and the latest version, visit: https://bbmap.org
 
     Args:
         capture_output (bool): If True, capture and return the output instead of printing it.
@@ -9219,6 +10191,7 @@ Java Parameters:
 -da             Disable assertions.
 
 Please contact Brian Bushnell at bbushnell@lbl.gov if you encounter any problems.
+For documentation and the latest version, visit: https://bbmap.org
 
     Args:
         capture_output (bool): If True, capture and return the output instead of printing it.
@@ -9271,6 +10244,7 @@ Java Parameters:
 -da             Disable assertions.
 
 Please contact Brian Bushnell at bbushnell@lbl.gov if you encounter any problems.
+For documentation and the latest version, visit: https://bbmap.org
 
     Args:
         capture_output (bool): If True, capture and return the output instead of printing it.
@@ -9289,7 +10263,7 @@ def pileup(capture_output: bool = False, **kwargs) -> Union[None, Tuple[str, str
 
     Help message:
     Written by Brian Bushnell
-Last modified September 28, 2024
+Last modified December 2, 2025
 
 Description:  Calculates per-scaffold or per-base coverage information from an unsorted sam or bam file.
 Supports SAM/BAM format for reads and FASTA for reference.
@@ -9369,7 +10343,7 @@ qtrim=f             Quality-trim.  May be set to:
 trimq=-1            If positive, quality-trim to this threshold.
 border=0            Ignore this many bases on the left and right end.
 
-Output format (tab-delimited):
+Output Columns (tab-delimited):
 ID, Avg_fold, Length, Ref_GC, Covered_percent, Covered_bases, Plus_reads, Minus_reads, Read_GC, Median_fold, Std_Dev
 
 ID:                Scaffold ID
@@ -9395,6 +10369,7 @@ Java Parameters:
 -da                Disable assertions.
 
 Please contact Brian Bushnell at bbushnell@lbl.gov if you encounter any problems.
+For documentation and the latest version, visit: https://bbmap.org
 
     Args:
         capture_output (bool): If True, capture and return the output instead of printing it.
@@ -9442,6 +10417,7 @@ Java Parameters:
 -da                Disable assertions.
 
 Please contact Brian Bushnell at bbushnell@lbl.gov if you encounter any problems.
+For documentation and the latest version, visit: https://bbmap.org
 
     Args:
         capture_output (bool): If True, capture and return the output instead of printing it.
@@ -9503,6 +10479,7 @@ Java Parameters:
 -da                 Disable assertions.
 
 Please contact Brian Bushnell at bbushnell@lbl.gov if you encounter any problems.
+For documentation and the latest version, visit: https://bbmap.org
 
     Args:
         capture_output (bool): If True, capture and return the output instead of printing it.
@@ -9546,6 +10523,7 @@ Java Parameters:
 -da             Disable assertions.
 
 Please contact Brian Bushnell at bbushnell@lbl.gov if you encounter any problems.
+For documentation and the latest version, visit: https://bbmap.org
 
     Args:
         capture_output (bool): If True, capture and return the output instead of printing it.
@@ -9587,6 +10565,7 @@ Java Parameters:
 -da             Disable assertions.
 
 Please contact Brian Bushnell at bbushnell@lbl.gov if you encounter any problems.
+For documentation and the latest version, visit: https://bbmap.org
 
     Args:
         capture_output (bool): If True, capture and return the output instead of printing it.
@@ -9612,6 +10591,7 @@ Description:  Plots Illumina read positions and barcode hamming distance.
 Usage:  plotreadposition.sh in_file=<file.fq> out=<file.tsv> expected=<barcodes.txt>
 
 Please contact Brian Bushnell at bbushnell@lbl.gov if you encounter any problems.
+For documentation and the latest version, visit: https://bbmap.org
 
     Args:
         capture_output (bool): If True, capture and return the output instead of printing it.
@@ -9723,6 +10703,7 @@ Java Parameters:
 -da             Disable assertions.
 
 Please contact Brian Bushnell at bbushnell@lbl.gov if you encounter any problems.
+For documentation and the latest version, visit: https://bbmap.org
 
     Args:
         capture_output (bool): If True, capture and return the output instead of printing it.
@@ -9785,6 +10766,7 @@ Java Parameters:
 Other parameters will be passed directly to BBMap.
 
 Please contact Brian Bushnell at bbushnell@lbl.gov if you encounter any problems.
+For documentation and the latest version, visit: https://bbmap.org
 
     Args:
         capture_output (bool): If True, capture and return the output instead of printing it.
@@ -9810,6 +10792,7 @@ Description:    Prints time elapsed since last called on the same file.
 Usage:          printtime.sh <filename>
 
 Please contact Brian Bushnell at bbushnell@lbl.gov if you encounter any problems.
+For documentation and the latest version, visit: https://bbmap.org
 
     Args:
         capture_output (bool): If True, capture and return the output instead of printing it.
@@ -9847,6 +10830,7 @@ Java Parameters:
 -da             Disable assertions.
 
 Please contact Brian Bushnell at bbushnell@lbl.gov if you encounter any problems.
+For documentation and the latest version, visit: https://bbmap.org
 
     Args:
         capture_output (bool): If True, capture and return the output instead of printing it.
@@ -9869,7 +10853,7 @@ Last modified March 28, 2018
 
 Description:  Finds and trims junctions in mapped Hi-C reads.
 For the purpose of reporting junction motifs, this requires paired-end reads,
-because only improper pairs will be considered as possibly containing 
+because only improper pairs will be considered as possibly containing
 junctions.  However, all reads that map with soft-clipping will be trimmed
 on the 3' (right) end, regardless of pairing status.
 
@@ -9892,6 +10876,7 @@ Java Parameters:
 -da             Disable assertions.
 
 Please contact Brian Bushnell at bbushnell@lbl.gov if you encounter any problems.
+For documentation and the latest version, visit: https://bbmap.org
 
     Args:
         capture_output (bool): If True, capture and return the output instead of printing it.
@@ -9917,6 +10902,7 @@ Description:  Summarizes results of Linux time command.
 Usage:        processspeed.sh <file>
 
 Please contact Brian Bushnell at bbushnell@lbl.gov if you encounter any problems.
+For documentation and the latest version, visit: https://bbmap.org
 
     Args:
         capture_output (bool): If True, capture and return the output instead of printing it.
@@ -9928,6 +10914,41 @@ Please contact Brian Bushnell at bbushnell@lbl.gov if you encounter any problems
     """
     args = _pack_args(kwargs)
     return _run_command("processspeed.sh", args, capture_output)
+
+def profile(capture_output: bool = False, **kwargs) -> Union[None, Tuple[str, str]]:
+    """
+    Wrapper for profile.sh
+
+    Help message:
+    Written by Brian Bushnell and Isla
+Last modified November 6, 2025
+
+Description:  Runs any BBTools Java class with Java Flight Recorder profiling.
+
+Usage:  profile.sh <classname> <arguments> profile=<output.jfr>
+e.g.
+profile.sh stream.StreamerWrapper in_file=foo.sam profile=profile.jfr
+profile.sh align2.BBMap in_file=reads.fq ref=genome.fa profile=mapping.jfr -Xmx8g
+
+Parameters:
+profile=<file>  Output JFR file (required).
+<classname>     Fully qualified Java class to run (first non-flag argument).
+-Xmx<size>      Java heap size (optional, default 2g).
+
+All other parameters are passed to the target class.
+
+Please contact Brian Bushnell at bbushnell@lbl.gov if you encounter any problems.
+
+    Args:
+        capture_output (bool): If True, capture and return the output instead of printing it.
+        in_file (str): Input file (replaces 'in=' parameter)
+        **kwargs: Other arguments for profile.sh
+
+    Returns:
+        Union[None, Tuple[str, str]]: If capture_output is True, returns (stdout, stderr), else None.
+    """
+    args = _pack_args(kwargs)
+    return _run_command("profile.sh", args, capture_output)
 
 def quabblealigner(capture_output: bool = False, **kwargs) -> Union[None, Tuple[str, str]]:
     """
@@ -9956,6 +10977,7 @@ map             Optional output text file for matrix score space.
 iterations      Optional integer for benchmarking multiple iterations.
 
 Please contact Brian Bushnell at bbushnell@lbl.gov if you encounter any problems.
+For documentation and the latest version, visit: https://bbmap.org
 
     Args:
         capture_output (bool): If True, capture and return the output instead of printing it.
@@ -9995,6 +11017,7 @@ map             Optional output text file for matrix score space.
 iterations      Optional integer for benchmarking multiple iterations.
 
 Please contact Brian Bushnell at bbushnell@lbl.gov if you encounter any problems.
+For documentation and the latest version, visit: https://bbmap.org
 
     Args:
         capture_output (bool): If True, capture and return the output instead of printing it.
@@ -10013,7 +11036,7 @@ def quickbin(capture_output: bool = False, **kwargs) -> Union[None, Tuple[str, s
 
     Help message:
     Written by Brian Bushnell
-Last modified June 23, 2025
+Last modified December 1, 2025
 
 Description:  Bins contigs using coverage and kmer frequencies.
 If reads or covstats are provided, coverage will be calculated from those;
@@ -10024,12 +11047,12 @@ Any number of sam files may be used (from different samples of the same
 environment, usually).  The more sam files, the more accurate.  Ideally,
 sam files will be generated from paired reads like this:
 bbmap.sh ref=contigs.fa in_file=reads.fq ambig=random mateqtag minid=0.9 maxindel=10 out=mapped.sam
-For PacBio-only metagenomes, it is best to generate synthetic paired 
+For PacBio-only metagenomes, it is best to generate synthetic paired
 reads from the PacBio CCS reads and align them:
-randomreadsmg.sh in_file=ccs.fa out=synth.fq depth=10 variance=0 paired length=250 avginsert=600 
+randomreadsmg.sh in_file=ccs.fa out=synth.fq depth=10 variance=0 paired length=250 avginsert=600
 
-Usage:  
-quickbin.sh in_file=contigs.fa out=bins *.sam covout=cov.txt
+Usage:
+quickbin.sh in_file=contigs.fa out=bins *.sam covout=cov.txt report=report.tsv
 or
 quickbin.sh in_file=contigs.fa out=bins cov=cov.txt
 or
@@ -10050,16 +11073,17 @@ out=<pattern>   Output pattern.  If this contains a % symbol, like bin%.fa,
                 indicate their bin number.  A term without a '.' symbol
                 like 'out=output' will be considered a directory.
 chaff           Enable to write small clusters to a shared file.
+report=<file>   Report on bin size, quality, and taxonomy.
 
 Size parameters:
-mincluster=50k  (mcs) Minimum output cluster size in base pairs; smaller 
+mincluster=50k  (mcs) Minimum output cluster size in base pairs; smaller
                 clusters will share a residual file if chaff=t.
 mincontig=100   Don't load contigs smaller than this; reduces memory usage.
 minseed=3000    Minimum contig length to create a new cluster; reducing this
                 can increase speed dramatically for large metagenomes,
                 increase sensitivity for small contigs, and slightly increase
-                contamination.  In particular, large metagenomes with only 
-                1 sample will run slowly if this is below 2000; with 
+                contamination.  In particular, large metagenomes with only
+                1 sample will run slowly if this is below 2000; with
                 at least 3 samples the speed should not be affected much.
 minresidue=200  Discard unclustered contigs shorter than this; reduces memory.
 dumpsequence    (TODO) Discard sequence to reduce memory usage.
@@ -10084,7 +11108,7 @@ Note: Halving either quantization parameter can roughly double speed,
 but may decrease recovery of shorter contigs.
 
 Neural network parameters:
-net=auto        Specify a neural network file to use; default is 
+net=auto        Specify a neural network file to use; default is
                 bbmap/resources/quickbin1D_all.bbnet
 cutoff=0.52     Neural network output threshold; higher increases specificity,
                 lower increases sensitivity.  This is a soft cutoff that
@@ -10095,7 +11119,7 @@ Edge-processing parameters:
 e1=0                  Edge-first clustering passes; may increase speed
                       at the cost of purity.
 e2=4                  Later edge-based clustering passes.
-edgeStringency1=0.25  Stringency for edge-first clustering; 
+edgeStringency1=0.25  Stringency for edge-first clustering;
                       lower is more stringent.
 edgeStringency2=1.1    Stringency for later edge-based clustering.
 maxEdges=3            Follow up to this many edges per contig.
@@ -10111,14 +11135,22 @@ minid=0.96            When loading sam files, ignore reads aligned with
                       identity below this, both for edges and coverage.
 
 Other parameters:
-sketchoutput=f        Use SendSketch to identify taxonomy of output clusters.
+quickclade=f          Use QuickClade to determine taxonomy of output bins.
+server=f              Prioritize using QuickClade server instead of local ref.
+                      Normally, a local reference will be used if present;
+		      this is faster and available at:
+		      https://sourceforge.net/projects/bbmap/files/Resources/
+sketchoutput=f        Use SendSketch to determine taxonomy of output bins.
 validate=f            If contig headers have a term such as 'tid_1234', this
                       will be parsed and used to evaluate correctness.
 printcc=f             Print completeness/contam after each step.
 callssu=f             Call 16S and 18S genes; do not merge clusters with
                       incompatible SSU sequence.
-minssuid=0.98         SSUs with identity below this are incompatible.
+minssuid=0.96         SSUs with identity below this are incompatible.
 aligner=quantum       Options include ssa2, glocal, drifting, banded, crosscut.
+threads=auto          Number of threads; default is logical cores.
+flat                  Ignore depth; may still be used with bam files for e.g. MDA.
+                      Required flag if there is no coverage information.
 
 Java Parameters:
 -Xmx            This will set Java's memory usage, overriding autodetection.
@@ -10129,6 +11161,7 @@ Java Parameters:
 -da             Disable assertions.
 
 Please contact Brian Bushnell at bbushnell@lbl.gov if you encounter any problems.
+For documentation and the latest version, visit: https://bbmap.org
 
     Args:
         capture_output (bool): If True, capture and return the output instead of printing it.
@@ -10147,7 +11180,7 @@ def quickclade(capture_output: bool = False, **kwargs) -> Union[None, Tuple[str,
 
     Help message:
     Written by Brian Bushnell
-Last modified May 4, 2025
+Last modified October 12, 2025
 
 Description:  Assigns taxonomy to query sequences by comparing kmer
 frequencies to those in a reference database.  Developed for taxonomic
@@ -10169,6 +11202,9 @@ quickclade.sh bins
 or
 quickclade.sh contigs.fa percontig out=results.tsv usetree
 
+For accuracy evaluation:
+quickclade.sh printmetrics usetree genomesdir out=null includeself=f
+
 
 File Parameters:
 in_file=<file,file>  Query files or directories.  Loose file or directory names are
@@ -10179,16 +11215,20 @@ ref=<file,file> Reference files; the current default is:
                 It is plaintext, human-readable, and pretty small.
 out=stdout      Set to a file to redirect output.  Only the query results will
                 be written here; progress messages will still go to stderr.
+server          Use this flag to send kmer spectra to a remote server if you do not
+                have a local database.
 
 Basic Parameters:
 percontig       Run one query per contig instead of per file.
 minlen=0        Ignore sequences shorter than this in percontig mode.
 hits=1          Print this many top hits per query.
-steps=7         Only search up to this many GC intervals (of 0.01) away from
+steps=6         Only search up to this many GC intervals (of 0.01) away from
                 the query GC.
 oneline         Print results one line per query, tab-delimited.
 callssu=f       Call 16S and 18S for alignment to reference SSU.
                 This will affect the top hit ordering only if hits>1.
+server=f        Send spectra to server instead of using a local reference.
+                Enabled automatically if there is no local reference.
 
 Advanced Parameters (mainly for benchmarking):
 printmetrics    Output accuracy statistics; mainly useful for labeled data.
@@ -10202,17 +11242,20 @@ maxk=5          Can be set to 4 or 3 to restrict kmer frequency comparisons
                 to smaller kmers.  This may improve accuracy for small
                 sequences/bins, but slightly reduces accuracy for large
                 sequences/bins.
-ccm=1.0         Threshold for using pentamers; lower is faster.
-ccm2=1.5        Threshold for using tetramers.
-gcdif=0.07      Initial maximum GC difference.
-strdif=0.10     Initial maximum strandedness difference.
+ccm=1.2         Threshold for using pentamers; lower is faster.
+ccm2=1.6        Threshold for using tetramers.
+gcdif=0.04      Initial maximum GC difference.
 gcmult=0.5      Max GC difference as a fraction of best 5-mer difference.
+strdif=0.12     Initial maximum strandedness difference.
 strmult=1.2     Max strandedness difference as a fraction of best 5-mer diff.
+hhdif=0.025     Maximum HH metric difference.
+cagadif=0.017   Maximum CAGA metric differece.
 ee=t            Early exit; increases speed.
 entropy         Calculate entropy for queries.  Slow; negligible utility.
 heap=1          Number of intermediate comparisons to store.
 usetree         Load a taxonomic tree for better grading for labeled data.
 aligner=quantum Options include ssa2, glocal, drifting, banded, crosscut.
+
 Distance Metrics:
 abs             Use absolute difference of kmer frequencies.
 cos             Use 1-cosine similarity of kmer frequencies.
@@ -10223,6 +11266,7 @@ Note:  The distance metric strongly impacts ccm, gcmult, and strmult.
        Defaults are optimized for abscomp.
 
 Please contact Brian Bushnell at bbushnell@lbl.gov if you encounter any problems.
+For documentation and the latest version, visit: https://bbmap.org
 
     Args:
         capture_output (bool): If True, capture and return the output instead of printing it.
@@ -10241,7 +11285,7 @@ def randomgenome(capture_output: bool = False, **kwargs) -> Union[None, Tuple[st
 
     Help message:
     Written by Brian Bushnell
-Last modified October 17, 2019
+Last modified November 11, 2025
 
 Description:  Generates a random, (probably) repeat-free genome.
 
@@ -10249,19 +11293,23 @@ Usage:  randomgenome.sh len=<total size> chroms=<int> gc=<float> out=<file>
 
 Parameters:
 out=<file>      Output.
+in_file=<file>       Optional input clade or fasta file.  If specified, the
+                synthetic genome will conserve the input kmer frequencies.
+k=5             Kmer length for base frequencies (2-5).
 overwrite=f     (ow) Set to false to force the program to abort rather than
                 overwrite an existing file.
 len=100000      Total genome size.
 chroms=1        Number of pieces.
 gc=0.5          GC fraction.
 nopoly=f        Ban homopolymers.
-pad=0           Add this many Ns to contig ends; does not count toward 
+pad=0           Add this many Ns to contig ends; does not count toward
                 genome size.
 seed=-1         Set to a positive number for deterministic output.
 amino=f         Produce random amino acids instead of nucleotides.
 includestop=f   Include stop codons in random amino sequences.
 
 Please contact Brian Bushnell at bbushnell@lbl.gov if you encounter any problems.
+For documentation and the latest version, visit: https://bbmap.org
 
     Args:
         capture_output (bool): If True, capture and return the output instead of printing it.
@@ -10390,7 +11438,6 @@ metagenome=f    Assign scaffolds a random exponential coverage level,
 randomscaffold=f    Choose random scaffolds without respect to length.
 amp=1           Simulate highly-amplified MDA single-cell data by 
                 setting this to a higher number like 1000.
-replacenoref=f  Replace intra- and inter-scaffold Ns with random bases.
 pbadapter=      Add adapter sequence to some reads using this literal string.
 fragadapter=    Add this sequence to paired reads with insert size 
                 shorter than read length.
@@ -10423,7 +11470,7 @@ def randomreadsmg(capture_output: bool = False, **kwargs) -> Union[None, Tuple[s
 
     Help message:
     Written by Brian Bushnell
-Last modified July 15, 2025
+Last modified December 2, 2025
 
 Description:  Generates synthetic reads from a set of fasta assemblies.
 Each assembly is assigned a random coverage level, with optional custom 
@@ -10447,14 +11494,13 @@ mindepth=1      Minimum assembly average depth.
 maxdepth=256    Maximum assembly average depth.
 depth=          Sets minimum and maximum to the same level.
 reads=-1        If positive, ignore depth and make this many reads per contig.
-variance=0.5    Coverage within an assembly will vary by up to this much;
-                one region can be up to this fraction deeper than another.
 mode=min4       Random depth distribution; can be min4, exp, root, or linear.
 cov_x=          Set a custom coverage level for the file named x.
                 x can alternatively be the taxID if the filename starts
                 with tid_x_; e.g. cov_foo.fa=5 for foo.fa, or cov_7=5
                 for file tid_7_foo.fa
 <file>=x        Alternate way to set custom depth; file will get depth x.
+circular=f      Treat each contig as circular, and create spanning reads.
 threads=        Set the max number of threads; default is logical core count.
                 By default each input file uses 1 thread.  This flag will
                 also force multithreaded processing when there is exactly 1
@@ -10497,6 +11543,9 @@ addadapters     Add adapter sequence to paired reads with insert
                 size shorter than read length.
 adapter1=       Optionally specify a custom R1 adapter (as observed in R1).
 adapter2=       Optionally specify a custom R2 adapter (as observed in R2).
+illuminanames=f Make headers look like normal Illumina headers.
+barcode=        Specify the barcode for Illumina headers.
+machine=        Specify the machine for Illumina headers.
 
 Long-read error parameters
 Note: These may be overriden for any platform, including Illumina.
@@ -10506,9 +11555,9 @@ drate=-1        Deletion rate; default 0.0045 ONT / 0.000045 PB.
 hrate=-1        Homopolymer error boost; default 0.02 ONT / 0.000015 PB.
                 The indel chance increases this much per homopolymer base.
 
-Coverage variation parameters (only used with 'sinewave' flag):
+Coverage variation parameters (used with 'sinewave' flag):
 sinewave        Enable realistic coverage variation within contigs.
-numwaves=4      Number of sine waves to combine; more waves create more 
+waves=4         Number of sine waves to combine; more waves create more 
                 complex coverage patterns with irregular peaks and valleys.
 waveamp=0.70    Controls the maximum variation in coverage due to the sine 
                 waves.  Higher values (0-1) create more dramatic differences 
@@ -10520,6 +11569,9 @@ minprob=0.10    Sets the minimum coverage probability as a fraction of target.
                 below this level, preventing assembly gaps.
 minperiod=2k    Minimum sine wave period, in bp.
 maxperiod=80k   Maximum sine wave period, in bp.
+variance=0.5    Vary coverage on a per-contig basis, within an assembly, by
+                plus/minus this factor.  Unrelated to sinewave mode, which
+		is generally superior.
 
 Java Parameters:
 -Xmx            This will set Java's memory usage, overriding autodetection.
@@ -10530,6 +11582,7 @@ Java Parameters:
 -da             Disable assertions.
 
 Please contact Brian Bushnell at bbushnell@lbl.gov if you encounter any problems.
+For documentation and the latest version, visit: https://bbmap.org
 
     Args:
         capture_output (bool): If True, capture and return the output instead of printing it.
@@ -10553,6 +11606,7 @@ Description:  Generates a length histogram of input reads.
 
 Usage:	readlength.sh in_file=<input file>
 
+Parameters:
 in_file=<file>    	The 'in_file=' flag is needed only if the input file is not the first parameter.  'in_file=stdin.fq' will pipe from standard in.
 in2=<file>   	Use this if 2nd read of pairs are in a different file.
 out=<file>   	Write the histogram to this file.  Default is stdout.
@@ -10563,6 +11617,7 @@ nzo=t        	(nonzeroonly) Do not print empty bins.
 reads=-1     	If nonnegative, stop after this many reads.
 
 Please contact Brian Bushnell at bbushnell@lbl.gov if you encounter any problems.
+For documentation and the latest version, visit: https://bbmap.org
 
     Args:
         capture_output (bool): If True, capture and return the output instead of printing it.
@@ -10586,6 +11641,7 @@ Last modified February 24, 2025
 Usage: reducecolumns.sh <in> <out> column column column
 
 Please contact Brian Bushnell at bbushnell@lbl.gov if you encounter any problems.
+For documentation and the latest version, visit: https://bbmap.org
 
     Args:
         capture_output (bool): If True, capture and return the output instead of printing it.
@@ -10632,6 +11688,7 @@ Java Parameters:
 -da             Disable assertions.
 
 Please contact Brian Bushnell at bbushnell@lbl.gov if you encounter any problems.
+For documentation and the latest version, visit: https://bbmap.org
 
     Args:
         capture_output (bool): If True, capture and return the output instead of printing it.
@@ -10650,7 +11707,7 @@ def reformat(capture_output: bool = False, **kwargs) -> Union[None, Tuple[str, s
 
     Help message:
     Written by Brian Bushnell
-Last modified November 22, 2023
+Last modified November 19, 2025
 
 Description:  Reformats reads to change ASCII quality encoding, interleaving, file format, or compression format.
 Optionally performs additional functions such as quality trimming, subsetting, and subsampling.
@@ -10708,7 +11765,6 @@ crashjunk=t             Crash when encountering reads with invalid bases.
 tossjunk=f              Discard reads with invalid characters as bases.
 fixjunk=f               Convert invalid bases to N (or X for amino acids).
 dotdashxton=f           Specifically convert . - and X to N (or X for amino acids).
-fixheaders=f            Convert nonstandard header characters to standard ASCII.
 recalibrate=f           (recal) Recalibrate quality scores.  Must first generate matrices with CalcTrueQuality.
 maxcalledquality=41     Quality scores capped at this upper bound.
 mincalledquality=2      Quality scores of ACGT bases will be capped at lower bound.
@@ -10737,7 +11793,7 @@ gcplot=f                Add a graphical representation to the gchist.
 maxhistlen=6000         Set an upper bound for histogram lengths; higher uses more memory.
                         The default is 6000 for some histograms and 80000 for others.
 
-Histograms for sam files only (requires sam format 1.4 or higher):
+Histogram parameters for sam files only (requires sam format 1.4 or higher):
 
 ehist=<file>            Errors-per-read histogram.
 qahist=<file>           Quality accuracy histogram of error rates versus quality score.
@@ -10804,7 +11860,7 @@ Illumina-specific parameters:
 top=true                Include reads from the top of the flowcell.
 bottom=true             Include reads from the bottom of the flowcell.
 
-Sam and bam processing options:
+Sam and bam processing parameters:
 
 mappedonly=f            Toss unmapped reads.
 unmappedonly=f          Toss mapped reads.
@@ -10819,7 +11875,7 @@ stoptag=f               Set to true to write a tag indicating read stop location
 sam=                    Set to 'sam=1.3' to convert '=' and 'X' cigar symbols (from sam 1.4+ format) to 'M'.
                         Set to 'sam=1.4' to convert 'M' to '=' and 'X' (sam=1.4 requires MD tags to be present, or ref to be specified).
 
-Sam and bam alignment filtering options:
+Sam and bam alignment filtering parameters:
 These require = and X symbols in cigar strings, or MD tags, or a reference fasta.
 -1 means disabled; to filter reads with any of a symbol type, set to 0.
 
@@ -10835,7 +11891,7 @@ minidfilter=-1.0        Discard reads with identity below this (0-1).
 maxidfilter=1.0         Discard reads with identity above this (0-1).
 clipfilter=-1           Discard reads with more than this many soft-clipped bases.
 
-Kmer counting and cardinality estimation:
+Kmer counting and cardinality estimation parameters:
 k=0                     If positive, count the total number of kmers.
 cardinality=f           (loglog) Count unique kmers using the LogLog algorithm.
 loglogbuckets=1999      Use this many buckets for cardinality estimation.
@@ -10855,6 +11911,7 @@ Java Parameters:
 -da                     Disable assertions.
 
 Please contact Brian Bushnell at bbushnell@lbl.gov if you encounter any problems.
+For documentation and the latest version, visit: https://bbmap.org
 
     Args:
         capture_output (bool): If True, capture and return the output instead of printing it.
@@ -10866,6 +11923,466 @@ Please contact Brian Bushnell at bbushnell@lbl.gov if you encounter any problems
     """
     args = _pack_args(kwargs)
     return _run_command("reformat.sh", args, capture_output)
+
+def reformat2(capture_output: bool = False, **kwargs) -> Union[None, Tuple[str, str]]:
+    """
+    Wrapper for reformat2.sh
+
+    Help message:
+    Written by Brian Bushnell
+Last modified November 19, 2025
+
+Description:  Reformats reads to change ASCII quality encoding, interleaving, file format, or compression format.
+Optionally performs additional functions such as quality trimming, subsetting, and subsampling.
+Supports fastq, fasta, fasta+qual, scarf, oneline, sam, bam, gzip, bz2.
+Multithreaded version of reformat.sh.
+Please read bbmap/docs/guides/ReformatGuide.txt for more information.
+
+Usage:  reformat.sh in_file=<file> in2=<file2> out=<outfile> out2=<outfile2>
+
+in2 and out2 are for paired reads and are optional.
+If input is paired and there is only one output file, it will be written interleaved.
+
+Parameters and their defaults:
+
+ow=f                    (overwrite) Overwrites files that already exist.
+app=f                   (append) Append to files that already exist.
+zl=4                    (ziplevel) Set compression level, 1 (low) to 9 (max).
+int=f                   (interleaved) Determines whether INPUT file is considered interleaved.
+fastawrap=70            Length of lines in fasta output.
+fastareadlen=0          Set to a non-zero number to break fasta files into reads of at most this length.
+fastaminlen=1           Ignore fasta reads shorter than this.
+qin_file=auto                ASCII offset for input quality.  May be 33 (Sanger), 64 (Illumina), or auto.
+qout=auto               ASCII offset for output quality.  May be 33 (Sanger), 64 (Illumina), or auto (same as input).
+qfake=30                Quality value used for fasta to fastq reformatting.
+qfin_file=<.qual file>       Read qualities from this qual file, for the reads coming from 'in_file=<fasta file>'
+qfin2=<.qual file>      Read qualities from this qual file, for the reads coming from 'in2=<fasta file>'
+qfout=<.qual file>      Write qualities from this qual file, for the reads going to 'out=<fasta file>'
+qfout2=<.qual file>     Write qualities from this qual file, for the reads coming from 'out2=<fasta file>'
+outsingle=<file>        (outs) If a read is longer than minlength and its mate is shorter, the longer one goes here.
+deleteinput=f           Delete input upon successful completion.
+ref=<file>              Optional reference fasta for sam processing.
+
+Processing Parameters:
+
+verifypaired=f          (vpair) When true, checks reads to see if the names look paired.  Prints an error message if not.
+verifyinterleaved=f     (vint) sets 'vpair' to true and 'interleaved' to true.
+allowidenticalnames=f   (ain) When verifying pair names, allows identical names, instead of requiring /1 and /2 or 1: and 2:
+tossbrokenreads=f       (tbr) Discard reads that have different numbers of bases and qualities.  By default this will be detected and cause a crash.
+ignorebadquality=f      (ibq) Fix out-of-range quality values instead of crashing with a warning.
+addslash=f              Append ' /1' and ' /2' to read names, if not already present.  Please include the flag 'int=t' if the reads are interleaved.
+spaceslash=t            Put a space before the slash in addslash mode.
+addcolon=f              Append ' 1:' and ' 2:' to read names, if not already present.  Please include the flag 'int=t' if the reads are interleaved.
+underscore=f            Change whitespace in read names to underscores.
+rcomp=f                 (rc) Reverse-complement reads.
+rcompmate=f             (rcm) Reverse-complement read 2 only.
+comp=f                  (complement) Reverse-complement reads.
+changequality=t         (cq) N bases always get a quality of 0 and ACGT bases get a min quality of 2.
+quantize=f              Quantize qualities to a subset of values like NextSeq.  Can also be used with comma-delimited list, like quantize=0,8,13,22,27,32,37
+tuc=f                   (touppercase) Change lowercase letters in reads to uppercase.
+uniquenames=f           Make duplicate names unique by appending _<number>.
+remap=                  A set of pairs: remap=CTGN will transform C>T and G>N.
+                        Use remap1 and remap2 to specify read 1 or 2.
+iupacToN=f              (itn) Convert non-ACGTN symbols to N.
+monitor=f               Kill this process if it crashes.  monitor=600,0.01 would kill after 600 seconds under 1% usage.
+crashjunk=t             Crash when encountering reads with invalid bases.
+tossjunk=f              Discard reads with invalid characters as bases.
+fixjunk=f               Convert invalid bases to N (or X for amino acids).
+dotdashxton=f           Specifically convert . - and X to N (or X for amino acids).
+recalibrate=f           (recal) Recalibrate quality scores.  Must first generate matrices with CalcTrueQuality.
+maxcalledquality=41     Quality scores capped at this upper bound.
+mincalledquality=2      Quality scores of ACGT bases will be capped at lower bound.
+trimreaddescription=f   (trd) Trim the names of reads after the first whitespace.
+trimrname=f             For sam/bam files, trim rname/rnext fields after the first space.
+fixheaders=f            Replace characters in headers such as space, *, and | to make them valid file names.
+warnifnosequence=t      For fasta, issue a warning if a sequenceless header is encountered.
+warnfirsttimeonly=t     Issue a warning for only the first sequenceless header.
+utot=f                  Convert U to T (for RNA -> DNA translation).
+padleft=0               Pad the left end of sequences with this many symbols.
+padright=0              Pad the right end of sequences with this many symbols.
+pad=0                   Set padleft and padright to the same value.
+padsymbol=N             Symbol to use for padding.
+
+Histogram output parameters:
+
+bhist=<file>            Base composition histogram by position.
+qhist=<file>            Quality histogram by position.
+qchist=<file>           Count of bases with each quality value.
+aqhist=<file>           Histogram of average read quality.
+bqhist=<file>           Quality histogram designed for box plots.
+lhist=<file>            Read length histogram.
+gchist=<file>           Read GC content histogram.
+gcbins=100              Number gchist bins.  Set to 'auto' to use read length.
+gcplot=f                Add a graphical representation to the gchist.
+maxhistlen=6000         Set an upper bound for histogram lengths; higher uses more memory.
+                        The default is 6000 for some histograms and 80000 for others.
+
+Histogram parameters for sam files only (requires sam format 1.4 or higher):
+
+ehist=<file>            Errors-per-read histogram.
+qahist=<file>           Quality accuracy histogram of error rates versus quality score.
+indelhist=<file>        Indel length histogram.
+mhist=<file>            Histogram of match, sub, del, and ins rates by read location.
+ihist=<file>            Insert size histograms.  Requires paired reads in a sam file.
+idhist=<file>           Histogram of read count versus percent identity.
+idbins=100              Number idhist bins.  Set to 'auto' to use read length.
+
+Sampling parameters:
+
+reads=-1                Set to a positive number to only process this many INPUT reads (or pairs), then quit.
+skipreads=-1            Skip (discard) this many INPUT reads before processing the rest.
+samplerate=1            Randomly output only this fraction of reads; 1 means sampling is disabled.
+sampleseed=-1           Set to a positive number to use that prng seed for sampling (allowing deterministic sampling).
+samplereadstarget=0     (srt) Exact number of OUTPUT reads (or pairs) desired.
+samplebasestarget=0     (sbt) Exact number of OUTPUT bases desired.
+                        Important: srt/sbt flags should not be used with stdin, samplerate, qtrim, minlength, or minavgquality.
+upsample=f              Allow srt/sbt to upsample (duplicate reads) when the target is greater than input.
+prioritizelength=f      If true, calculate a length threshold to reach the target, and retain all reads of at least that length (must set srt or sbt).
+
+Trimming and filtering parameters:
+
+qtrim=f                 Trim read ends to remove bases with quality below trimq.
+                        Values: t (trim both ends), f (neither end), r (right end only), l (left end only), w (sliding window).
+trimq=6                 Regions with average quality BELOW this will be trimmed.  Can be a floating-point number like 7.3.
+minlength=0             (ml) Reads shorter than this after trimming will be discarded.  Pairs will be discarded only if both are shorter.
+mlf=0                   (mlf) Reads shorter than this fraction of original length after trimming will be discarded.
+maxlength=0             If nonzero, reads longer than this after trimming will be discarded.
+breaklength=0           If nonzero, reads longer than this will be broken into multiple reads of this length.  Does not work for paired reads.
+requirebothbad=t        (rbb) Only discard pairs if both reads are shorter than minlen.
+invertfilters=f         (invert) Output failing reads instead of passing reads.
+minavgquality=0         (maq) Reads with average quality (after trimming) below this will be discarded.
+maqb=0                  If positive, calculate maq from this many initial bases.
+chastityfilter=f        (cf) Reads with names  containing ' 1:Y:' or ' 2:Y:' will be discarded.
+barcodefilter=f         Remove reads with unexpected barcodes if barcodes is set, or barcodes containing 'N' otherwise.  
+                        A barcode must be the last part of the read header.
+barcodes=               Comma-delimited list of barcodes or files of barcodes.
+maxns=-1                If 0 or greater, reads with more Ns than this (after trimming) will be discarded.
+minconsecutivebases=0   (mcb) Discard reads without at least this many consecutive called bases.
+forcetrimleft=0         (ftl) If nonzero, trim left bases of the read to this position (exclusive, 0-based).
+forcetrimright=-1       (ftr) If nonnegative, trim right bases of the read after this position (exclusive, 0-based).
+forcetrimright2=0       (ftr2) If positive, trim this many bases on the right end.
+forcetrimmod=5          (ftm) If positive, trim length to be equal to zero modulo this number.
+mingc=0                 Discard reads with GC content below this.
+maxgc=1                 Discard reads with GC content above this.
+gcpairs=t               Use average GC of paired reads.
+                        Also affects gchist.
+
+Tag-filtering parameters:
+
+tag=                    Look for this tag in the header to filter by the next value.  To filter reads
+                        with a header like 'foo,depth=5.5,bar' where you only want depths
+                        of at least 3, the necessary flags would be 'tag=depth= minvalue=3 delimiter=,'
+delimiter=              Character after the end of the value, such as delimiter=X.  Control and
+                        whitespace symbols may be spelled out, like delimiter=tab or delimiter=pipe.
+                        The tag may contain the delimiter.  If the value is the last term in the header,
+                        the delimiter doesn't matter but is still required.
+minvalue=               If set, only accept a numeric value of at least this.
+maxvalue=               If set, only accept a numeric value of at most this.
+value=                  If set, only accept a string value of exactly this.
+
+Illumina-specific parameters:
+top=true                Include reads from the top of the flowcell.
+bottom=true             Include reads from the bottom of the flowcell.
+
+Sam and bam processing parameters:
+
+mappedonly=f            Toss unmapped reads.
+unmappedonly=f          Toss mapped reads.
+pairedonly=f            Toss reads that are not mapped as proper pairs.
+unpairedonly=f          Toss reads that are mapped as proper pairs.
+primaryonly=f           Toss secondary alignments.  Set this to true for sam to fastq conversion.
+minmapq=-1              If non-negative, toss reads with mapq under this.
+maxmapq=-1              If non-negative, toss reads with mapq over this.
+requiredbits=0          (rbits) Toss sam lines with any of these flag bits unset.  Similar to samtools -f.
+filterbits=0            (fbits) Toss sam lines with any of these flag bits set.  Similar to samtools -F.
+stoptag=f               Set to true to write a tag indicating read stop location, prefixed by YS:i:
+sam=                    Set to 'sam=1.3' to convert '=' and 'X' cigar symbols (from sam 1.4+ format) to 'M'.
+                        Set to 'sam=1.4' to convert 'M' to '=' and 'X' (sam=1.4 requires MD tags to be present, or ref to be specified).
+
+Sam and bam alignment filtering parameters:
+These require = and X symbols in cigar strings, or MD tags, or a reference fasta.
+-1 means disabled; to filter reads with any of a symbol type, set to 0.
+
+subfilter=-1            Discard reads with more than this many substitutions.
+minsubs=-1              Discard reads with fewer than this many substitutions.
+insfilter=-1            Discard reads with more than this many insertions.
+delfilter=-1            Discard reads with more than this many deletions.
+indelfilter=-1          Discard reads with more than this many indels.
+editfilter=-1           Discard reads with more than this many edits.
+inslenfilter=-1         Discard reads with an insertion longer than this.
+dellenfilter=-1         Discard reads with a deletion longer than this.
+minidfilter=-1.0        Discard reads with identity below this (0-1).
+maxidfilter=1.0         Discard reads with identity above this (0-1).
+clipfilter=-1           Discard reads with more than this many soft-clipped bases.
+
+Kmer counting and cardinality estimation parameters:
+k=0                     If positive, count the total number of kmers.
+cardinality=f           (loglog) Count unique kmers using the LogLog algorithm.
+loglogbuckets=1999      Use this many buckets for cardinality estimation.
+
+Shortcuts: 
+The # symbol will be substituted for 1 and 2.  The % symbol in out will be substituted for input name minus extensions.
+For example:
+reformat.sh in_file=read#.fq out=%.fa
+...is equivalent to:
+reformat.sh in1=read1.fq in2=read2.fq out1=read1.fa out2=read2.fa
+
+Java Parameters:
+-Xmx                    This will set Java's memory usage, overriding autodetection.
+                        -Xmx20g will specify 20 gigs of RAM, and -Xmx200m will specify 200 megs.
+                        The max is typically 85% of physical memory.
+-eoom                   This flag will cause the process to exit if an out-of-memory exception occurs.  Requires Java 8u92+.
+-da                     Disable assertions.
+
+Please contact Brian Bushnell at bbushnell@lbl.gov if you encounter any problems.
+For documentation and the latest version, visit: https://bbmap.org
+
+    Args:
+        capture_output (bool): If True, capture and return the output instead of printing it.
+        in_file (str): Input file (replaces 'in=' parameter)
+        **kwargs: Other arguments for reformat2.sh
+
+    Returns:
+        Union[None, Tuple[str, str]]: If capture_output is True, returns (stdout, stderr), else None.
+    """
+    args = _pack_args(kwargs)
+    return _run_command("reformat2.sh", args, capture_output)
+
+def reformat3(capture_output: bool = False, **kwargs) -> Union[None, Tuple[str, str]]:
+    """
+    Wrapper for reformat3.sh
+
+    Help message:
+    Written by Brian Bushnell
+Last modified December 1, 2025
+
+#This is an experimental new version of Reformat using a faster I/O system,
+#refactored to support multithreading
+
+Description:  Reformats reads to change ASCII quality encoding, interleaving, file format, or compression format.
+Optionally performs additional functions such as quality trimming, subsetting, and subsampling.
+Supports fastq, fasta, fasta+qual, scarf, oneline, sam, bam, gzip, bz2.
+Multithreaded version of reformat.sh.
+Please read bbmap/docs/guides/ReformatGuide.txt for more information.
+
+Usage:  reformat.sh in_file=<file> in2=<file2> out=<outfile> out2=<outfile2>
+
+in2 and out2 are for paired reads and are optional.
+If input is paired and there is only one output file, it will be written interleaved.
+
+Parameters and their defaults:
+
+ow=f                    (overwrite) Overwrites files that already exist.
+app=f                   (append) Append to files that already exist.
+int=f                   (interleaved) Determines whether INPUT file is considered interleaved.
+fastawrap=70            Length of lines in fasta output.
+fastareadlen=0          Set to a non-zero number to break fasta files into reads of at most this length.
+fastaminlen=1           Ignore fasta reads shorter than this.
+qin_file=auto                ASCII offset for input quality.  May be 33 (Sanger), 64 (Illumina), or auto.
+qout=auto               ASCII offset for output quality.  May be 33 (Sanger), 64 (Illumina), or auto (same as input).
+qfake=30                Quality value used for fasta to fastq reformatting.
+qfin_file=<.qual file>       Read qualities from this qual file, for the reads coming from 'in_file=<fasta file>'
+qfin2=<.qual file>      Read qualities from this qual file, for the reads coming from 'in2=<fasta file>'
+qfout=<.qual file>      Write qualities from this qual file, for the reads going to 'out=<fasta file>'
+qfout2=<.qual file>     Write qualities from this qual file, for the reads coming from 'out2=<fasta file>'
+outsingle=<file>        (outs) If a read is longer than minlength and its mate is shorter, the longer one goes here.
+deleteinput=f           Delete input upon successful completion.
+ref=<file>              Optional reference fasta for sam processing.
+
+Threading and Compression Parameters:
+
+zl=4                    (ziplevel) Set compression level, 1 (low) to 9 (max); values above 6 are slow.
+wt=auto                 (workers) Number of worker threads.
+tin_file=auto                (threadsin) Number of threads for file reading.
+tout=auto               (threadsout) Number of threads for file writing.
+t=auto                  (threads) Maximum number of threads per pipeline stage; affects speed of things like bgzip processing.
+                        All stages will be capped at this number unless specified.  Default is logical cores.
+Note: Particularly with fasta files, fewer threads need less memory, so wt=1 tin_file=1 tout=1 is advisable with large contigs/chromosomes.
+
+Processing Parameters:
+
+verifypaired=f          (vpair) When true, checks reads to see if the names look paired.  Prints an error message if not.
+verifyinterleaved=f     (vint) sets 'vpair' to true and 'interleaved' to true.
+allowidenticalnames=f   (ain) When verifying pair names, allows identical names, instead of requiring /1 and /2 or 1: and 2:
+tossbrokenreads=f       (tbr) Discard reads that have different numbers of bases and qualities.  By default this will be detected and cause a crash.
+ignorebadquality=f      (ibq) Fix out-of-range quality values instead of crashing with a warning.
+addslash=f              Append ' /1' and ' /2' to read names, if not already present.  Please include the flag 'int=t' if the reads are interleaved.
+spaceslash=t            Put a space before the slash in addslash mode.
+addcolon=f              Append ' 1:' and ' 2:' to read names, if not already present.  Please include the flag 'int=t' if the reads are interleaved.
+underscore=f            Change whitespace in read names to underscores.
+rcomp=f                 (rc) Reverse-complement reads.
+rcompmate=f             (rcm) Reverse-complement read 2 only.
+comp=f                  (complement) Reverse-complement reads.
+changequality=t         (cq) N bases always get a quality of 0 and ACGT bases get a min quality of 2.
+quantize=f              Quantize qualities to a subset of values like NextSeq.  Can also be used with comma-delimited list, like quantize=0,8,13,22,27,32,37
+tuc=f                   (touppercase) Change lowercase letters in reads to uppercase.
+uniquenames=f           Make duplicate names unique by appending _<number>.
+remap=                  A set of pairs: remap=CTGN will transform C>T and G>N.
+                        Use remap1 and remap2 to specify read 1 or 2.
+iupacToN=f              (itn) Convert non-ACGTN symbols to N.
+monitor=f               Kill this process if it crashes.  monitor=600,0.01 would kill after 600 seconds under 1% usage.
+crashjunk=t             Crash when encountering reads with invalid bases.
+tossjunk=f              Discard reads with invalid characters as bases.
+fixjunk=f               Convert invalid bases to N (or X for amino acids).
+dotdashxton=f           Specifically convert . - and X to N (or X for amino acids).
+recalibrate=f           (recal) Recalibrate quality scores.  Must first generate matrices with CalcTrueQuality.
+maxcalledquality=41     Quality scores capped at this upper bound.
+mincalledquality=2      Quality scores of ACGT bases will be capped at lower bound.
+trimreaddescription=f   (trd) Trim the names of reads after the first whitespace.
+trimrname=f             For sam/bam files, trim rname/rnext fields after the first space.
+fixheaders=f            Replace characters in headers such as space, *, and | to make them valid file names.
+warnifnosequence=t      For fasta, issue a warning if a sequenceless header is encountered.
+warnfirsttimeonly=t     Issue a warning for only the first sequenceless header.
+utot=f                  Convert U to T (for RNA -> DNA translation).
+padleft=0               Pad the left end of sequences with this many symbols.
+padright=0              Pad the right end of sequences with this many symbols.
+pad=0                   Set padleft and padright to the same value.
+padsymbol=N             Symbol to use for padding.
+
+Histogram output parameters:
+
+bhist=<file>            Base composition histogram by position.
+qhist=<file>            Quality histogram by position.
+qchist=<file>           Count of bases with each quality value.
+aqhist=<file>           Histogram of average read quality.
+bqhist=<file>           Quality histogram designed for box plots.
+lhist=<file>            Read length histogram.
+gchist=<file>           Read GC content histogram.
+gcbins=100              Number gchist bins.  Set to 'auto' to use read length.
+gcplot=f                Add a graphical representation to the gchist.
+maxhistlen=6000         Set an upper bound for histogram lengths; higher uses more memory.
+                        The default is 6000 for some histograms and 80000 for others.
+
+Histogram parameters for sam files only (requires sam format 1.4 or higher):
+
+ehist=<file>            Errors-per-read histogram.
+qahist=<file>           Quality accuracy histogram of error rates versus quality score.
+indelhist=<file>        Indel length histogram.
+mhist=<file>            Histogram of match, sub, del, and ins rates by read location.
+ihist=<file>            Insert size histograms.  Requires paired reads in a sam file.
+idhist=<file>           Histogram of read count versus percent identity.
+idbins=100              Number idhist bins.  Set to 'auto' to use read length.
+
+Sampling parameters:
+
+reads=-1                Set to a positive number to only process this many INPUT reads (or pairs), then quit.
+skipreads=-1            Skip (discard) this many INPUT reads before processing the rest.
+samplerate=1            Randomly output only this fraction of reads; 1 means sampling is disabled.
+sampleseed=-1           Set to a positive number to use that prng seed for sampling (allowing deterministic sampling).
+samplereadstarget=0     (srt) Exact number of OUTPUT reads (or pairs) desired.
+samplebasestarget=0     (sbt) Exact number of OUTPUT bases desired.
+                        Important: srt/sbt flags should not be used with stdin, samplerate, qtrim, minlength, or minavgquality.
+upsample=f              Allow srt/sbt to upsample (duplicate reads) when the target is greater than input.
+prioritizelength=f      If true, calculate a length threshold to reach the target, and retain all reads of at least that length (must set srt or sbt).
+
+Trimming and filtering parameters:
+
+qtrim=f                 Trim read ends to remove bases with quality below trimq.
+                        Values: t (trim both ends), f (neither end), r (right end only), l (left end only), w (sliding window).
+trimq=6                 Regions with average quality BELOW this will be trimmed.  Can be a floating-point number like 7.3.
+minlength=0             (ml) Reads shorter than this after trimming will be discarded.  Pairs will be discarded only if both are shorter.
+mlf=0                   (mlf) Reads shorter than this fraction of original length after trimming will be discarded.
+maxlength=0             If nonzero, reads longer than this after trimming will be discarded.
+breaklength=0           If nonzero, reads longer than this will be broken into multiple reads of this length.  Does not work for paired reads.
+requirebothbad=t        (rbb) Only discard pairs if both reads are shorter than minlen.
+invertfilters=f         (invert) Output failing reads instead of passing reads.
+minavgquality=0         (maq) Reads with average quality (after trimming) below this will be discarded.
+maqb=0                  If positive, calculate maq from this many initial bases.
+chastityfilter=f        (cf) Reads with names  containing ' 1:Y:' or ' 2:Y:' will be discarded.
+barcodefilter=f         Remove reads with unexpected barcodes if barcodes is set, or barcodes containing 'N' otherwise.  
+                        A barcode must be the last part of the read header.
+barcodes=               Comma-delimited list of barcodes or files of barcodes.
+maxns=-1                If 0 or greater, reads with more Ns than this (after trimming) will be discarded.
+minconsecutivebases=0   (mcb) Discard reads without at least this many consecutive called bases.
+forcetrimleft=0         (ftl) If nonzero, trim left bases of the read to this position (exclusive, 0-based).
+forcetrimright=-1       (ftr) If nonnegative, trim right bases of the read after this position (exclusive, 0-based).
+forcetrimright2=0       (ftr2) If positive, trim this many bases on the right end.
+forcetrimmod=5          (ftm) If positive, trim length to be equal to zero modulo this number.
+mingc=0                 Discard reads with GC content below this.
+maxgc=1                 Discard reads with GC content above this.
+gcpairs=t               Use average GC of paired reads.
+                        Also affects gchist.
+
+Tag-filtering parameters:
+
+tag=                    Look for this tag in the header to filter by the next value.  To filter reads
+                        with a header like 'foo,depth=5.5,bar' where you only want depths
+                        of at least 3, the necessary flags would be 'tag=depth= minvalue=3 delimiter=,'
+delimiter=              Character after the end of the value, such as delimiter=X.  Control and
+                        whitespace symbols may be spelled out, like delimiter=tab or delimiter=pipe.
+                        The tag may contain the delimiter.  If the value is the last term in the header,
+                        the delimiter doesn't matter but is still required.
+minvalue=               If set, only accept a numeric value of at least this.
+maxvalue=               If set, only accept a numeric value of at most this.
+value=                  If set, only accept a string value of exactly this.
+
+Illumina-specific parameters:
+top=true                Include reads from the top of the flowcell.
+bottom=true             Include reads from the bottom of the flowcell.
+
+Sam and bam processing parameters:
+
+mappedonly=f            Toss unmapped reads.
+unmappedonly=f          Toss mapped reads.
+pairedonly=f            Toss reads that are not mapped as proper pairs.
+unpairedonly=f          Toss reads that are mapped as proper pairs.
+primaryonly=f           Toss secondary alignments.  Set this to true for sam to fastq conversion.
+minmapq=-1              If non-negative, toss reads with mapq under this.
+maxmapq=-1              If non-negative, toss reads with mapq over this.
+requiredbits=0          (rbits) Toss sam lines with any of these flag bits unset.  Similar to samtools -f.
+filterbits=0            (fbits) Toss sam lines with any of these flag bits set.  Similar to samtools -F.
+stoptag=f               Set to true to write a tag indicating read stop location, prefixed by YS:i:
+sam=                    Set to 'sam=1.3' to convert '=' and 'X' cigar symbols (from sam 1.4+ format) to 'M'.
+                        Set to 'sam=1.4' to convert 'M' to '=' and 'X' (sam=1.4 requires MD tags to be present, or ref to be specified).
+
+Sam and bam alignment filtering parameters:
+These require = and X symbols in cigar strings, or MD tags, or a reference fasta.
+-1 means disabled; to filter reads with any of a symbol type, set to 0.
+
+subfilter=-1            Discard reads with more than this many substitutions.
+minsubs=-1              Discard reads with fewer than this many substitutions.
+insfilter=-1            Discard reads with more than this many insertions.
+delfilter=-1            Discard reads with more than this many deletions.
+indelfilter=-1          Discard reads with more than this many indels.
+editfilter=-1           Discard reads with more than this many edits.
+inslenfilter=-1         Discard reads with an insertion longer than this.
+dellenfilter=-1         Discard reads with a deletion longer than this.
+minidfilter=-1.0        Discard reads with identity below this (0-1).
+maxidfilter=1.0         Discard reads with identity above this (0-1).
+clipfilter=-1           Discard reads with more than this many soft-clipped bases.
+
+Kmer counting and cardinality estimation parameters:
+k=0                     If positive, count the total number of kmers.
+cardinality=f           (loglog) Count unique kmers using the LogLog algorithm.
+loglogbuckets=1999      Use this many buckets for cardinality estimation.
+
+Shortcuts: 
+The # symbol will be substituted for 1 and 2.  The % symbol in out will be substituted for input name minus extensions.
+For example:
+reformat.sh in_file=read#.fq out=%.fa
+...is equivalent to:
+reformat.sh in1=read1.fq in2=read2.fq out1=read1.fa out2=read2.fa
+
+Java Parameters:
+-Xmx                    This will set Java's memory usage, overriding autodetection.
+                        -Xmx20g will specify 20 gigs of RAM, and -Xmx200m will specify 200 megs.
+                        The max is typically 85% of physical memory.
+-eoom                   This flag will cause the process to exit if an out-of-memory exception occurs.  Requires Java 8u92+.
+-da                     Disable assertions.
+
+Please contact Brian Bushnell at bbushnell@lbl.gov if you encounter any problems.
+For documentation and the latest version, visit: https://bbmap.org
+
+    Args:
+        capture_output (bool): If True, capture and return the output instead of printing it.
+        in_file (str): Input file (replaces 'in=' parameter)
+        **kwargs: Other arguments for reformat3.sh
+
+    Returns:
+        Union[None, Tuple[str, str]]: If capture_output is True, returns (stdout, stderr), else None.
+    """
+    args = _pack_args(kwargs)
+    return _run_command("reformat3.sh", args, capture_output)
 
 def reformatpb(capture_output: bool = False, **kwargs) -> Union[None, Tuple[str, str]]:
     """
@@ -10904,7 +12421,7 @@ polyerror=0.2   Max error rate for trimming poly-A.
 flaglongreads=f    True to flag reads longer than 1.5x median to be discarded.
 longreadmult=1.5   Multiplier to consider a read suspiciously long.
 
-Whitelists and Blacklists:
+Whitelist and Blacklist Parameters:
 whitelist=      ZMW identifiers, as a comma-delimited list of integers,
                 or files with one integer per line.  All ZMWs not in the
                 list will be discarded.
@@ -10931,7 +12448,7 @@ minsubreads=0   Discard ZMWs with fewer than this many subreads.
 reorient=f      Try aligning both strands in case ZMW ordering is broken.
 minshredid=0.6  Do not include shreds with identity below this in consensus.
 
-Entropy parameters (recommended setting is 'entropy=t'):
+Entropy Parameters (recommended setting is 'entropy=t'):
 minentropy=-1   Set to 0.4 or above to remove low-entropy reads;
                 range is 0-1, recommended value is 0.55.  0.7 is too high.
                 Negative numbers disable this function.
@@ -10953,6 +12470,7 @@ Java Parameters:
 -da             Disable assertions.
 
 Please contact Brian Bushnell at bbushnell@lbl.gov if you encounter any problems.
+For documentation and the latest version, visit: https://bbmap.org
 
     Args:
         capture_output (bool): If True, capture and return the output instead of printing it.
@@ -10994,6 +12512,7 @@ Java Parameters:
 -da             Disable assertions.
 
 Please contact Brian Bushnell at bbushnell@lbl.gov if you encounter any problems.
+For documentation and the latest version, visit: https://bbmap.org
 
     Args:
         capture_output (bool): If True, capture and return the output instead of printing it.
@@ -11038,6 +12557,7 @@ outm=<file>         File to output the reads that mapped to human.
 ***** All BBMap parameters can be used; run bbmap.sh for more details. *****
 
 Please contact Brian Bushnell at bbushnell@lbl.gov if you encounter any problems.
+For documentation and the latest version, visit: https://bbmap.org
 
     Args:
         capture_output (bool): If True, capture and return the output instead of printing it.
@@ -11083,6 +12603,7 @@ path=               Set the path to an indexed human genome.
 ***** All BBMap parameters can be used; run bbmap.sh for more details. *****
 
 Please contact Brian Bushnell at bbushnell@lbl.gov if you encounter any problems.
+For documentation and the latest version, visit: https://bbmap.org
 
     Args:
         capture_output (bool): If True, capture and return the output instead of printing it.
@@ -11110,7 +12631,7 @@ This is more aggressive than removehuman.sh and uses an unmasked human genome re
 It removes roughly 99.99% of human 2x150bp reads, but may incur false-positive removals.
 NOTE!  This program uses hard-coded paths and will only run on Nersc systems unless you change the path.
 
-Usage:  removehuman.sh in_file=<input file> outu=<clean output file>
+Usage:  removehuman2.sh in_file=<input file> outu=<clean output file>
 
 Input may be fasta or fastq, compressed or uncompressed.
 
@@ -11129,6 +12650,7 @@ path=               Set the path to an indexed human genome.
 ***** All BBMap parameters can be used; run bbmap.sh for more details. *****
 
 Please contact Brian Bushnell at bbushnell@lbl.gov if you encounter any problems.
+For documentation and the latest version, visit: https://bbmap.org
 
     Args:
         capture_output (bool): If True, capture and return the output instead of printing it.
@@ -11181,6 +12703,7 @@ build=1             Choses which masking mode was used:
 ***** All BBMap parameters can be used; run bbmap.sh for more details. *****
 
 Please contact Brian Bushnell at bbushnell@lbl.gov if you encounter any problems.
+For documentation and the latest version, visit: https://bbmap.org
 
     Args:
         capture_output (bool): If True, capture and return the output instead of printing it.
@@ -11215,6 +12738,7 @@ split=t            t: Splits reads at adapters.
                    f: Masks adapters with X symbols.
 
 Please contact Brian Bushnell at bbushnell@lbl.gov if you encounter any problems.
+For documentation and the latest version, visit: https://bbmap.org
 
     Args:
         capture_output (bool): If True, capture and return the output instead of printing it.
@@ -11258,7 +12782,7 @@ qin_file=auto            ASCII offset for input quality.  May be 33 (Sanger), 64
 qout=auto           ASCII offset for output quality.  May be 33 (Sanger), 64 (Illumina), or auto (same as input).
 ignorebadquality=f  (ibq) Fix out-of-range quality values instead of crashing with a warning.
 
-Renaming modes (if not default):
+Renaming Mode Parameters (if not default):
 renamebyinsert=f    Rename the read to indicate its correct insert size.
 renamebymapping=f   Rename the read to indicate its correct mapping coordinates.
 renamebytrim=f      Rename the read to indicate its correct post-trimming length.
@@ -11273,7 +12797,7 @@ fixsra=f            Fixes headers of SRA reads renamed from Illumina.
                     ...into this:
                     HWI-ST79:17:D091UACXX:4:1101:210:824 1:
 
-Trimming:
+Trimming Parameters:
 trimleft=0          Trim this many characters from the header start.
 trimright=0         Trim this many characters from the header end.
 trimbeforesymbol=0  Trim this many characters before the last instance of
@@ -11281,7 +12805,7 @@ trimbeforesymbol=0  Trim this many characters before the last instance of
 symbol=             Trim before this symbol.  This can be a literal like ':'
                     or a word like tab or lessthan for reserved symbols.
 
-Other parameters:
+Other Parameters:
 reads=-1            Set to a positive number to only process this many INPUT reads (or pairs), then quit.
 quantize=           Set this to reduce compressed file size by binning quality.
                     E.g., quantize=2 will eliminate odd qscores.
@@ -11295,6 +12819,7 @@ Java Parameters:
 -da                 Disable assertions.
 
 Please contact Brian Bushnell at bbushnell@lbl.gov if you encounter any problems.
+For documentation and the latest version, visit: https://bbmap.org
 
     Args:
         capture_output (bool): If True, capture and return the output instead of printing it.
@@ -11345,6 +12870,7 @@ Java Parameters:
 -da             Disable assertions.
 
 Please contact Brian Bushnell at bbushnell@lbl.gov if you encounter any problems.
+For documentation and the latest version, visit: https://bbmap.org
 
     Args:
         capture_output (bool): If True, capture and return the output instead of printing it.
@@ -11381,6 +12907,7 @@ Java Parameters:
 -da             Disable assertions.
 
 Please contact Brian Bushnell at bbushnell@lbl.gov if you encounter any problems.
+For documentation and the latest version, visit: https://bbmap.org
 
     Args:
         capture_output (bool): If True, capture and return the output instead of printing it.
@@ -11420,6 +12947,7 @@ Java Parameters:
 -da         Disable assertions.
 
 Please contact Brian Bushnell at bbushnell@lbl.gov if you encounter any problems.
+For documentation and the latest version, visit: https://bbmap.org
 
     Args:
         capture_output (bool): If True, capture and return the output instead of printing it.
@@ -11457,7 +12985,7 @@ renameref.sh in_file=data.sam out=renamed.sam mapping=refs.tsv strict=true
 
 Parameters:
 in_file=<file>       Input file to process
-out=<file>      Output file with converted reference names  
+out=<file>      Output file with converted reference names
 map=<file>      Tab-delimited file with old_name<tab>new_name mappings
 invert=<bool>   Reverse the order of names in the map file.
 strict=<bool>   Crash on unknown references (default: false)
@@ -11470,6 +12998,7 @@ chrX	X
 chrM	MT
 
 Please contact Brian Bushnell at bbushnell@lbl.gov if you encounter any problems.
+For documentation and the latest version, visit: https://bbmap.org
 
     Args:
         capture_output (bool): If True, capture and return the output instead of printing it.
@@ -11527,6 +13056,7 @@ Java Parameters:
 -da             Disable assertions.
 
 Please contact Brian Bushnell at bbushnell@lbl.gov if you encounter any problems.
+For documentation and the latest version, visit: https://bbmap.org
 
     Args:
         capture_output (bool): If True, capture and return the output instead of printing it.
@@ -11565,7 +13095,7 @@ fastawrap=70        Length of lines in fasta output.
 qin_file=auto            ASCII offset for input quality.  May be 33 (Sanger), 64 (Illumina), or auto.
 qout=auto           ASCII offset for output quality.  May be 33 (Sanger), 64 (Illumina), or auto (same as input).
 
-Renaming modes (if not default):
+Renaming mode parameters (if not default):
 addprefix=f         Rename the read by prepending the new name to the existing name.
 
 Sampling parameters:
@@ -11580,6 +13110,7 @@ Java Parameters:
 -da                 Disable assertions.
 
 Please contact Brian Bushnell at bbushnell@lbl.gov if you encounter any problems.
+For documentation and the latest version, visit: https://bbmap.org
 
     Args:
         capture_output (bool): If True, capture and return the output instead of printing it.
@@ -11647,6 +13178,7 @@ Java Parameters:
 -da             Disable assertions.
 
 Please contact Brian Bushnell at bbushnell@lbl.gov if you encounter any problems.
+For documentation and the latest version, visit: https://bbmap.org
 
     Args:
         capture_output (bool): If True, capture and return the output instead of printing it.
@@ -11681,7 +13213,7 @@ in_file=<file>           Input reads.
 in2=<file>          Use this if 2nd read of pairs are in a different file.
 path=null           Set to the directory to use for all output files.
 
-Reference file paths:
+Reference file path parameters:
 rqcfilterdata=      Path to unzipped RQCFilterData directory.  Default is /global/projectb/sandbox/gaag/bbtools/RQCFilterData
 ref=<file,file>     Comma-delimited list of additional reference files for filtering via BBDuk.
 
@@ -11850,6 +13382,7 @@ chastityfilter=t    Remove reads failing chastity filter.
 barcodefilter=f     Crash when improper barcodes are discovered.  Set to 'f' to disable,
                     't' to remove improper barcodes, or 'crash' to crash if they are discovered.
 barcodes=           A comma-delimited list of barcodes or files of barcodes.
+filterbytile        Also needs to be disabled for SRA data.
 
 Java Parameters:
 -Xmx                This will set Java's memory usage, overriding autodetection.
@@ -11862,6 +13395,7 @@ Java Parameters:
 *****   All additional parameters supported by BBDuk may also be used, and will be passed directly to BBDuk   *****
 
 Please contact Brian Bushnell at bbushnell@lbl.gov if you encounter any problems.
+For documentation and the latest version, visit: https://bbmap.org
 
     Args:
         capture_output (bool): If True, capture and return the output instead of printing it.
@@ -11896,6 +13430,7 @@ None yet!
 
 
 Please contact Brian Bushnell at bbushnell@lbl.gov if you encounter any problems.
+For documentation and the latest version, visit: https://bbmap.org
 
     Args:
         capture_output (bool): If True, capture and return the output instead of printing it.
@@ -11907,6 +13442,61 @@ Please contact Brian Bushnell at bbushnell@lbl.gov if you encounter any problems
     """
     args = _pack_args(kwargs)
     return _run_command("runhmm.sh", args, capture_output)
+
+def samstreamer(capture_output: bool = False, **kwargs) -> Union[None, Tuple[str, str]]:
+    """
+    Wrapper for samstreamer.sh
+
+    Help message:
+    Written by Brian Bushnell
+Last modified November 15, 2025
+
+Description:  Interconverts sam, bam, fasta, or fastq rapidly.
+Sam and bam input also allow filtering options; bam allows bai generation.
+
+Usage:  samstreamer.sh in_file=<file> out=<file>
+        samstreamer.sh <in> <out>
+Examples:
+samstreamer.sh reads.sam.gz mapped.bam unmapped=f
+samstreamer.sh sorted.bam sorted.bai
+samstreamer.sh sorted.bam reads.fq.gz 
+
+Filtering parameters:
+minpos=         Ignore alignments not overlapping this range.
+maxpos=         Ignore alignments not overlapping this range.
+minmapq=        Ignore alignments with mapq below this.
+maxmapq=        Ignore alignments with mapq above this.
+minid=0.0       Ignore alignments with identity below this.
+maxid=1.0       Ignore alignments with identity above this.
+contigs=        Comma-delimited list of contig names to include. These 
+                should have no spaces, or underscores instead of spaces.
+                If present, this will be a whitelist.
+mapped=t        Include mapped reads.
+unmapped=t      Include unmapped reads.
+mappedonly=     If true, include only mapped reads.
+unmappedonly=   If true, only include unmapped reads.
+secondary=t     Include secondary alignments.
+supplementary=t Include supplementary alignments.
+lengthzero=t    Include alignments without bases.
+invert=f        Invert sam filters.
+ordered=t       Keep reads in input order.
+duplicate=t     Include reads marked as duplicate.
+qfail=t         Include reads marked as qfail.
+ref=<file>      Optional reference file.
+
+
+Please contact Brian Bushnell at bbushnell@lbl.gov if you encounter any problems.
+
+    Args:
+        capture_output (bool): If True, capture and return the output instead of printing it.
+        in_file (str): Input file (replaces 'in=' parameter)
+        **kwargs: Other arguments for samstreamer.sh
+
+    Returns:
+        Union[None, Tuple[str, str]]: If capture_output is True, returns (stdout, stderr), else None.
+    """
+    args = _pack_args(kwargs)
+    return _run_command("samstreamer.sh", args, capture_output)
 
 def samtoroc(capture_output: bool = False, **kwargs) -> Union[None, Tuple[str, str]]:
     """
@@ -11937,6 +13527,7 @@ Java Parameters:
 -da             Disable assertions.
 
 Please contact Brian Bushnell at bbushnell@lbl.gov if you encounter any problems.
+For documentation and the latest version, visit: https://bbmap.org
 
     Args:
         capture_output (bool): If True, capture and return the output instead of printing it.
@@ -11948,6 +13539,116 @@ Please contact Brian Bushnell at bbushnell@lbl.gov if you encounter any problems
     """
     args = _pack_args(kwargs)
     return _run_command("samtoroc.sh", args, capture_output)
+
+def scalarintervals(capture_output: bool = False, **kwargs) -> Union[None, Tuple[str, str]]:
+    """
+    Wrapper for scalarintervals.sh
+
+    Help message:
+    Written by Brian Bushnell
+Last modified October 13, 2025
+
+Description:  Calculates some scalars from nucleotide sequence data.
+Writes them periodically as a tsv.
+
+Usage:  scalarintervals.sh in_file=<input file> out=<output file>
+e.g.
+scalarintervals.sh in_file=ecoli.fasta out=data.tsv shred=5k
+or
+scalarintervals.sh *.fa.gz out=data.tsv shred=5k
+
+Standard parameters:
+in_file=<file>       Primary input; fasta or fastq.
+                This can also be a directory or comma-delimited list.
+		Filenames can also be used without in_file=
+out=stdout      Set to a file to redirect tsv output.  The mean and stdev
+                will be printed to stderr.
+
+Processing parameters:
+header=f        Print a header line.
+window=50000    If nonzero, calculate metrics over sliding windows.
+                Otherwise calculate per contig.  Larger has lower variance.
+interval=10000  Generate a data point every this many bp.
+shred=-1        If positive, set window and interval to the same size.
+break=t         Reset metrics at contig boundaries.
+minlen=500      Minimum interval length to generate a point.
+maxreads=-1     Maximum number of reads/contigs to process.
+printname=f     Print contig names in output.
+printpos=f      Print contig position in output.
+printtime=t     Print timing information to screen.
+parsetid=f      Parse TaxIDs from file and sequence headers.
+sketch=f        Use BBSketch (SendSketch) to assign taxonomy per contig.
+clade=f         Use QuickClade to assign taxonomy per contig.
+
+Java Parameters:
+-Xmx            This will set Java's memory usage, overriding autodetection.
+                -Xmx20g will specify 20 gigs of RAM, and -Xmx200m will
+                specify 200 megs. The max is typically 85% of physical memory.
+-eoom           This flag will cause the process to exit if an out-of-memory
+                exception occurs.  Requires Java 8u92+.
+-da             Disable assertions.
+
+Please contact Brian Bushnell at bbushnell@lbl.gov if you encounter any problems.
+
+    Args:
+        capture_output (bool): If True, capture and return the output instead of printing it.
+        in_file (str): Input file (replaces 'in=' parameter)
+        **kwargs: Other arguments for scalarintervals.sh
+
+    Returns:
+        Union[None, Tuple[str, str]]: If capture_output is True, returns (stdout, stderr), else None.
+    """
+    args = _pack_args(kwargs)
+    return _run_command("scalarintervals.sh", args, capture_output)
+
+def scalars(capture_output: bool = False, **kwargs) -> Union[None, Tuple[str, str]]:
+    """
+    Wrapper for scalars.sh
+
+    Help message:
+    Written by Brian Bushnell
+Last modified October 12, 2025
+
+Description:  Calculates some scalars from nucleotide sequence data.
+Prints the averages for each input file.
+Also prints standard deviation of each file if windowed.
+
+Usage:  scalars.sh in_file=<input file> out=<output file>
+
+
+Standard parameters:
+in_file=<file>       Primary input; fasta or fastq.
+                This can also be a directory or comma-delimited list.
+		Filenames can also be used without in_file=
+out=stdout      Set to a file to redirect output.
+
+Processing parameters:
+header=f        Print a header line.
+rowheader=f     Print a row header.
+window=0        If nonzero, calculate and average over windows.
+break=f         Set to true to break data at contig bounds,
+                in windowed mode.
+
+Java Parameters:
+-Xmx            This will set Java's memory usage, overriding autodetection.
+                -Xmx20g will specify 20 gigs of RAM, and -Xmx200m will
+                specify 200 megs. The max is typically 85% of physical memory.
+-eoom           This flag will cause the process to exit if an out-of-memory
+                exception occurs.  Requires Java 8u92+.
+-da             Disable assertions.
+
+Please contact Brian Bushnell at bbushnell@lbl.gov if you encounter any problems.
+
+    Args:
+        capture_output (bool): If True, capture and return the output instead of printing it.
+        in_file (str): Input file (replaces 'in=' parameter)
+        **kwargs: Other arguments for scalars.sh
+
+    Returns:
+        Union[None, Tuple[str, str]]: If capture_output is True, returns (stdout, stderr), else None.
+    """
+    args = _pack_args(kwargs)
+    return _run_command("scalars.sh", args, capture_output)
 
 def scoresequence(capture_output: bool = False, **kwargs) -> Union[None, Tuple[str, str]]:
     """
@@ -11991,6 +13692,7 @@ Java Parameters:
 -da             Disable assertions.
 
 Please contact Brian Bushnell at bbushnell@lbl.gov if you encounter any problems.
+For documentation and the latest version, visit: https://bbmap.org
 
     Args:
         capture_output (bool): If True, capture and return the output instead of printing it.
@@ -12002,6 +13704,46 @@ Please contact Brian Bushnell at bbushnell@lbl.gov if you encounter any problems
     """
     args = _pack_args(kwargs)
     return _run_command("scoresequence.sh", args, capture_output)
+
+def scrabblealigner(capture_output: bool = False, **kwargs) -> Union[None, Tuple[str, str]]:
+    """
+    Wrapper for scrabblealigner.sh
+
+    Help message:
+    Written by Brian Bushnell
+Last modified September 10, 2025
+
+Description:  Aligns a query sequence to a reference using ScrabbleAligner.
+The sequences can be any characters, but N is a special case.
+Outputs the identity, rstart, and rstop positions.
+Optionally prints a state space exploration map.
+This map can be fed to visualizealignment.sh to make an image.
+
+Usage:
+scrabblealigner.sh <query> <ref>
+scrabblealigner.sh <query> <ref> <map>
+scrabblealigner.sh <query> <ref> <map> <iterations>
+
+Parameters:
+query           A literal nucleotide sequence or fasta file.
+ref             A literal nucleotide sequence or fasta file.
+map             Optional output text file for matrix score space.
+                Set to null for benchmarking with no visualization.
+iterations      Optional integer for benchmarking multiple iterations.
+
+Please contact Brian Bushnell at bbushnell@lbl.gov if you encounter any problems.
+For documentation and the latest version, visit: https://bbmap.org
+
+    Args:
+        capture_output (bool): If True, capture and return the output instead of printing it.
+        in_file (str): Input file (replaces 'in=' parameter)
+        **kwargs: Other arguments for scrabblealigner.sh
+
+    Returns:
+        Union[None, Tuple[str, str]]: If capture_output is True, returns (stdout, stderr), else None.
+    """
+    args = _pack_args(kwargs)
+    return _run_command("scrabblealigner.sh", args, capture_output)
 
 def seal(capture_output: bool = False, **kwargs) -> Union[None, Tuple[str, str]]:
     """
@@ -12016,17 +13758,17 @@ by counting the number of long kmers that match between a read and
 a set of reference sequences.  Designed for RNA-seq with alternative splicing.
 Please read bbmap/docs/guides/SealGuide.txt for more information.
 
-Usage Examples (not comprehensive):
+Usage:  seal.sh in_file=<file> *.fa pattern=out_%.fq outu=unmapped.fq stats=stats.txt
 
-Sequence quantification:
+Sequence quantification examples:
 seal.sh in_file=<file> ref=<file> rpkm=rpkm.txt stats=stats.txt
 or
 seal.sh in_file=<file> ref=<file,file,file...> refstats=refstats.txt
 
-Splitting:
+Splitting examples:
 seal.sh in_file=<file> ref=<file,file,file...> pattern=out_%.fq outu=unmapped.fq
 or
-seal.sh in_file=<file> *.fasta pattern=out_%.fq outu=unmapped.fq
+seal.sh in_file=<file> *.fasta.gz pattern=out_%.fq.gz outu=unmapped.fq.gz
 
 Input may be fasta or fastq, compressed or uncompressed.
 If you pipe via stdin/stdout, please include the file type; e.g. for gzipped 
@@ -12043,7 +13785,7 @@ ref=<file,file>     Comma-delimited list of reference files or directories.
 literal=<seq,seq>   Comma-delimited list of literal reference sequences.
 touppercase=f       (tuc) Change all bases upper-case.
 interleaved=auto    (int) t/f overrides interleaved autodetection.
-                    Must be set mainually when streaming fastq input.
+                    Must be set manually when streaming fastq input.
 qin_file=auto            Input quality offset: 33 (Sanger), 64, or auto.
 reads=-1            If positive, quit after processing X reads or pairs.
 copyundefined=f     (cu) Process non-AGCT IUPAC reference bases by making all
@@ -12063,7 +13805,7 @@ pattern=<file>      Use this to write reads to one stream per ref sequence
                     match, replacing the % character with the sequence name.
                     For example, pattern=%.fq for ref sequences named dog and 
                     cat would create dog.fq and cat.fq.
-stats=<file>        Write statistics about which contamininants were detected.
+stats=<file>        Write statistics about which contaminants were detected.
 refstats=<file>     Write statistics on a per-reference-file basis.
 rpkm=<file>         Write RPKM for each reference sequence (for RNA-seq).
 dump=<file>         Dump kmer tables to a file, in fasta format.
@@ -12203,6 +13945,7 @@ Java Parameters:
 -da                 Disable assertions.
 
 Please contact Brian Bushnell at bbushnell@lbl.gov if you encounter any problems.
+For documentation and the latest version, visit: https://bbmap.org
 
     Args:
         capture_output (bool): If True, capture and return the output instead of printing it.
@@ -12214,6 +13957,114 @@ Please contact Brian Bushnell at bbushnell@lbl.gov if you encounter any problems
     """
     args = _pack_args(kwargs)
     return _run_command("seal.sh", args, capture_output)
+
+def sendclade(capture_output: bool = False, **kwargs) -> Union[None, Tuple[str, str]]:
+    """
+    Wrapper for sendclade.sh
+
+    Help message:
+    Written by Brian Bushnell
+Last modified October 14, 2025
+
+Description:  Sends taxonomic queries to a remote QuickClade server for
+classification.  This client-server architecture allows users to classify
+sequences without loading the reference database locally, dramatically reducing
+memory requirements and improving performance for multiple queries.  The client
+sends sequence data to a remote server running CladeServer with a preloaded
+reference database, receives taxonomic classifications, and displays the results.
+
+The client-server design offers several key advantages:
+- No local database loading (saves gigabytes of memory)
+- Faster startup time (no database initialization)
+- Consistent results across multiple users
+- Centralized database maintenance and updates
+- Ideal for batch processing of many samples
+
+SendClade mirrors the SendSketch architecture and provides the same taxonomic
+classification capabilities as QuickClade but with reduced local resource
+requirements.  It is particularly useful in compute environments where memory
+is limited or when processing many samples sequentially.
+
+Usage Examples:
+sendclade.sh in_file=sequences.fasta
+sendclade.sh in_file=sequences.fasta address=http://myserver.com:3069
+sendclade.sh in_file=sequences.fasta hits=10 oneline out=results.tsv
+sendclade.sh in_file=sequences.fasta local=t mode=perseq minlen=1000
+sendclade.sh in_file=bin1.fa,bin2.fa,bin3.fa hits=5 heap=10
+
+File Parameters:
+in_file=<file,file>  Query files or directories. Input can be fasta, fastq, .clade,
+                or .spectra format. Pre-computed .clade/.spectra files are
+                sent directly without sequence processing. Multiple files can be
+                specified comma-separated, or loose file names are permitted as
+                additional arguments.
+out=stdout      Output file for results.  If not specified, results are written
+                to standard output.  Progress messages always go to stderr.
+local=f         Use local server at localhost:5002 instead of the default remote
+                server.  Useful for testing or when running your own CladeServer.
+address=<url>   Specify custom server address.  Should include full URL with
+                protocol and port, e.g., http://myserver.com:3069/clade.
+                If protocol is omitted, http:// is assumed.
+
+Basic Parameters:
+hits=1          Number of top taxonomic hits to return per query.  More hits
+                provide alternative classifications but increase output size.
+oneline=f       Print results in tab-delimited format with one line per query.
+                Default format is human-readable with detailed information.
+                Oneline format includes: QueryName, Q_GC, Q_Bases, Q_Contigs,
+                RefName, R_TaxID, R_GC, R_Bases, R_Contigs, R_Level, GCdif,
+                STRdif, k3dif, k4dif, k5dif, lineage.
+percontig=f     Process each contig/sequence separately instead of combining
+                all sequences from each file into a single query.  When true,
+                each contig gets its own taxonomic classification.  When false,
+                all sequences in a file are combined for classification.
+minlen=0        Minimum contig length in percontig mode.  Contigs shorter than
+                this threshold are ignored.  Only applies when percontig=true.
+
+Advanced Parameters:
+heap=1          Number of intermediate comparison results to store during
+                processing.  Higher values may improve accuracy for complex
+                queries at the cost of increased memory usage on the server.
+printqtid=f     Print query TaxID if present in sequence headers.  Useful for
+                benchmarking when query sequences have known taxonomic labels
+                in the format 'tid_1234' or similar.
+banself=f       Ban self-matches by ignoring records with the same TaxID as
+                the query.  Makes the program behave as if that organism is
+                not in the reference database.  Useful for testing accuracy.
+verbose=f       Enable detailed progress reporting and timing information.
+                Shows batch processing, server communication details, and
+                performance metrics.
+
+Standard BBTools Parameters:
+overwrite=f     Allow overwriting of existing output files.
+append=f        Append to existing output files instead of overwriting.
+
+Server Communication:
+The default server is: https://bbmapservers.jgi.doe.gov/quickclade
+Sequences are sent in batches of up to 100 clades for efficient processing.
+The server responds with taxonomic classifications in either human-readable
+or tab-delimited format depending on the oneline parameter.
+
+Performance Notes:
+SendClade is designed for high-throughput processing.  It batches sequences
+efficiently and provides detailed timing information when verbose=true.
+Memory usage on the client is minimal as no reference database is loaded.
+Server-side processing benefits from preloaded databases and optimized
+comparison algorithms.
+
+Please contact Brian Bushnell at bbushnell@lbl.gov if you encounter any problems.
+For documentation and the latest version, visit: https://bbmap.org
+
+    Args:
+        capture_output (bool): If True, capture and return the output instead of printing it.
+        in_file (str): Input file (replaces 'in=' parameter)
+        **kwargs: Other arguments for sendclade.sh
+
+    Returns:
+        Union[None, Tuple[str, str]]: If capture_output is True, returns (stdout, stderr), else None.
+    """
+    args = _pack_args(kwargs)
+    return _run_command("sendclade.sh", args, capture_output)
 
 def sendsketch(capture_output: bool = False, **kwargs) -> Union[None, Tuple[str, str]]:
     """
@@ -12239,7 +14090,7 @@ sendsketch.sh in_file=file nt
 For the protein server with nucleotide input:
 sendsketch.sh in_file=file protein
 
-for the protein server with amino input:
+For the protein server with amino input:
 sendsketch.sh in_file=file amino protein
 
 
@@ -12334,7 +14185,7 @@ requiressu=f    Ignore records without SSUs.
 minrefsize=0    Ignore ref sketches smaller than this (unique kmers).
 minrefsizebases=0   Ignore ref sketches smaller than this (total base pairs).
 
-Output format:
+Output format parameters:
 format=2        2: Default format with, per query, one query header line;
                    one column header line; and one reference line per hit.
                 3: One line per hit, with columns query, reference, ANI,
@@ -12346,7 +14197,7 @@ usetaxname      for format 3, print the taxonomic name in the name column.
 useimgname      For format 3, print the img ID in the name column.
 d3=f            Output in JSON format, with a tree for visualization.
 
-Output columns (for format=2):
+Output column parameters (for format=2):
 printall=f      Enable all output columns.
 printani=t      (ani) Print average nucleotide identity estimate.
 completeness=t  Genome completeness estimate.
@@ -12393,7 +14244,7 @@ printcal=f      Print common ancestor tax level, if query taxID is known.
 recordsperlevel=0   If query TaxID is known, and this is positive, print at
                     most this many records per common ancestor level.
 
-Sorting:
+Sorting parameters:
 sortbyscore=t   Default sort order is by score.
 sortbydepth=f   Include depth as a factor in sort order.
 sortbydepth2=f  Include depth2 as a factor in sort order.
@@ -12442,6 +14293,7 @@ Java Parameters:
 
 For more detailed information, please read /bbmap/docs/guides/BBSketchGuide.txt.
 Please contact Brian Bushnell at bbushnell@lbl.gov if you encounter any problems.
+For documentation and the latest version, visit: https://bbmap.org
 
     Args:
         capture_output (bool): If True, capture and return the output instead of printing it.
@@ -12465,7 +14317,7 @@ Last modified January 29, 2024
 Description:  Generates vectors from sequence.
 These can be one-hot 4-bit vectors, or kmer frequency spectra.
 
-Usage:  sectovec.sh in_file=<sequence data> out=<text vectors>
+Usage:  seqtovec.sh in_file=<sequence data> out=<text vectors>
 
 Input may be fasta or fastq, compressed or uncompressed.
 
@@ -12503,6 +14355,7 @@ Java Parameters:
 -da             Disable assertions.
 
 Please contact Brian Bushnell at bbushnell@lbl.gov if you encounter any problems.
+For documentation and the latest version, visit: https://bbmap.org
 
     Args:
         capture_output (bool): If True, capture and return the output instead of printing it.
@@ -12526,8 +14379,11 @@ Description:  Shreds sequences into shorter, possibly overlapping sequences.
 
 Usage: shred.sh in_file=<file> out=<file> length=<int>
 
+File Parameters:
 in_file=<file>       Input sequences.
 out=<file>      Destination of output shreds.
+
+Processing Parameters:
 length=500      Desired length of shreds if a uniform length is desired.
 minlen=-1       Shortest allowed shred.  The last shred of each input sequence
                 may be shorter than desired length if this is not set.
@@ -12547,6 +14403,7 @@ filetid=f       Name shreds with a tid parsed from the filename (e.g. tid_5).
 headertid=f     Name shreds with a tid parsed from sequence headers.
 
 Please contact Brian Bushnell at bbushnell@lbl.gov if you encounter any problems.
+For documentation and the latest version, visit: https://bbmap.org
 
     Args:
         capture_output (bool): If True, capture and return the output instead of printing it.
@@ -12588,6 +14445,7 @@ Java Parameters:
 -da             Disable assertions.
 
 Please contact Brian Bushnell at bbushnell@lbl.gov if you encounter any problems.
+For documentation and the latest version, visit: https://bbmap.org
 
     Args:
         capture_output (bool): If True, capture and return the output instead of printing it.
@@ -12637,6 +14495,7 @@ Java Parameters:
 -da             Disable assertions.
 
 Please contact Brian Bushnell at bbushnell@lbl.gov if you encounter any problems.
+For documentation and the latest version, visit: https://bbmap.org
 
     Args:
         capture_output (bool): If True, capture and return the output instead of printing it.
@@ -12684,6 +14543,7 @@ Java Parameters:
 -da             Disable assertions.
 
 Please contact Brian Bushnell at bbushnell@lbl.gov if you encounter any problems.
+For documentation and the latest version, visit: https://bbmap.org
 
     Args:
         capture_output (bool): If True, capture and return the output instead of printing it.
@@ -12715,7 +14575,7 @@ Standard parameters:
 in_file=<file>           A fasta file containing one or more sequences.
 out=<file>          Output filename.  If multiple files are desired it must
                     contain the # symbol.
-blacklist=<file>    Ignore keys in this sketch file.  Additionaly, there are
+blacklist=<file>    Ignore keys in this sketch file.  Additionally, there are
                     built-in blacklists that can be specified:
                        nt:      Blacklist for nt
                        refseq:  Blacklist for Refseq
@@ -12758,7 +14618,7 @@ density=            If this flag is set (to a number between 0 and 1),
                     genomic kmers are used.  For example, at density=0.001,
                     a 4.5Mbp bacteria will get a 4500-kmer sketch.
 
-Metadata flags (optional; intended for single-sketch mode):
+Metadata parameters (optional; intended for single-sketch mode):
 taxid=-1            Set the NCBI taxid.
 imgid=-1            Set the IMG id.
 spid=-1             Set the JGI sequencing project id.
@@ -12768,7 +14628,7 @@ fname=              Set fname (normally the file name).
 meta_=              Set an arbitrary metadata field.
                     For example, meta_Month=March.
 
-Taxonomy-specific flags:
+Taxonomy-specific parameters:
 tree=               Specify a taxtree file.  On Genepool, use 'auto'.
 gi=                 Specify a gitable file.  On Genepool, use 'auto'.
 accession=          Specify one or more comma-delimited NCBI accession to
@@ -12785,7 +14645,7 @@ tossjunk=t          For taxa mode, discard taxonomically uninformative
                     with a tax level NO_RANK, of parent taxid of LIFE.
 silva=f             Parse headers using Silva or semicolon-delimited syntax.
 
-Ribosomal flags, which allow SSU sequences to be attached to sketches:
+Ribosomal parameters, which allow SSU sequences to be attached to sketches:
 processSSU=t        Run gene-calling to detect ribosomal SSU sequences.
 16Sfile=<file>      Optional file of 16S sequences, annotated with TaxIDs.
 18Sfile=<file>      Optional file of 18S sequences, annotated with TaxIDs.
@@ -12807,6 +14667,7 @@ Java Parameters:
 
 For more detailed information, please read /bbmap/docs/guides/BBSketchGuide.txt.
 Please contact Brian Bushnell at bbushnell@lbl.gov if you encounter any problems.
+For documentation and the latest version, visit: https://bbmap.org
 
     Args:
         capture_output (bool): If True, capture and return the output instead of printing it.
@@ -12850,7 +14711,7 @@ entropy=0.66        Ignore sequence with entropy below this value.
 keyfraction=0.16    Smaller values reduce blacklist size by ignoring a
                     a fraction of the key space.  Range: 0.0001-0.5.
 
-Taxonomy-specific flags:
+Taxonomy-specific parameters:
 tree=               Specify a taxtree file.  On Genepool, use 'auto'.
 gi=                 Specify a gitable file.  On Genepool, use 'auto'.
 accession=          Specify one or more comma-delimited NCBI accession to
@@ -12876,6 +14737,7 @@ Java Parameters:
 
 For more detailed information, please read /bbmap/docs/guides/BBSketchGuide.txt.
 Please contact Brian Bushnell at bbushnell@lbl.gov if you encounter any problems.
+For documentation and the latest version, visit: https://bbmap.org
 
     Args:
         capture_output (bool): If True, capture and return the output instead of printing it.
@@ -12903,9 +14765,9 @@ It is advisable to make the input sketches larger than normal,
 e.g. sizemult=2, because new kmers will be introduced in the final
 sketches to replace the blacklisted kmers.
 
-Usage:  sketchblacklist.sh ref=<sketch files> out=<sketch file>
-or      sketchblacklist.sh *.sketch out=<sketch file>
-or      sketchblacklist.sh ref=taxa#.sketch out=<sketch file>
+Usage:  sketchblacklist2.sh ref=<sketch files> out=<sketch file>
+or      sketchblacklist2.sh *.sketch out=<sketch file>
+or      sketchblacklist2.sh ref=taxa#.sketch out=<sketch file>
 
 Standard parameters:
 ref=<file>          Sketch files.
@@ -12921,7 +14783,7 @@ delta=t             Delta-compress sketches.
 a48=t               Encode sketches as ASCII-48 rather than hex.
 amino=f             Amino-acid mode.
 
-Taxonomy-specific flags:
+Taxonomy-specific parameters:
 tree=               Specify a taxtree file.  On Genepool, use 'auto'.
 gi=                 Specify a gitable file.  On Genepool, use 'auto'.
 accession=          Specify one or more comma-delimited NCBI accession to
@@ -12942,6 +14804,7 @@ Java Parameters:
 
 For more detailed information, please read /bbmap/docs/guides/BBSketchGuide.txt.
 Please contact Brian Bushnell at bbushnell@lbl.gov if you encounter any problems.
+For documentation and the latest version, visit: https://bbmap.org
 
     Args:
         capture_output (bool): If True, capture and return the output instead of printing it.
@@ -12953,6 +14816,47 @@ Please contact Brian Bushnell at bbushnell@lbl.gov if you encounter any problems
     """
     args = _pack_args(kwargs)
     return _run_command("sketchblacklist2.sh", args, capture_output)
+
+def smithwaterman(capture_output: bool = False, **kwargs) -> Union[None, Tuple[str, str]]:
+    """
+    Wrapper for smithwaterman.sh
+
+    Help message:
+    Written by Brian Bushnell
+Last modified September 26, 2025
+
+Description:  Aligns a query sequence to a reference using Smith-Waterman algorithm.
+Finds optimal local alignment by resetting negative scores to zero.
+The sequences can be any characters, but N is a special case.
+Outputs the identity, rstart, and rstop positions.
+Optionally prints a state space exploration map.
+This map can be fed to visualizealignment.sh to make an image.
+
+Usage:
+smithwaterman.sh <query> <ref>
+smithwaterman.sh <query> <ref> <map>
+smithwaterman.sh <query> <ref> <map> <iterations>
+
+Parameters:
+query           A literal nucleotide sequence or fasta file.
+ref             A literal nucleotide sequence or fasta file.
+map             Optional output text file for matrix score space.
+                Set to null for benchmarking with no visualization.
+iterations      Optional integer for benchmarking multiple iterations.
+
+Please contact Brian Bushnell at bbushnell@lbl.gov if you encounter any problems.
+For documentation and the latest version, visit: https://bbmap.org
+
+    Args:
+        capture_output (bool): If True, capture and return the output instead of printing it.
+        in_file (str): Input file (replaces 'in=' parameter)
+        **kwargs: Other arguments for smithwaterman.sh
+
+    Returns:
+        Union[None, Tuple[str, str]]: If capture_output is True, returns (stdout, stderr), else None.
+    """
+    args = _pack_args(kwargs)
+    return _run_command("smithwaterman.sh", args, capture_output)
 
 def sortbyname(capture_output: bool = False, **kwargs) -> Union[None, Tuple[str, str]]:
     """
@@ -13022,6 +14926,7 @@ Java Parameters:
 -da             Disable assertions.
 
 Please contact Brian Bushnell at bbushnell@lbl.gov if you encounter any problems.
+For documentation and the latest version, visit: https://bbmap.org
 
     Args:
         capture_output (bool): If True, capture and return the output instead of printing it.
@@ -13081,6 +14986,7 @@ Java Parameters:
 -da             Disable assertions.
 
 Please contact Brian Bushnell at bbushnell@lbl.gov if you encounter any problems.
+For documentation and the latest version, visit: https://bbmap.org
 
     Args:
         capture_output (bool): If True, capture and return the output instead of printing it.
@@ -13120,7 +15026,7 @@ Or this:
 splitnextera.sh in_file=reads.fq out=longmate.fq outf=frag.fq outu=unknown.fq outs=singleton.fq mask=t
 
 
-I/O parameters:
+I/O Parameters:
 in_file=<file>       Input reads.  Set to 'stdin.fq' to read from stdin.
 out=<file>      Output for pairs with LMP orientation.
 outf=<file>     Output for pairs with fragment orientation.
@@ -13142,7 +15048,7 @@ minlength=40    (ml) Do not output reads shorter than this.
 merge=f         Attempt to merge overlapping reads before looking for junctions.
 testmerge=0.0   If nonzero, only merge reads if at least the fraction of input reads are mergable.
 
-Sampling parameters:
+Sampling Parameters:
 
 reads=-1        Set to a positive number to only process this many INPUT reads (or pairs), then quit.
 samplerate=1    Randomly output only this fraction of reads; 1 means sampling is disabled.
@@ -13157,6 +15063,7 @@ Java Parameters:
 -da             Disable assertions.
 
 Please contact Brian Bushnell at bbushnell@lbl.gov if you encounter any problems.
+For documentation and the latest version, visit: https://bbmap.org
 
     Args:
         capture_output (bool): If True, capture and return the output instead of printing it.
@@ -13211,6 +15118,7 @@ Java Parameters:
 -da             Disable assertions.
 
 Please contact Brian Bushnell at bbushnell@lbl.gov if you encounter any problems.
+For documentation and the latest version, visit: https://bbmap.org
 
     Args:
         capture_output (bool): If True, capture and return the output instead of printing it.
@@ -13264,6 +15172,7 @@ Description:  Splits sam reads into 4 output files depending on mapping.
 Usage:  splitsam4way.sh <input> <outplus> <outminus> <outchimeric> <outunmapped>
 
 Please contact Brian Bushnell at bbushnell@lbl.gov if you encounter any problems.
+For documentation and the latest version, visit: https://bbmap.org
 
     Args:
         capture_output (bool): If True, capture and return the output instead of printing it.
@@ -13289,6 +15198,7 @@ Description:  Splits sam reads into 6 output files depending on mapping.
 Usage:  splitsam6way.sh <input> <r1plus> <r1minus> <r1unmapped> <r2plus> <r2minus> <r2unmapped>
 
 Please contact Brian Bushnell at bbushnell@lbl.gov if you encounter any problems.
+For documentation and the latest version, visit: https://bbmap.org
 
     Args:
         capture_output (bool): If True, capture and return the output instead of printing it.
@@ -13335,7 +15245,7 @@ n_=t            This flag will prefix the terms 'contigs' and 'scaffolds'
                 with 'n_' in formats 3-6.
 addname=f       Adds a column for input file name, for formats 3-6.
 
-Logsum and Powsum:
+Logsum and Powsum Parameters:
 logoffset=1000  Minimum length for calculating log sum.
 logbase=2       Log base for calculating log sum.
 logpower=1      Raise the log to a power to increase the weight 
@@ -13343,7 +15253,7 @@ logpower=1      Raise the log to a power to increase the weight
 powsum=0.25     Use this power of the length to increase weight
                 of longer scaffolds for power sum.
 
-Assembly Score Metric:
+Assembly Score Metric Parameters:
 score=f         Print assembly score.
 aligned=0.0     Set the fraction of aligned reads (0-1).
 assemblyscoreminlen=2000   Minimum length of scaffolds to include in
@@ -13372,6 +15282,7 @@ gcformat=<0-5>  Select GC output format; default 1.
 	Note that in gcformat 1, A+C+G+T=1 even when N is nonzero.
 
 Please contact Brian Bushnell at bbushnell@lbl.gov if you encounter any problems.
+For documentation and the latest version, visit: https://bbmap.org
 
     Args:
         capture_output (bool): If True, capture and return the output instead of printing it.
@@ -13401,10 +15312,11 @@ Or:           stats3.sh file file file
 
 Parameters:
 in_file=file         Specify the input fasta file(s), or stdin.
-                Multiple files can be lested without a 'in_file=' flag.
+                Multiple files can be listed without a 'in_file=' flag.
 out=stdout      Destination of primary output; may be directed to a file.
 
 Please contact Brian Bushnell at bbushnell@lbl.gov if you encounter any problems.
+For documentation and the latest version, visit: https://bbmap.org
 
     Args:
         capture_output (bool): If True, capture and return the output instead of printing it.
@@ -13465,47 +15377,57 @@ gcformat=<1 or 2>   Select GC output format.
     args = _pack_args(kwargs)
     return _run_command("statswrapper.sh", args, capture_output)
 
-def streamsam(capture_output: bool = False, **kwargs) -> Union[None, Tuple[str, str]]:
+def stream(capture_output: bool = False, **kwargs) -> Union[None, Tuple[str, str]]:
     """
-    Wrapper for streamsam.sh
+    Wrapper for stream.sh
 
     Help message:
     Written by Brian Bushnell
-Last modified March 21, 2018
+Last modified November 15, 2025
 
-Description:  Converts sam/bam to fastq rapidly with multiple threads.
-bam files require samtools or sambamba in the path.
+Description:  Converts between sam, bam, fasta, fastq.
+              Supports subsampling, paired files, and multithreading.
 
-Usage:  streamsam.sh in_file=<file> out=<file>
+Usage:  stream.sh in_file=<file> out=<file> <other arguments>
+or
+stream.sh <input_file> <output_file> <other arguments>
+e.g.
+stream.sh mapped.bam mapped.sam.gz
+stream.sh in_file=reads.fq out=subset.fq samplerate=0.1
 
-Filtering parameters:
-minpos=         Ignore alignments not overlapping this range.
-maxpos=         Ignore alignments not overlapping this range.
-minmapq=        Ignore alignments with mapq below this.
-maxmapq=        Ignore alignments with mapq above this.
-contigs=        Comma-delimited list of contig names to include. These 
-                should have no spaces, or underscores instead of spaces.
-mapped=t        Include mapped reads.
-unmapped=t      Include unmapped reads.
-secondary=f     Include secondary alignments.
-supplimentary=t Include supplimentary alignments.
-lengthzero=f    Include alignments without bases.
-invert=f        Invert sam filters.
-ordered=t       Keep reads in input order.  False is faster.
-ref=<file>      Optional reference file.
+File parameters:
+in_file=<file>       Primary input file, type detected from extension.
+in2=<file>      Secondary input file for paired reads.
+out=<file>      Primary output file, optional, type based on extension.
+out2=<file>     Secondary output file for paired reads.
+                Note: Use # symbol for auto-numbering, e.g. reads_#.fq
+
+Processing parameters:
+samplerate=1.0  Fraction of reads to keep (0.0 to 1.0).
+sampleseed=17   Random seed for subsampling (-1 for random).
+reads=-1        Quit after processing this many reads (-1 = all).
+ordered=t       Maintain input order in output.
+
+Threading parameters:
+threadsin_file=-1    Reader threads (-1 = auto).
+threadsout=-1   Writer threads (-1 = auto).
+
+Other parameters:
+simd            Add this flag for turbo speed. Requires Java 17+ and AVX2,
+                or other 256-bit vector instruction sets.
 
 Please contact Brian Bushnell at bbushnell@lbl.gov if you encounter any problems.
 
     Args:
         capture_output (bool): If True, capture and return the output instead of printing it.
         in_file (str): Input file (replaces 'in=' parameter)
-        **kwargs: Other arguments for streamsam.sh
+        **kwargs: Other arguments for stream.sh
 
     Returns:
         Union[None, Tuple[str, str]]: If capture_output is True, returns (stdout, stderr), else None.
     """
     args = _pack_args(kwargs)
-    return _run_command("streamsam.sh", args, capture_output)
+    return _run_command("stream.sh", args, capture_output)
 
 def subsketch(capture_output: bool = False, **kwargs) -> Union[None, Tuple[str, str]]:
     """
@@ -13543,6 +15465,7 @@ Java Parameters:
 
 For more detailed information, please read /bbmap/docs/guides/BBSketchGuide.txt.
 Please contact Brian Bushnell at bbushnell@lbl.gov if you encounter any problems.
+For documentation and the latest version, visit: https://bbmap.org
 
     Args:
         capture_output (bool): If True, capture and return the output instead of printing it.
@@ -13590,6 +15513,7 @@ Java Parameters:
 -da             Disable assertions.
 
 Please contact Brian Bushnell at bbushnell@lbl.gov if you encounter any problems.
+For documentation and the latest version, visit: https://bbmap.org
 
     Args:
         capture_output (bool): If True, capture and return the output instead of printing it.
@@ -13624,6 +15548,7 @@ reflen=-1           If positive, use this as the total reference length.
                     Otherwise, assume basecov files report every ref base.
 
 Please contact Brian Bushnell at bbushnell@lbl.gov if you encounter any problems.
+For documentation and the latest version, visit: https://bbmap.org
 
     Args:
         capture_output (bool): If True, capture and return the output instead of printing it.
@@ -13668,6 +15593,7 @@ Java Parameters:
 -da             Disable assertions.
 
 Please contact Brian Bushnell at bbushnell@lbl.gov if you encounter any problems.
+For documentation and the latest version, visit: https://bbmap.org
 
     Args:
         capture_output (bool): If True, capture and return the output instead of printing it.
@@ -13697,6 +15623,7 @@ Parameters:
 in_file=<file>       A file containing GradeMerge output.
 
 Please contact Brian Bushnell at bbushnell@lbl.gov if you encounter any problems.
+For documentation and the latest version, visit: https://bbmap.org
 
     Args:
         capture_output (bool): If True, capture and return the output instead of printing it.
@@ -13729,6 +15656,7 @@ normalize=t     Normalize each metric to the average per report.
 box=t           Print only 5 points per metric for box plots.
 
 Please contact Brian Bushnell at bbushnell@lbl.gov if you encounter any problems.
+For documentation and the latest version, visit: https://bbmap.org
 
     Args:
         capture_output (bool): If True, capture and return the output instead of printing it.
@@ -13767,6 +15695,7 @@ in_file=<file>       A list of stats files, or a text file containing one stats 
 out=<file>      Destination for summary.
 
 Please contact Brian Bushnell at bbushnell@lbl.gov if you encounter any problems.
+For documentation and the latest version, visit: https://bbmap.org
 
     Args:
         capture_output (bool): If True, capture and return the output instead of printing it.
@@ -13815,6 +15744,7 @@ ignoresamelocation=f   Ignore secondary hits sharing a sampling site.
 totaldenominator=f     (td) Use all bases as denominator rather than mapped bases.
 
 Please contact Brian Bushnell at bbushnell@lbl.gov if you encounter any problems.
+For documentation and the latest version, visit: https://bbmap.org
 
     Args:
         capture_output (bool): If True, capture and return the output instead of printing it.
@@ -13849,6 +15779,7 @@ level=genus     Ignore contaminants with the same taxonomy as the primary hit at
 unique=f        Use the contaminant with the most unique hits rather than highest score.
 
 Please contact Brian Bushnell at bbushnell@lbl.gov if you encounter any problems.
+For documentation and the latest version, visit: https://bbmap.org
 
     Args:
         capture_output (bool): If True, capture and return the output instead of printing it.
@@ -13902,6 +15833,7 @@ Java Parameters:
 -da                 Disable assertions.
 
 Please contact Brian Bushnell at bbushnell@lbl.gov if you encounter any problems.
+For documentation and the latest version, visit: https://bbmap.org
 
     Args:
         capture_output (bool): If True, capture and return the output instead of printing it.
@@ -13978,10 +15910,9 @@ but some values are not supported.  Specifically, it allows 1-31,
 multiples of 2 from 32-62, multiples of 3 from 63-93, etc.
 Please read bbmap/docs/guides/TadpoleGuide.txt for more information.
 
-Usage:
-Assembly:     tadpole.sh in_file=<reads> out=<contigs>
-Extension:    tadpole.sh in_file=<reads> out=<extended> mode=extend
-Correction:   tadpole.sh in_file=<reads> out=<corrected> mode=correct
+Usage (Assembly):  tadpole.sh k=62 in_file=<reads> out=<contigs>
+Extension:    tadpole.sh k=62 in_file=<reads> out=<extended> mode=extend
+Correction:   tadpole.sh k=62 in_file=<reads> out=<corrected> mode=correct
 
 Recommended parameters for optimal assembly:
 tadpole.sh in_file=<reads> out=<contigs> shave rinse pop k=<50-70% of read length>
@@ -14068,7 +15999,7 @@ processcontigs=f    Explore the contig connectivity graph.
 popbubbles=t        (pop) Pop bubbles; increases contiguity.  Requires 
                     additional time and memory and forces processcontigs=t.
 
-Processing modes:
+Processing mode parameters:
 mode=contig         contig: Make contigs from kmers.
                     extend: Extend sequences to be longer, and optionally
                             perform error correction.
@@ -14196,7 +16127,7 @@ tadwrapper.sh in_file=reads.fq out=contigs%.fa k=31,62,93
 
 Parameters:
 out=<file>      Output file name.  Must contain a % symbol.
-outfinal=<file> Optional.  If set, the best assembly file 
+outfinal=<file> Optional.  If set, the best assembly file
                 will be renamed to this.
 k=31            Comma-delimited list of kmer lengths.
 delete=f        Delete assemblies before terminating.
@@ -14251,6 +16182,7 @@ remap=-+        Remap symbols in the barcode.  By default, '+' replaces '-'.
                 To eliminate this set 'remap=null'.
 
 Please contact Brian Bushnell at bbushnell@lbl.gov if you encounter any problems.
+For documentation and the latest version, visit: https://bbmap.org
 
     Args:
         capture_output (bool): If True, capture and return the output instead of printing it.
@@ -14288,12 +16220,12 @@ taxonomy.sh tree=tree.taxtree.gz gi=gitable.int1.d.gz in_file=refseq.fasta
 Processing parameters:
 in_file=<file>       A file containing named sequences, or just the names.
 out=<file>      Output file.  If blank, use stdout.
-tree=<file>     Specify a TaxTree file like tree.taxtree.gz.  
+tree=<file>     Specify a TaxTree file like tree.taxtree.gz.
                 On Genepool, use 'auto'.
 gi=<file>       Specify a gitable file like gitable.int1d.gz. Only needed
                 if gi numbers will be used.  On Genepool, use 'auto'.
 accession=      Specify one or more comma-delimited NCBI accession to taxid
-                files.  Only needed if accesions will be used; requires ~45GB
+                files.  Only needed if accessions will be used; requires ~45GB
                 of memory.  On Genepool, use 'auto'.
 level=null      Set to a taxonomic level like phylum to just print that level.
 minlevel=-1     For multi-level printing, do not print levels below this.
@@ -14308,7 +16240,7 @@ Tree and table files are in /global/projectb/sandbox/gaag/bbtools/tax
 For non-Genepool users, or to make new ones, use taxtree.sh and gitable.sh
 
 Java Parameters:
--Xmx            This will set Java's memory usage, 
+-Xmx            This will set Java's memory usage,
                 overriding autodetection.
                 -Xmx20g will specify 20 gigs of RAM, and -Xmx200m will specify
                 200 megs.  The max is typically 85% of physical memory.
@@ -14317,6 +16249,7 @@ Java Parameters:
 -da             Disable assertions.
 
 Please contact Brian Bushnell at bbushnell@lbl.gov if you encounter any problems.
+For documentation and the latest version, visit: https://bbmap.org
 
     Args:
         capture_output (bool): If True, capture and return the output instead of printing it.
@@ -14335,7 +16268,7 @@ def taxserver(capture_output: bool = False, **kwargs) -> Union[None, Tuple[str, 
 
     Help message:
     Written by Brian Bushnell and Shijie Yao
-Last modified Jan 7, 2020
+Last modified December 2, 2025
 
 Description:   Starts a server that translates NCBI taxonomy.
 
@@ -14344,15 +16277,15 @@ Usage:  taxserver.sh tree=<taxtree file> table=<gitable file> port=<number>
 Usage examples:
 taxserver.sh tree=tree.taxtree.gz table=gitable.int1d.gz port=1234
 
-On Genepool:
+At LBL:
 taxserver.sh tree=auto table=auto port=1234
 
-For accession number support, add accession=<something>  E.g.:
+For accession number support, add accession=<file,file>  E.g.:
 
 External:
 taxserver.sh -Xmx45g tree=tree.taxtree.gz table=gitable.int1d.gz accession=prot.accession2taxid.gz,nucl_wgs.accession2taxid.gz port=1234
 
-On Genepool:
+At LBL:
 taxserver.sh tree=auto table=auto accession=auto port=1234
 
 If all expected files are in some specific location, you can also do this:
@@ -14375,7 +16308,7 @@ dbname=             Set the name of the database in the help message.
 sketchcomparethreads=16    Limit compare threads per connection.
 sketchloadthreads=4 Limit load threads (for local queries of fastq).
 sketchonly=f        Don't hash taxa names.
-k=31                Kmer length, 1-32.  To maximize sensitivity and 
+k=31                Kmer length, 1-32.  To maximize sensitivity and
                     specificity, dual kmer lengths may be used:  k=31,24
 prealloc=f          Preallocate some data structures for faster loading.
 
@@ -14407,6 +16340,7 @@ Java Parameters:
 -da                 Disable assertions.
 
 Please contact Brian Bushnell at bbushnell@lbl.gov if you encounter any problems.
+For documentation and the latest version, visit: https://bbmap.org
 
     Args:
         capture_output (bool): If True, capture and return the output instead of printing it.
@@ -14432,7 +16366,7 @@ Description:  Calculates the amount of sequence per tax node.
 Usage:  taxsize.sh in_file=<file> out=<file> tree=<file>
 
 Parameters:
-in_file=             A fasta file annotated with taxonomic data in headers, 
+in_file=             A fasta file annotated with taxonomic data in headers,
                 such as modified RefSeq.
 out=            Location to write the size data.
 tree=           Location of taxtree file.
@@ -14446,6 +16380,7 @@ Java Parameters:
 -da             Disable assertions.
 
 Please contact Brian Bushnell at bbushnell@lbl.gov if you encounter any problems.
+For documentation and the latest version, visit: https://bbmap.org
 
     Args:
         capture_output (bool): If True, capture and return the output instead of printing it.
@@ -14468,7 +16403,7 @@ Last modified Jan 7, 2020
 
 Description:  Creates tree.taxtree from names.dmp and nodes.dmp.
 These are in taxdmp.zip available at ftp://ftp.ncbi.nih.gov/pub/taxonomy/
-The taxtree file is needed for programs that can deal with taxonomy, 
+The taxtree file is needed for programs that can deal with taxonomy,
 like Seal and SortByTaxa.
 
 Usage:  taxtree.sh names.dmp nodes.dmp merged.dmp tree.taxtree.gz
@@ -14481,6 +16416,7 @@ Java Parameters:
 -da             Disable assertions.
 
 Please contact Brian Bushnell at bbushnell@lbl.gov if you encounter any problems.
+For documentation and the latest version, visit: https://bbmap.org
 
     Args:
         capture_output (bool): If True, capture and return the output instead of printing it.
@@ -14516,6 +16452,7 @@ threads         Number of parallel instances to use.
 simd            Enable SIMD operations; requires AVX-256 and Java 17+.
 
 Please contact Brian Bushnell at bbushnell@lbl.gov if you encounter any problems.
+For documentation and the latest version, visit: https://bbmap.org
 
     Args:
         capture_output (bool): If True, capture and return the output instead of printing it.
@@ -14558,6 +16495,7 @@ threads=        Parallel alignments; default is logical cores.
 simd            Enable SIMD operations; requires AVX-256 and Java 17+.
 
 Please contact Brian Bushnell at bbushnell@lbl.gov if you encounter any problems.
+For documentation and the latest version, visit: https://bbmap.org
 
     Args:
         capture_output (bool): If True, capture and return the output instead of printing it.
@@ -14586,6 +16524,7 @@ Usage:  testfilesystem.sh <in> <out> <log> <size> <ways> <interval in seconds>
 'in' should contain the # symbol if ways>1.
 
 Please contact Brian Bushnell at bbushnell@lbl.gov if you encounter any problems.
+For documentation and the latest version, visit: https://bbmap.org
 
     Args:
         capture_output (bool): If True, capture and return the output instead of printing it.
@@ -14604,18 +16543,19 @@ def testformat(capture_output: bool = False, **kwargs) -> Union[None, Tuple[str,
 
     Help message:
     Written by Brian Bushnell
-Last modified August 4, 2016
+Last modified November 6, 2025
 
 Description:  Tests file extensions and contents to determine format,
 quality, compression, interleaving, and read length.  More than one file
-may be specified.  Note that ASCII-33 (sanger) and ASCII-64 
-(old Illumina/Solexa) cannot always be differentiated.
+may be specified.  Note that ASCII-33 and ASCII-64 cannot always
+be differentiated.
 
 Usage:  testformat.sh <file>
 
 See also:  testformat2.sh, stats.sh
 
 Please contact Brian Bushnell at bbushnell@lbl.gov if you encounter any problems.
+For documentation and the latest version, visit: https://bbmap.org
 
     Args:
         capture_output (bool): If True, capture and return the output instead of printing it.
@@ -14634,32 +16574,26 @@ def testformat2(capture_output: bool = False, **kwargs) -> Union[None, Tuple[str
 
     Help message:
     Written by Brian Bushnell
-Last modified July 10, 2023
+Last modified November 6, 2025
 
 Description:  Reads the entire file to find extended information about the format and contents.
 
 Usage:  testformat2.sh <file>
 
-
 Parameters:
 
 full=t          Process the full file.
 speed=f         Print processing time.
-
 printjunk=f     Print headers of junk reads to stdout.
 zmw=t           Parse PacBio ZMW IDs.
-
 barcodelist=    Optional list of expected barcodes.  May be a filename
-                with one line per barcode, or a comma-delimited literal. 
+                with one line per barcode, or a comma-delimited literal.
 printbarcodes=f Print barcodes and counts to stdout.
 edist=f         Calculate barcode edit distance.
-
 printqhist=f    Print quality histogram to stdout.
 printihist=f    Print insert size histogram to stdout.
-
 bhistlen=10k    bhist.txt will be calculated from reads up to this length.
                 To allow all reads, set to 0.
-
 merge=t         Calculate mergability via BBMerge.
 sketch=t        (card) Calculate cardinality via BBSketch.
                 If enabled, also sends the sketch to the refseq server.
@@ -14669,7 +16603,6 @@ File output parameters (these can be eliminated by setting to null):
 
 junk=junk.txt          Print headers of junk reads to this file.
 barcodes=barcodes.txt  Print barcodes to this file.
-
 hist=t                 False will clear all default histogram files.
 qhist=qhist.txt        Print quality histogram to this file.
 ihist=ihist.txt        Print insert size histogram to this file.
@@ -14736,6 +16669,7 @@ BarcodeList     List of observed barcodes.
 JunkList        List of headers of problematic reads.
 
 Please contact Brian Bushnell at bbushnell@lbl.gov if you encounter any problems.
+For documentation and the latest version, visit: https://bbmap.org
 
     Args:
         capture_output (bool): If True, capture and return the output instead of printing it.
@@ -14757,18 +16691,18 @@ def tetramerfreq(capture_output: bool = False, **kwargs) -> Union[None, Tuple[st
 Last modified April 25, 2025
 
 Description: DNA Tetramer analysis.
-DNA tetramers are counted for each sub-sequence of window size in the sequence.  
+DNA tetramers are counted for each sub-sequence of window size in the sequence.
 The window slides along the sequence by the step length.
-Sub-sequence shorter than the window size is ignored. Tetramers containing N are ignored. 
+Sub-sequence shorter than the window size is ignored. Tetramers containing N are ignored.
 
-Usage: TetramerFreq.sh in_file=<input file> out=<output file> step=500 window=2000
+Usage: tetramerfreq.sh in_file=<input file> out=<output file> step=500 window=2000
 
 Input may be fasta or fastq, compressed or uncompressed.
 
 Standard parameters:
-in_file=<file>       DNA sequence input file 
+in_file=<file>       DNA sequence input file
 out=<file>      Output file name
-step/s=INT      Step size (default 500) 
+step/s=INT      Step size (default 500)
 window/w=INT    Window size (default 2kb); <=0 turns windowing off (e.g. short reads)
 short=T/F       Print lines for sequences shorter than window (default F)
 k=INT           Kmer length (default 4)
@@ -14785,6 +16719,7 @@ Java Parameters:
 -da             Disable assertions.
 
 Please contact Brian Bushnell at bbushnell@lbl.gov if you encounter any problems.
+For documentation and the latest version, visit: https://bbmap.org
 
     Args:
         capture_output (bool): If True, capture and return the output instead of printing it.
@@ -14812,6 +16747,7 @@ stop is exclusive.
 Usage:  textfile.sh <file> <start line> <stop line>
 
 Please contact Brian Bushnell at bbushnell@lbl.gov if you encounter any problems.
+For documentation and the latest version, visit: https://bbmap.org
 
     Args:
         capture_output (bool): If True, capture and return the output instead of printing it.
@@ -14857,6 +16793,7 @@ Java Parameters:
 -da             Disable assertions.
 
 Please contact Brian Bushnell at bbushnell@lbl.gov if you encounter any problems.
+For documentation and the latest version, visit: https://bbmap.org
 
     Args:
         capture_output (bool): If True, capture and return the output instead of printing it.
@@ -14997,6 +16934,7 @@ Java Parameters:
 -da             Disable assertions.
 
 Please contact Brian Bushnell at bbushnell@lbl.gov if you encounter any problems.
+For documentation and the latest version, visit: https://bbmap.org
 
     Args:
         capture_output (bool): If True, capture and return the output instead of printing it.
@@ -15057,6 +16995,7 @@ Java Parameters:
 -da             Disable assertions.
 
 Please contact Brian Bushnell at bbushnell@lbl.gov if you encounter any problems.
+For documentation and the latest version, visit: https://bbmap.org
 
     Args:
         capture_output (bool): If True, capture and return the output instead of printing it.
@@ -15108,6 +17047,7 @@ Java Parameters:
 -da             Disable assertions.
 
 Please contact Brian Bushnell at bbushnell@lbl.gov if you encounter any problems.
+For documentation and the latest version, visit: https://bbmap.org
 
     Args:
         capture_output (bool): If True, capture and return the output instead of printing it.
@@ -15135,6 +17075,7 @@ It is only retained because there is some situation in which it is needed.
 Usage:  unicode2ascii.sh in_file=<file> out=<file>
 
 Please contact Brian Bushnell at bbushnell@lbl.gov if you encounter any problems.
+For documentation and the latest version, visit: https://bbmap.org
 
     Args:
         capture_output (bool): If True, capture and return the output instead of printing it.
@@ -15170,6 +17111,7 @@ out=<file>      Output file for good reads.
 zl=             Set the compression level; 0-9 or 11.
 
 Please contact Brian Bushnell at bbushnell@lbl.gov if you encounter any problems.
+For documentation and the latest version, visit: https://bbmap.org
 
     Args:
         capture_output (bool): If True, capture and return the output instead of printing it.
@@ -15219,7 +17161,7 @@ Java code written by Claude.
 Last modified May 4, 2025
 
 Description:  Converts a text exploration map from some aligners to an image.
-Supports Quantum, Banded, Drifting, Glocal, WaveFront, and MSA9. 
+Supports Quantum, Banded, Drifting, Glocal, WaveFront, and MSA9.
 
 Usage:
 visualizealignment.sh <map>
@@ -15233,6 +17175,7 @@ image           Output name, context sensitive; supports png, bmp, jpg.
                 by .png in the input filename.
 
 Please contact Brian Bushnell at bbushnell@lbl.gov if you encounter any problems.
+For documentation and the latest version, visit: https://bbmap.org
 
     Args:
         capture_output (bool): If True, capture and return the output instead of printing it.
@@ -15274,6 +17217,7 @@ map             Optional output text file for matrix score space.
 iterations      Optional integer for benchmarking multiple iterations.
 
 Please contact Brian Bushnell at bbushnell@lbl.gov if you encounter any problems.
+For documentation and the latest version, visit: https://bbmap.org
 
     Args:
         capture_output (bool): If True, capture and return the output instead of printing it.
@@ -15285,6 +17229,46 @@ Please contact Brian Bushnell at bbushnell@lbl.gov if you encounter any problems
     """
     args = _pack_args(kwargs)
     return _run_command("wavefrontaligner.sh", args, capture_output)
+
+def wavefrontalignerviz(capture_output: bool = False, **kwargs) -> Union[None, Tuple[str, str]]:
+    """
+    Wrapper for wavefrontalignerviz.sh
+
+    Help message:
+    Written by Brian Bushnell
+Last modified September 10, 2025
+
+Description:  Aligns a query sequence to a reference using WaveFrontAlignerViz.
+The sequences can be any characters, but N is a special case.
+Outputs the identity, rstart, and rstop positions.
+Optionally prints a state space exploration map.
+This map can be fed to visualizealignment.sh to make an image.
+
+Usage:
+wavefrontalignerviz.sh <query> <ref>
+wavefrontalignerviz.sh <query> <ref> <map>
+wavefrontalignerviz.sh <query> <ref> <map> <iterations>
+
+Parameters:
+query           A literal nucleotide sequence or fasta file.
+ref             A literal nucleotide sequence or fasta file.
+map             Optional output text file for matrix score space.
+                Set to null for benchmarking with no visualization.
+iterations      Optional integer for benchmarking multiple iterations.
+
+Please contact Brian Bushnell at bbushnell@lbl.gov if you encounter any problems.
+For documentation and the latest version, visit: https://bbmap.org
+
+    Args:
+        capture_output (bool): If True, capture and return the output instead of printing it.
+        in_file (str): Input file (replaces 'in=' parameter)
+        **kwargs: Other arguments for wavefrontalignerviz.sh
+
+    Returns:
+        Union[None, Tuple[str, str]]: If capture_output is True, returns (stdout, stderr), else None.
+    """
+    args = _pack_args(kwargs)
+    return _run_command("wavefrontalignerviz.sh", args, capture_output)
 
 def webcheck(capture_output: bool = False, **kwargs) -> Union[None, Tuple[str, str]]:
     """
@@ -15319,6 +17303,7 @@ Java Parameters:
 -da             Disable assertions.
 
 Please contact Brian Bushnell at bbushnell@lbl.gov if you encounter any problems.
+For documentation and the latest version, visit: https://bbmap.org
 
     Args:
         capture_output (bool): If True, capture and return the output instead of printing it.
@@ -15358,6 +17343,7 @@ map             Optional output text file for matrix score space.
 iterations      Optional integer for benchmarking multiple iterations.
 
 Please contact Brian Bushnell at bbushnell@lbl.gov if you encounter any problems.
+For documentation and the latest version, visit: https://bbmap.org
 
     Args:
         capture_output (bool): If True, capture and return the output instead of printing it.
@@ -15398,6 +17384,7 @@ iterations      Optional integer for benchmarking multiple iterations.
 simd            Add this flag to use simd mode.
 
 Please contact Brian Bushnell at bbushnell@lbl.gov if you encounter any problems.
+For documentation and the latest version, visit: https://bbmap.org
 
     Args:
         capture_output (bool): If True, capture and return the output instead of printing it.
@@ -15410,20 +17397,42 @@ Please contact Brian Bushnell at bbushnell@lbl.gov if you encounter any problems
     args = _pack_args(kwargs)
     return _run_command("wobbleplusaligner.sh", args, capture_output)
 
-def Xcalcmem(capture_output: bool = False, **kwargs) -> Union[None, Tuple[str, str]]:
+def xdrophaligner(capture_output: bool = False, **kwargs) -> Union[None, Tuple[str, str]]:
     """
-    Wrapper for Xcalcmem.sh
+    Wrapper for xdrophaligner.sh
 
     Help message:
-    No help message found.
+    Written by Brian Bushnell
+Last modified September 10, 2025
+
+Description:  Aligns a query sequence to a reference using XDropHAligner.
+The sequences can be any characters, but N is a special case.
+Outputs the identity, rstart, and rstop positions.
+Optionally prints a state space exploration map.
+This map can be fed to visualizealignment.sh to make an image.
+
+Usage:
+xdrophaligner.sh <query> <ref>
+xdrophaligner.sh <query> <ref> <map>
+xdrophaligner.sh <query> <ref> <map> <iterations>
+
+Parameters:
+query           A literal nucleotide sequence or fasta file.
+ref             A literal nucleotide sequence or fasta file.
+map             Optional output text file for matrix score space.
+                Set to null for benchmarking with no visualization.
+iterations      Optional integer for benchmarking multiple iterations.
+
+Please contact Brian Bushnell at bbushnell@lbl.gov if you encounter any problems.
+For documentation and the latest version, visit: https://bbmap.org
 
     Args:
         capture_output (bool): If True, capture and return the output instead of printing it.
         in_file (str): Input file (replaces 'in=' parameter)
-        **kwargs: Other arguments for Xcalcmem.sh
+        **kwargs: Other arguments for xdrophaligner.sh
 
     Returns:
         Union[None, Tuple[str, str]]: If capture_output is True, returns (stdout, stderr), else None.
     """
     args = _pack_args(kwargs)
-    return _run_command("Xcalcmem.sh", args, capture_output)
+    return _run_command("xdrophaligner.sh", args, capture_output)

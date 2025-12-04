@@ -1,7 +1,7 @@
 # bbmapy
 
 A Python wrapper for BBTools.
-Current version of bbmapy is v39.33.
+Current version of bbmapy is v39.55.
 
 ## Installation
 
@@ -138,10 +138,10 @@ Please see the [BBTools website](https://jgi.doe.gov/data-and-tools/bbtools/) fo
 
 ```bash
 rm -rf dist build egg-info
-python bbmapy/update.py # fetch latest version of bbtools and update version in pyproject.toml
+pixi run python bbmapy/update.py # fetch latest version of bbtools and update version in pyproject.toml
 rm bbmapy/vendor/bbmap/pytools -rf # remove the pytools folder
-pip install --upgrade build twine
-python -m build
-twine upload dist/*
+pixi run pip install --upgrade build twine
+pixi run python -m build
+pixi run twine upload dist/*
 
 ```

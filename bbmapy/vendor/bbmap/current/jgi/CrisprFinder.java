@@ -668,6 +668,14 @@ public class CrisprFinder implements Accumulator<CrisprFinder.ProcessThread> {
 		}
 	}
 	
+	/**
+	 * Generates CRISPR detection statistics summary.
+	 *
+	 * @param readsTotal Total number of reads processed
+	 * @param stats Whether to include detailed statistics
+	 * @param hist Whether to include histogram data
+	 * @return Formatted statistics report
+	 */
 	private ByteBuilder crisprStats(long readsTotal, boolean stats, boolean hist) {
 		ByteBuilder bb=new ByteBuilder();
 		CrisprTracker c=cTracker;
@@ -725,6 +733,14 @@ public class CrisprFinder implements Accumulator<CrisprFinder.ProcessThread> {
 		return bb;
 	}
 	
+	/**
+	 * Generates palindrome detection statistics within CRISPRs.
+	 *
+	 * @param crisprsTotal Total number of CRISPRs found
+	 * @param stats Whether to include detailed statistics
+	 * @param hist Whether to include histogram data
+	 * @return Formatted palindrome statistics
+	 */
 	private ByteBuilder palindromeStats(long crisprsTotal, boolean stats, boolean hist) {
 		ByteBuilder bb=new ByteBuilder();
 		PalindromeTracker p=fullLengthPalStats ? pTrackerFull : pTracker;
@@ -757,6 +773,8 @@ public class CrisprFinder implements Accumulator<CrisprFinder.ProcessThread> {
 		return bb;
 	}
 	
+	/** Creates concurrent input stream for reading sequence data.
+	 * @return Configured read input stream */
 	private ConcurrentReadInputStream makeCris(){
 		ConcurrentReadInputStream cris=ConcurrentReadInputStream.getReadInputStream(maxReads, true, ffin1, ffin2);
 		cris.start(); //Start the stream
@@ -766,6 +784,15 @@ public class CrisprFinder implements Accumulator<CrisprFinder.ProcessThread> {
 		return cris;
 	}
 	
+	/**
+	 * Creates concurrent output stream for writing processed reads.
+	 *
+	 * @param ff1 Primary output format
+	 * @param ff2 Secondary output format (may be null)
+	 * @param pairedInput Whether input is paired-end
+	 * @param ordered Whether to maintain input order
+	 * @return Configured read output stream
+	 */
 	private static ConcurrentReadOutputStream makeCros(
 			FileFormat ff1, FileFormat ff2, boolean pairedInput, boolean ordered){
 		if(ff1==null){return null;}
@@ -783,6 +810,8 @@ public class CrisprFinder implements Accumulator<CrisprFinder.ProcessThread> {
 		return ros;
 	}
 	
+	/** Creates output stream specifically for CRISPR sequence output.
+	 * @return CRISPR-specific output stream or null if not configured */
 	private ConcurrentReadOutputStream makeCrosCrispr(){
 		if(outCrispr==null){return null;}
 
@@ -870,6 +899,28 @@ public class CrisprFinder implements Accumulator<CrisprFinder.ProcessThread> {
 	/*----------------         Inner Methods        ----------------*/
 	/*--------------------------------------------------------------*/
 	
+	/**
+	 * Core algorithm to find CRISPR repeat ranges within a read.
+	 * Uses k-mer indexing to identify tandem repeats, then extends and validates them.
+	 *
+	 * @param r Input read containing sequence data
+	 * @param k K-mer length for indexing
+	 * @param hdist Hamming distance tolerance for k-mer matching
+	 * @param midMask Bitmask for middle-masking k-mers
+	 * @param minSpacer Minimum spacer length between repeats
+	 * @param maxSpacer Maximum spacer length between repeats
+	 * @param minRepeat Minimum repeat unit length
+	 * @param maxRepeat Maximum repeat unit length
+	 * @param maxMismatches Maximum mismatches allowed in repeats
+	 * @param grow Whether to extend through mismatches
+	 * @param lookahead Bases to check when extending through mismatches
+	 * @param minRGC Minimum GC content for repeats
+	 * @param maxRGC Maximum GC content for repeats
+	 * @param kmerPositionMap Map of k-mers to their positions
+	 * @param allKmers List of all k-mers found
+	 * @param acgtn Array for nucleotide counting
+	 * @return List of CRISPR repeat pairs found
+	 */
 	public static final ArrayList<Crispr> findRanges(final Read r, final int k, final int hdist, 
 			final long midMask, final int minSpacer, final int maxSpacer, final int minRepeat,
 			final int maxRepeat, final int maxMismatches, final boolean grow, final int lookahead,
@@ -1133,11 +1184,23 @@ public class CrisprFinder implements Accumulator<CrisprFinder.ProcessThread> {
 	}
 	
 	//TODO: Add capability to trim using an Alignment, particularly where thre is a 3-way mismatch
+	/**
+	 * Trims mismatched bases from both ends of a CRISPR repeat pair.
+	 * @param bases Sequence bases
+	 * @param rp CRISPR repeat pair to shrink
+	 * @return Total number of bases trimmed
+	 */
 	private static int shrink(byte[] bases, Crispr rp) {
 		return shrinkLeft(bases, rp)+shrinkRight(bases, rp);
 	}
 	
 	//Trims mismatched bases off the ends
+	/**
+	 * Trims mismatched bases from the left side of repeat regions.
+	 * @param bases Sequence bases
+	 * @param rp CRISPR repeat pair to modify
+	 * @return Number of bases trimmed from left
+	 */
 	private static int shrinkLeft(byte[] bases, Crispr rp) {
 		Range left=rp.a, right=rp.b;
 		if(left.a<=0) {return 0;}
@@ -1177,6 +1240,12 @@ public class CrisprFinder implements Accumulator<CrisprFinder.ProcessThread> {
 		return shrank;
 	}
 	
+	/**
+	 * Trims mismatched bases from the right side of repeat regions.
+	 * @param bases Sequence bases
+	 * @param rp CRISPR repeat pair to modify
+	 * @return Number of bases trimmed from right
+	 */
 	private static int shrinkRight(byte[] bases, Crispr rp) {
 		Range left=rp.a, right=rp.b;
 		if(right.b>=bases.length-1) {return 0;}
@@ -1215,6 +1284,15 @@ public class CrisprFinder implements Accumulator<CrisprFinder.ProcessThread> {
 	}
 	
 
+	/**
+	 * Extends CRISPR repeats through mismatches when beneficial.
+	 *
+	 * @param bases Sequence bases
+	 * @param rp CRISPR repeat pair to extend
+	 * @param maxMismatches Maximum mismatches allowed
+	 * @param lookahead Bases to check ahead when extending
+	 * @return Total bases added through extension
+	 */
 	private static int grow(byte[] bases, Crispr rp, int maxMismatches, int lookahead) {
 		return growLeft(bases, rp, maxMismatches, lookahead)+growRight(bases, rp, maxMismatches, lookahead);
 	}
@@ -1275,6 +1353,15 @@ public class CrisprFinder implements Accumulator<CrisprFinder.ProcessThread> {
 		return left.b-b0;
 	}
 	
+	/**
+	 * Counts matching bases extending leftward from given positions.
+	 *
+	 * @param bases Sequence bases
+	 * @param a First position
+	 * @param b Second position
+	 * @param limit Maximum bases to check
+	 * @return Number of consecutive matches found
+	 */
 	private static int checkLeft(final byte[] bases, int a, int b, final int limit) {
 		int matches=0;
 		for(; matches<limit && a>=0; matches++, a--, b--) {
@@ -1284,6 +1371,15 @@ public class CrisprFinder implements Accumulator<CrisprFinder.ProcessThread> {
 		return matches;
 	}
 	
+	/**
+	 * Counts matching bases extending rightward from given positions.
+	 *
+	 * @param bases Sequence bases
+	 * @param a First position
+	 * @param b Second position
+	 * @param limit Maximum bases to check
+	 * @return Number of consecutive matches found
+	 */
 	private static int checkRight(final byte[] bases, int a, int b, final int limit) {
 		int matches=0;
 		for(; matches<limit && b<bases.length; matches++, a++, b++) {
@@ -1293,6 +1389,16 @@ public class CrisprFinder implements Accumulator<CrisprFinder.ProcessThread> {
 		return matches;
 	}
 	
+	/**
+	 * Fetches k-mer position list allowing for Hamming distance mismatches.
+	 *
+	 * @param kmer Target k-mer value
+	 * @param midMask Middle masking pattern
+	 * @param hdist Hamming distance tolerance
+	 * @param pos Query position
+	 * @param map K-mer position map
+	 * @return List of positions with allowed mismatches
+	 */
 	public static final LongList fetchListWithHdist(long kmer, long midMask, int hdist, int pos, 
 			LongLongListHashMap map) {
 		LongList list=map.get(kmer&midMask);
@@ -1303,6 +1409,16 @@ public class CrisprFinder implements Accumulator<CrisprFinder.ProcessThread> {
 		return null;
 	}
 	
+	/**
+	 * Counts matching bases between two sequence regions.
+	 *
+	 * @param s Sequence array
+	 * @param a1 Start of first region
+	 * @param b1 End of first region
+	 * @param a2 Start of second region
+	 * @param b2 End of second region
+	 * @return Number of matching positions
+	 */
 	public static final int countMatches(final byte[] s, int a1, final int b1, int a2, final int b2) {
 //		return Vector.countMatches(s, s, a1, b1, a2, b2);
 		int matches=0;
@@ -1312,6 +1428,17 @@ public class CrisprFinder implements Accumulator<CrisprFinder.ProcessThread> {
 		return matches;
 	}
 	
+	/**
+	 * Builds k-mer position map from a read sequence.
+	 * Creates forward k-mer index with middle masking support.
+	 *
+	 * @param r Input read
+	 * @param k K-mer length
+	 * @param midMask Middle masking pattern
+	 * @param kmerPositionMap Map to populate with k-mer positions
+	 * @param allKmers List to store all k-mers found
+	 * @return Number of repeated k-mers found
+	 */
 	public static final int fillMap(final Read r, int k, long midMask,
 			LongLongListHashMap kmerPositionMap, LongList allKmers){
 		if(r==null || r.length()<k){return 0;}
@@ -1360,6 +1487,16 @@ public class CrisprFinder implements Accumulator<CrisprFinder.ProcessThread> {
 		return repeats;
 	}
 	
+	/**
+	 * Identifies palindromic sequences within CRISPR repeat regions.
+	 *
+	 * @param bases Sequence bases
+	 * @param pairs List of CRISPR repeat pairs to analyze
+	 * @param palFinder Palindrome detection utility
+	 * @param forceSymmetry Whether to enforce symmetric palindromes
+	 * @param requirePalindrome Whether palindromes are required for retention
+	 * @param minRepeat Minimum repeat length for palindrome search
+	 */
 	public static void findPalindromes(byte[] bases, ArrayList<Crispr> pairs, 
 			PalindromeFinder palFinder, boolean forceSymmetry, boolean requirePalindrome, int minRepeat) {
 		if(bases==null || pairs==null || pairs.isEmpty()) {return;}
@@ -1404,6 +1541,15 @@ public class CrisprFinder implements Accumulator<CrisprFinder.ProcessThread> {
 //		System.err.println("Returning "+pairs);
 	}
 
+	/**
+	 * Scores CRISPR repeats using neural network classifier.
+	 *
+	 * @param bases Sequence bases
+	 * @param pairs CRISPR repeat pairs to score
+	 * @param vec Feature vector for neural network
+	 * @param net Trained neural network model
+	 * @return Number of repeats removed due to low scores
+	 */
 	private final int scoreRepeats(byte[] bases, ArrayList<Crispr> pairs, float[] vec, CellNet net) {
 		int removed=0;
 		for(int i=0; i<pairs.size(); i++) {
@@ -1421,6 +1567,15 @@ public class CrisprFinder implements Accumulator<CrisprFinder.ProcessThread> {
 		return removed;
 	}
 	
+	/**
+	 * Scores a single CRISPR repeat using neural network.
+	 *
+	 * @param bases Sequence bases
+	 * @param rp CRISPR repeat pair to score
+	 * @param vec Feature vector buffer
+	 * @param net Neural network model
+	 * @return Maximum score between the two repeat regions
+	 */
 	private final float scoreRepeat(byte[] bases, Crispr rp, float[] vec, CellNet net) {
 		if(rp.sameLength() && rp.mismatches==0) {
 			return rp.scoreA=rp.scoreB=ScoreSequence.score(bases, vec, 0, net, rp.a.a, rp.a.b);
@@ -1434,6 +1589,14 @@ public class CrisprFinder implements Accumulator<CrisprFinder.ProcessThread> {
 		return rp.maxScore();
 	}
 	
+	/**
+	 * Thread-safe addition of sequence count to map.
+	 *
+	 * @param s Sequence count to add
+	 * @param map Target map for storage
+	 * @param copy Whether to clone the sequence count
+	 * @return 1 if new entry added, 0 if existing entry incremented
+	 */
 	private static int addToMap(SeqCountM s, HashMap<SeqCount,SeqCountM> map, boolean copy) {
 //		synchronized(map) {
 //			synchronized(s) {
@@ -1526,6 +1689,12 @@ public class CrisprFinder implements Accumulator<CrisprFinder.ProcessThread> {
 		bsw.poisonAndWait();
 	}
 	
+	/**
+	 * Removes CRISPR arrays with insufficient repeat counts.
+	 * @param list CRISPR repeat pairs to filter
+	 * @param minRepeats Minimum number of repeats required
+	 * @return Number of repeat pairs removed
+	 */
 	private static int cullLowCountRepeats(ArrayList<Crispr> list, int minRepeats) {
 		final int minPairs=minRepeats-1;
 		int removed=0, full=0, partial=0;
@@ -1582,6 +1751,15 @@ public class CrisprFinder implements Accumulator<CrisprFinder.ProcessThread> {
 	class ProcessThread extends Thread {
 		
 		//Constructor
+		/**
+		 * Constructs worker thread with input/output streams.
+		 *
+		 * @param cris_ Shared input stream
+		 * @param ros_ Main output stream
+		 * @param rosu_ Unmatched reads output stream
+		 * @param rosCrispr_ CRISPR sequences output stream
+		 * @param tid_ Thread identifier
+		 */
 		ProcessThread(final ConcurrentReadInputStream cris_, final ConcurrentReadOutputStream ros_,  
 				final ConcurrentReadOutputStream rosu_,
 				final ConcurrentReadOutputStream rosCrispr_, final int tid_){
@@ -1661,6 +1839,8 @@ public class CrisprFinder implements Accumulator<CrisprFinder.ProcessThread> {
 			}
 		}
 		
+		/** Processes a batch of reads for CRISPR detection.
+		 * @param ln List container with reads to process */
 		void processList(ListNum<Read> ln){
 
 			//Grab the actual read list from the ListNum
@@ -1732,6 +1912,14 @@ public class CrisprFinder implements Accumulator<CrisprFinder.ProcessThread> {
 			return found;
 		}
 		
+		/**
+		 * Core method for CRISPR detection in a single read.
+		 * Builds k-mer index, finds repeat pairs, applies refinements, and outputs results.
+		 *
+		 * @param r Input read to analyze
+		 * @param crisprs List to collect CRISPR sequences
+		 * @return true if CRISPRs were found
+		 */
 		boolean processRead(Read r, ArrayList<Read> crisprs) {
 			if(r==null || r.length()<kRepeat){return false;}
 			int repeats=fillMap(r, kRepeat, midmaskRepeat, kmerPositionMap, allKmers);
@@ -1860,6 +2048,14 @@ public class CrisprFinder implements Accumulator<CrisprFinder.ProcessThread> {
 			return (pairs!=null && !pairs.isEmpty());
 		}
 		
+		/**
+		 * Applies quality filters to CRISPR repeat pairs.
+		 * Removes pairs failing length, homopolymer, or ambiguous base criteria.
+		 *
+		 * @param bases Sequence bases
+		 * @param pairs CRISPR pairs to filter
+		 * @return Number of pairs removed
+		 */
 		int filterPairs(byte[] bases, ArrayList<Crispr> pairs) {
 			int removed=0;
 			for(int i=0; i<pairs.size(); i++) {
@@ -1884,6 +2080,14 @@ public class CrisprFinder implements Accumulator<CrisprFinder.ProcessThread> {
 			return removed;
 		}
 		
+		/**
+		 * Removes overlapping or redundant CRISPR pairs.
+		 * Resolves conflicts by keeping higher-quality repeats.
+		 *
+		 * @param list CRISPR pairs to clean
+		 * @param length Sequence length for bounds checking
+		 * @return Number of pairs removed plus swaps performed
+		 */
 		int removeMistakes(ArrayList<Crispr> list, int length) {
 			int removed=0, swapped=0;
 			for(int i=1; i<list.size(); i++) {
@@ -1922,6 +2126,8 @@ public class CrisprFinder implements Accumulator<CrisprFinder.ProcessThread> {
 			return removed+swapped;
 		}
 		
+		/** Counts repeat copies in CRISPR arrays for statistics.
+		 * @param pairs CRISPR repeat pairs from same read */
 		void trackCopies(ArrayList<Crispr> pairs) {
 			if(pairs==null || pairs.isEmpty()) {return;}
 			Crispr prev=null;
@@ -1955,6 +2161,11 @@ public class CrisprFinder implements Accumulator<CrisprFinder.ProcessThread> {
 			}
 		}
 		
+		/**
+		 * Adds CRISPR sequences to repeat and spacer maps for output.
+		 * @param pairs CRISPR repeat pairs
+		 * @param bases Source sequence bases
+		 */
 		void addToMaps(ArrayList<Crispr> pairs, byte[] bases) {
 			final int blen=bases.length;
 			if(pairs==null || pairs.isEmpty()) {return;}
@@ -2038,6 +2249,12 @@ public class CrisprFinder implements Accumulator<CrisprFinder.ProcessThread> {
 //			Tools.toUpperCase(bases);
 		}
 		
+		/**
+		 * Aligns CRISPR repeats to reference sequences for refinement.
+		 * Adjusts repeat boundaries based on reference alignment results.
+		 * @param bases Sequence bases
+		 * @param list CRISPR pairs to align and refine
+		 */
 		public void alignToRef(byte[] bases, ArrayList<Crispr> list) {
 			int changes=0;
 			int removed=0;
@@ -2179,6 +2396,15 @@ public class CrisprFinder implements Accumulator<CrisprFinder.ProcessThread> {
 //			for(RangePair rp : list) {assert(rp.gap()>=minSpacer) : rp.toString(bases);}
 		}
 		
+		/**
+		 * Aligns reference sequences to a specific repeat range.
+		 *
+		 * @param bases Query sequence bases
+		 * @param r Primary repeat range to align
+		 * @param alt Alternative repeat range for comparison
+		 * @param mm Expected mismatches in repeat
+		 * @return Best alignment found or null if none meet criteria
+		 */
 		public Alignment alignRefToRange(byte[] bases, Range r, Range alt, int mm) {
 			cTrackerT.alignmentRequested++;
 			final ArrayList<SeqPosM> list;
@@ -2252,6 +2478,16 @@ public class CrisprFinder implements Accumulator<CrisprFinder.ProcessThread> {
 		}
 
 		//TODO: Add bounds constraints to prevent violation of minspacer/maxspacer
+		/**
+		 * Performs double alignment of reference to both repeat regions simultaneously.
+		 * More accurate than single alignment for identifying repeat boundaries.
+		 *
+		 * @param bases Query sequence bases
+		 * @param left Left repeat range
+		 * @param right Right repeat range
+		 * @param repeatMismatches Mismatches between the repeats
+		 * @return Best dual alignment or null if insufficient quality
+		 */
 		public Alignment doubleAlignRefToRange(byte[] bases, Range left, Range right, int repeatMismatches) {
 			cTrackerT.alignmentRequested++;
 			final ArrayList<SeqPosM> list;
@@ -2367,6 +2603,12 @@ public class CrisprFinder implements Accumulator<CrisprFinder.ProcessThread> {
 			return new Alignment().setFrom(best);
 		}
 		
+		/**
+		 * Adjusts repeat boundaries using consensus between adjacent CRISPR pairs.
+		 * Iteratively refines boundaries until convergence is reached.
+		 * @param bases Sequence bases
+		 * @param list CRISPR pairs to process with consensus
+		 */
 		public void consensus(byte[] bases, ArrayList<Crispr> list) {
 			if(list==null || list.size()<2) {return;}
 //			System.err.println("Running consensus on "+list+"\n"+new String(bases));
@@ -2488,6 +2730,14 @@ public class CrisprFinder implements Accumulator<CrisprFinder.ProcessThread> {
 			return removed;
 		}
 		
+		/**
+		 * Performs consensus adjustment between two adjacent CRISPR pairs.
+		 *
+		 * @param left Left CRISPR pair
+		 * @param right Right CRISPR pair
+		 * @param bases Sequence bases
+		 * @return Number of bases trimmed or extended
+		 */
 		public int consensus(Crispr left, Crispr right, byte[] bases) {
 //			System.err.println("Performing consensus on:\n"+left+"\n"+right);
 			if(left.b.equals(right.a)){return 0;}//Perfect!
@@ -2814,6 +3064,14 @@ public class CrisprFinder implements Accumulator<CrisprFinder.ProcessThread> {
 			return p.mismatches;
 		}
 		
+		/**
+		 * Counts matching and mismatching bases between repeat regions.
+		 * Handles edge cases for repeats touching sequence boundaries.
+		 *
+		 * @param p CRISPR repeat pair to analyze
+		 * @param bases Sequence bases
+		 * @return Number of matching bases found
+		 */
 		int countMatches(Crispr p, byte[] bases) {
 //			System.err.println(p.toString(bases));
 //			System.err.println("countMatches("+p.toString(bases)+"); blen="+bases.length);
@@ -2887,6 +3145,7 @@ public class CrisprFinder implements Accumulator<CrisprFinder.ProcessThread> {
 			return matches;
 		}
 		
+		/** Clears k-mer position maps to prepare for next read */
 		void clearMap() {
 			kmerPositionMap.clear();
 			allKmers.clear();
@@ -2936,12 +3195,26 @@ public class CrisprFinder implements Accumulator<CrisprFinder.ProcessThread> {
 	
 	/*--------------------------------------------------------------*/
 	
+	/** Represents alignment of reference sequence to query repeat region.
+	 * Stores alignment metrics and quality scores for reference-based refinement. */
 	class Alignment implements Comparable<Alignment>{
 		
+		/** Constructs alignment object and initializes to cleared state */
 		public Alignment() {
 			clear();
 		}
 		
+		/**
+		 * Sets alignment parameters and computes derived metrics.
+		 *
+		 * @param s Reference sequence
+		 * @param p Position in reference
+		 * @param a0 Query start position
+		 * @param b0 Query end position
+		 * @param m Number of matches
+		 * @param mm Number of mismatches
+		 * @param c Reference sequence count/frequency
+		 */
 		void set(byte[] s, int p, int a0, int b0, int m, int mm, int c) {
 			seq=s;
 			pos=p;
@@ -2957,6 +3230,11 @@ public class CrisprFinder implements Accumulator<CrisprFinder.ProcessThread> {
 			perfect=(shift==0 && mismatches==0);
 		}
 		
+		/**
+		 * Copies alignment data from another alignment object.
+		 * @param o Source alignment to copy
+		 * @return This alignment object for chaining
+		 */
 		Alignment setFrom(Alignment o) {
 			seq=o.seq;
 			pos=o.pos;
@@ -2972,12 +3250,19 @@ public class CrisprFinder implements Accumulator<CrisprFinder.ProcessThread> {
 			return this;
 		}
 		
+		/** Resets alignment to initial cleared state */
 		void clear() {
 			valid=perfect=false;
 			count=pos=matches=score=-1;
 			mismatches=shift=10;
 		}
 		
+		/**
+		 * Compares alignments by quality metrics for ranking.
+		 * Prioritizes valid, high-scoring alignments with minimal position shift.
+		 * @param b Alignment to compare against
+		 * @return Comparison result for sorting
+		 */
 		public int compareTo(Alignment b) {
 			if(!valid) {return -1;}
 			if(b==null) {return 1;}
@@ -2994,6 +3279,8 @@ public class CrisprFinder implements Accumulator<CrisprFinder.ProcessThread> {
 //		if(mismatches==0 && a2>=0 && b2<bases.length && 
 //				(sortRefCandidates || (a2<=a0 && b2>=b0 && (a2==a0 || b2==b0)))) {break;}
 		
+		/** Returns string representation of alignment metrics.
+		 * @return Formatted alignment summary */
 		public String toString() {
 			return "sc="+score+", co="+count+", va="+valid+
 					", pe="+perfect+", sh="+shift+", m="+matches+", mm="+mismatches;
@@ -3053,23 +3340,36 @@ public class CrisprFinder implements Accumulator<CrisprFinder.ProcessThread> {
 	/** Whether interleaved was explicitly set. */
 	private boolean setInterleaved=false;
 
+	/** K-mer length for repeat region indexing */
 	private int kRepeat=13;//ideal is probably around 13-15
+	/** Hamming distance tolerance for repeat k-mer matching */
 	private int rqhdist=0;
+	/** Number of middle bases to mask in repeat k-mers */
 	private int maskMiddle=0;//middle mask of 1 or even 2 is good
 	private final long midmaskRepeat;//This is an OR mask not an AND mask
+	/** Minimum spacer sequence length between repeats */
 	private int minSpacer=14;
+	/** Maximum spacer sequence length between repeats */
 	private int maxSpacer=60;
+	/** Initial minimum repeat length for seed finding */
 	private int minRepeat0=11;
+	/** Final minimum repeat length after refinement */
 	private int minRepeat=22;
+	/** Maximum allowed repeat length */
 	private int maxRepeat=56;
+	/** Minimum repeat length for sequences touching read edges */
 	private int minTailRepeat=9;
 	private final int minPeriod;
 	private final int minCrispr;
 	private final int minTailPeriod;
 	private final int minTailCrispr;
+	/** Minimum GC content for repeat sequences */
 	private float minRGC=0.09f;
+	/** Maximum GC content for repeat sequences */
 	private float maxRGC=0.89f;
+	/** Maximum mismatches allowed between repeat copies */
 	private int maxRepeatMismatches=3;
+	/** Maximum mismatches for repeats touching sequence edges */
 	private int maxRepeatMismatchesTail=1;
 	private int mrmmPad=3;
 	private int crisprOutPad=0;
@@ -3082,9 +3382,13 @@ public class CrisprFinder implements Accumulator<CrisprFinder.ProcessThread> {
 	private int maxPoly=7;
 	private int maxNs=0;
 	
+	/** K-mer length for reference sequence indexing */
 	private int kRef=13;
+	/** Middle masking length for reference k-mers */
 	private int maskMiddleRef=1;
+	/** Minimum matches required for valid reference alignment */
 	private int minRefMatches=18;
+	/** Maximum mismatches allowed in reference alignment */
 	private int maxRefMismatches=5;
 	private float maxRefMismatchFraction=0.2f;
 	private int minRefCount=0;
@@ -3115,8 +3419,11 @@ public class CrisprFinder implements Accumulator<CrisprFinder.ProcessThread> {
 	private boolean grow=true;
 	private int growLookahead=5;//5 seems better than 6.  4 is probably too low and 7 is too high.
 
+	/** Minimum palindrome length to detect within repeats */
 	private int minPal=5;
+	/** Minimum matches required in palindrome stems */
 	private int minPalMatches=4;
+	/** Maximum mismatches allowed in palindrome stems */
 	private int maxPalMismatches=2;
 	private int minLoop=3;//4 excludes 0.04%
 	private int maxLoop=26;
@@ -3127,8 +3434,11 @@ public class CrisprFinder implements Accumulator<CrisprFinder.ProcessThread> {
 	private boolean requirePalindrome=false;
 	private boolean annotate=false;
 	
+	/** Statistics tracker for CRISPR detection results */
 	private final CrisprTracker cTracker=new CrisprTracker();
+	/** Statistics tracker for palindrome detection in partial repeats */
 	private final PalindromeTracker pTracker=new PalindromeTracker();
+	/** Statistics tracker for palindromes in full-length repeats */
 	private final PalindromeTracker pTrackerFull=new PalindromeTracker();
 	//Only use palindromes from full-length sequences in the histogram.
 	private boolean fullLengthPalStats=true;
@@ -3142,12 +3452,16 @@ public class CrisprFinder implements Accumulator<CrisprFinder.ProcessThread> {
 	//At one time I changed these to HashMap to fix a concurrency issue due to mutable keys
 	//Changing the key to a String also worked
 	//Ultimately I just ensured that the key and value were independent objects
+	/** Map collecting unique repeat sequences and their counts */
 	private HashMap<SeqCount,SeqCountM> repeatMap;
+	/** Map collecting unique spacer sequences and their counts */
 	private HashMap<SeqCount,SeqCountM> spacerMap;
+	/** Reference sequence map for alignment-based refinement */
 	private SeqMap refMap;
 	private int maxRefCount=0;
 	private long refMapSum=0;
 
+	/** Lookup table converting DNA bases to numeric values */
 	static final byte[] symbolToNumber=AminoAcid.baseToNumber;
 	static final byte[] symbolToComplementNumber=AminoAcid.baseToComplementNumber;
 	

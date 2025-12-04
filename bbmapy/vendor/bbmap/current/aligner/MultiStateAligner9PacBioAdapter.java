@@ -14,6 +14,12 @@ import stream.SiteScore;
 public final class MultiStateAligner9PacBioAdapter {
 	
 	
+	/**
+	 * Constructs a new aligner with specified matrix dimensions.
+	 * Initializes scoring arrays and packed matrices for dynamic programming.
+	 * @param maxRows_ Maximum number of rows (read length) supported
+	 * @param maxColumns_ Maximum number of columns (reference length) supported
+	 */
 	public MultiStateAligner9PacBioAdapter(int maxRows_, int maxColumns_){
 //		assert(maxColumns_>=200);
 //		assert(maxRows_>=200);
@@ -962,26 +968,69 @@ public final class MultiStateAligner9PacBioAdapter {
 	
 	
 
+	/**
+	 * Calculates alignment score without considering indels.
+	 * Uses chromosome data from the provided SiteScore.
+	 *
+	 * @param read Query sequence bytes
+	 * @param ss SiteScore containing chromosome and position information
+	 * @return Alignment score based on matches and substitutions only
+	 */
 	public final static int scoreNoIndels(byte[] read, SiteScore ss){
 		ChromosomeArray cha=Data.getChromosome(ss.chrom);
 		return scoreNoIndels(read, cha.array, ss.start, ss);
 	}
 
+	/**
+	 * Calculates alignment score without considering indels.
+	 *
+	 * @param read Query sequence bytes
+	 * @param chrom Chromosome identifier
+	 * @param refStart Starting position in reference
+	 * @return Alignment score based on matches and substitutions only
+	 */
 	public final static int scoreNoIndels(byte[] read, final int chrom, final int refStart){
 		ChromosomeArray cha=Data.getChromosome(chrom);
 		return scoreNoIndels(read, cha.array, refStart, null);
 	}
 	
+	/**
+	 * Calculates alignment score without indels, incorporating base quality scores.
+	 *
+	 * @param read Query sequence bytes
+	 * @param ss SiteScore containing alignment position information
+	 * @param baseScores Quality scores for each base
+	 * @return Alignment score including quality score bonuses
+	 */
 	public final static int scoreNoIndels(byte[] read, SiteScore ss, byte[] baseScores){
 		ChromosomeArray cha=Data.getChromosome(ss.chrom);
 		return scoreNoIndels(read, cha.array, baseScores, ss.start, ss);
 	}
 
+	/**
+	 * Calculates alignment score without indels, incorporating base quality scores.
+	 *
+	 * @param read Query sequence bytes
+	 * @param chrom Chromosome identifier
+	 * @param refStart Starting position in reference
+	 * @param baseScores Quality scores for each base
+	 * @return Alignment score including quality score bonuses
+	 */
 	public final static int scoreNoIndels(byte[] read, final int chrom, final int refStart, byte[] baseScores){
 		ChromosomeArray cha=Data.getChromosome(chrom);
 		return scoreNoIndels(read, cha.array, baseScores, refStart, null);
 	}
 
+	/**
+	 * Calculates alignment score without considering indels.
+	 * Handles cases where read extends beyond reference boundaries.
+	 *
+	 * @param read Query sequence bytes
+	 * @param ref Reference sequence bytes
+	 * @param refStart Starting position in reference
+	 * @param ss SiteScore object to update with semiperfect status
+	 * @return Alignment score based on matches and substitutions
+	 */
 	public final static int scoreNoIndels(byte[] read, byte[] ref, final int refStart, final SiteScore ss){
 		
 		int score=0;
@@ -1047,6 +1096,17 @@ public final class MultiStateAligner9PacBioAdapter {
 	}
 	
 
+	/**
+	 * Calculates alignment score without indels, incorporating base quality scores.
+	 * Updates SiteScore with semiperfect alignment status.
+	 *
+	 * @param read Query sequence bytes
+	 * @param ref Reference sequence bytes
+	 * @param baseScores Quality scores for each base
+	 * @param refStart Starting position in reference
+	 * @param ss SiteScore object to update
+	 * @return Alignment score including quality bonuses
+	 */
 	public final static int scoreNoIndels(byte[] read, byte[] ref, byte[] baseScores, final int refStart, SiteScore ss){
 		
 		int score=0;
@@ -1114,6 +1174,17 @@ public final class MultiStateAligner9PacBioAdapter {
 	}
 	
 	
+	/**
+	 * Calculates score without indels and generates match string.
+	 * Incorporates base quality scores into the final score.
+	 *
+	 * @param read Query sequence bytes
+	 * @param ref Reference sequence bytes
+	 * @param baseScores Quality scores for each base
+	 * @param refStart Starting position in reference
+	 * @param matchReturn Output array to store match string
+	 * @return Alignment score including quality bonuses
+	 */
 	public final static int scoreNoIndelsAndMakeMatchString(byte[] read, byte[] ref, byte[] baseScores, final int refStart, byte[][] matchReturn){
 		int score=0;
 		int mode=-1;
@@ -1189,6 +1260,15 @@ public final class MultiStateAligner9PacBioAdapter {
 	}
 	
 	
+	/**
+	 * Calculates score without indels and generates match string.
+	 *
+	 * @param read Query sequence bytes
+	 * @param ref Reference sequence bytes
+	 * @param refStart Starting position in reference
+	 * @param matchReturn Output array to store match string
+	 * @return Alignment score based on matches and substitutions
+	 */
 	public final static int scoreNoIndelsAndMakeMatchString(byte[] read, byte[] ref, final int refStart, byte[][] matchReturn){
 		int score=0;
 		int mode=-1;
@@ -1262,14 +1342,29 @@ public final class MultiStateAligner9PacBioAdapter {
 		return score;
 	}
 	
+	/**
+	 * Calculates the maximum possible alignment score for a given number of bases.
+	 * @param numBases Number of bases in sequence
+	 * @return Maximum theoretical alignment score
+	 */
 	public static final int maxQuality(int numBases){
 		return POINTS_MATCH+(numBases-1)*(POINTS_MATCH2);
 	}
 	
+	/**
+	 * Calculates maximum possible alignment score including quality bonuses.
+	 * @param baseScores Quality scores for each base
+	 * @return Maximum theoretical alignment score with quality bonuses
+	 */
 	public static final int maxQuality(byte[] baseScores){
 		return POINTS_MATCH+(baseScores.length-1)*(POINTS_MATCH2)+Tools.sumInt(baseScores);
 	}
 	
+	/**
+	 * Calculates maximum alignment score allowing for one imperfection.
+	 * @param numBases Number of bases in sequence
+	 * @return Maximum score with single indel or substitution
+	 */
 	public static final int maxImperfectScore(int numBases){
 //		int maxQ=maxQuality(numBases);
 ////		maxImperfectSwScore=maxQ-(POINTS_MATCH2+POINTS_MATCH2)+(POINTS_MATCH+POINTS_SUB);
@@ -1283,6 +1378,11 @@ public final class MultiStateAligner9PacBioAdapter {
 		return maxI;
 	}
 	
+	/**
+	 * Calculates maximum imperfect alignment score with quality bonuses.
+	 * @param baseScores Quality scores for each base
+	 * @return Maximum score with single imperfection and quality bonuses
+	 */
 	public static final int maxImperfectScore(byte[] baseScores){
 //		int maxQ=maxQuality(numBases);
 ////		maxImperfectSwScore=maxQ-(POINTS_MATCH2+POINTS_MATCH2)+(POINTS_MATCH+POINTS_SUB);
@@ -1372,6 +1472,12 @@ public final class MultiStateAligner9PacBioAdapter {
 		return sb.toString();
 	}
 	
+	/**
+	 * Calculates penalty score for deletion of specified length.
+	 * Uses tiered penalty system based on deletion length.
+	 * @param len Length of deletion
+	 * @return Deletion penalty score (negative value)
+	 */
 	public static int calcDelScore(int len){
 		if(len<=0){return 0;}
 		int score=POINTS_DEL;
@@ -1386,6 +1492,11 @@ public final class MultiStateAligner9PacBioAdapter {
 		return score;
 	}
 	
+	/**
+	 * Calculates deletion penalty using offset scoring system.
+	 * @param len Length of deletion
+	 * @return Deletion penalty with offset applied
+	 */
 	private static int calcDelScoreOffset(int len){
 		if(len<=0){return 0;}
 		int score=POINTSoff_DEL;
@@ -1400,6 +1511,12 @@ public final class MultiStateAligner9PacBioAdapter {
 		return score;
 	}
 	
+	/**
+	 * Calculates penalty score for insertion of specified length.
+	 * Uses tiered penalty system based on insertion length.
+	 * @param len Length of insertion
+	 * @return Insertion penalty score (negative value)
+	 */
 	public static int calcInsScore(int len){
 		if(len<=0){return 0;}
 		int score=POINTS_INS;
@@ -1414,6 +1531,11 @@ public final class MultiStateAligner9PacBioAdapter {
 		return score;
 	}
 	
+	/**
+	 * Calculates insertion penalty using offset scoring system.
+	 * @param len Length of insertion
+	 * @return Insertion penalty with offset applied
+	 */
 	private static int calcInsScoreOffset(int len){
 		if(len<=0){return 0;}
 		int score=POINTSoff_INS;
@@ -1429,24 +1551,39 @@ public final class MultiStateAligner9PacBioAdapter {
 	}
 	
 	
+	/** Maximum number of rows supported by this aligner instance */
 	private final int maxRows;
+	/** Maximum number of columns supported by this aligner instance */
 	private final int maxColumns;
 
+	/**
+	 * Three-dimensional array storing alignment scores and states for dynamic programming
+	 */
 	private final int[][][] packed;
 
+	/** Vertical pruning limits for efficient alignment computation */
 	private final int[] vertLimit;
+	/** Horizontal pruning limits for efficient alignment computation */
 	private final int[] horizLimit;
 
+	/** Pre-computed insertion penalty scores for different streak lengths */
 	private final int[] insScoreArray;
+	/** Pre-computed deletion penalty scores for different streak lengths */
 	private final int[] delScoreArray;
+	/** Pre-computed match scores for different streak lengths */
 	private final int[] matchScoreArray;
+	/** Pre-computed substitution penalty scores for different streak lengths */
 	private final int[] subScoreArray;
 
+	/** Returns string representation of vertical limits for debugging.
+	 * @return Comma-separated vertical limit values */
 	CharSequence showVertLimit(){
 		StringBuilder sb=new StringBuilder();
 		for(int i=0; i<=rows; i++){sb.append(vertLimit[i]>>SCOREOFFSET).append(",");}
 		return sb;
 	}
+	/** Returns string representation of horizontal limits for debugging.
+	 * @return Comma-separated horizontal limit values */
 	CharSequence showHorizLimit(){
 		StringBuilder sb=new StringBuilder();
 		for(int i=0; i<=columns; i++){sb.append(horizLimit[i]>>SCOREOFFSET).append(",");}
@@ -1515,13 +1652,19 @@ public final class MultiStateAligner9PacBioAdapter {
 	public static final int MAXoff_SCORE=MAX_SCORE<<SCOREOFFSET;
 	public static final int MINoff_SCORE=MIN_SCORE<<SCOREOFFSET;
 	
+	/** Current number of rows being processed */
 	private int rows;
+	/** Current number of columns being processed */
 	private int columns;
 
+	/** Count of iterations performed during limited alignment */
 	public long iterationsLimited=0;
+	/** Count of iterations performed during unlimited alignment */
 	public long iterationsUnlimited=0;
 
+	/** Enable verbose debugging output */
 	public boolean verbose=false;
+	/** Enable detailed debugging output */
 	public boolean verbose2=false;
 	
 }

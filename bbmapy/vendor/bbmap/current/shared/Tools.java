@@ -26,14 +26,26 @@ import stream.Read;
 import stream.ReadInputStream;
 import stream.SamLine;
 import stream.SiteScore;
+import structures.ByteBuilder;
 import structures.CoverageArray;
 import structures.DoubleList;
 import structures.IntHashSet;
 import structures.IntList;
 import structures.Point;
 
+/**
+ * Collection of utility methods for bioinformatics file handling and data processing.
+ * Provides string formatting, file validation, numeric utilities, character classification,
+ * and sequence processing functions used throughout BBTools.
+ * @author Brian Bushnell
+ */
 public final class Tools {
 	
+	/**
+	 * Test method for weighted average calculations.
+	 * Generates random arrays and compares weighted vs simple mean calculations.
+	 * @param args Command-line arguments (unused)
+	 */
 	public static void main(String[] args){
 		
 		long[] array=new long[1000];
@@ -53,10 +65,26 @@ public final class Tools {
 		
 	}
 	
+	/**
+	 * Locale-safe string formatting using ROOT locale.
+	 * Ensures consistent number formatting across different system locales.
+	 *
+	 * @param s Format string with placeholders
+	 * @param args Arguments to substitute into format string
+	 * @return Formatted string using ROOT locale
+	 */
 	public static final String format(String s, Object...args) {
 		return String.format(Locale.ROOT, s, args);
 	}
 	
+	/**
+	 * Creates pluralized form of a noun based on count.
+	 * Adds 's' suffix for counts other than 1.
+	 *
+	 * @param s Base noun to pluralize
+	 * @param count Number to determine singular/plural form
+	 * @return String in format "count noun" or "count nouns"
+	 */
 	public static String plural(String s, int count){
 		return count+" "+(count==1 ? s : s+"s");
 	}
@@ -112,6 +140,12 @@ public final class Tools {
 		return new double[] {a, b};
 	}
 	
+	/**
+	 * Loads integers from comma-delimited string or files into a hash set.
+	 * Removes duplicates and provides fast lookup capability.
+	 * @param numbers Comma-delimited integers or filenames containing integers
+	 * @return IntHashSet containing unique integers, or null if input is empty
+	 */
 	public static IntHashSet loadIntSet(String numbers){
 		IntList list=loadIntegers(numbers);
 		if(list==null || list.isEmpty()){return null;}
@@ -131,6 +165,14 @@ public final class Tools {
 		return loadIntegers(numbers, null);
 	}
 	
+	/**
+	 * Recursively loads integers from comma-delimited string or files.
+	 * Handles mixed input of direct numbers and filenames.
+	 *
+	 * @param numbers Comma-delimited integers or filenames
+	 * @param list Existing list to append to, or null to create new
+	 * @return IntList with loaded integers appended
+	 */
 	private static IntList loadIntegers(String numbers, IntList list){
 		if(numbers==null){return list;}
 		if(list==null){list=new IntList();}
@@ -156,6 +198,12 @@ public final class Tools {
 		return list;
 	}
 
+	/**
+	 * Checks if input file exists or is a special input name.
+	 * Recognizes "stdin" and "stdin.X" as valid inputs.
+	 * @param fname Filename to check
+	 * @return true if file exists or is stdin, false otherwise
+	 */
 	public static boolean existsInput(String fname) {
 		if(fname==null){return false;}
 		if(fname.equalsIgnoreCase("stdin") || fname.startsWith("stdin.")){return true;}
@@ -288,6 +336,14 @@ public final class Tools {
 		return true;
 	}
 	
+	/**
+	 * Determines if a file can be written given current permissions and settings.
+	 * Handles special output names and existing file overwrite policies.
+	 *
+	 * @param s Filename to test for write capability
+	 * @param overwrite Whether existing files can be overwritten
+	 * @return true if file can be written, false otherwise
+	 */
 	public static final boolean canWrite(String s, boolean overwrite){
 		if(isNullFileName(s) || isSpecialOutputName(s)){return true;}
 		File f=new File(s);
@@ -302,10 +358,22 @@ public final class Tools {
 //		return f.exists();
 //	}
 	
+	/**
+	 * Determines if string represents a real output filename.
+	 * Returns false for null filenames and special output names.
+	 * @param s Filename to test
+	 * @return true if s represents a real output file, false if null or special
+	 */
 	public static final boolean isOutputFileName(String s){
 		return !(isNullFileName(s) || isSpecialOutputName(s));
 	}
 	
+	/**
+	 * Determines if filename represents null or empty output.
+	 * Recognizes "null", "none", and whitespace-only strings.
+	 * @param s Filename to test
+	 * @return true if filename is null/empty, false otherwise
+	 */
 	public static final boolean isNullFileName(String s){
 		if(s==null || s.equalsIgnoreCase("null") || s.equalsIgnoreCase("none")){return true;}
 		for(int i=0; i<s.length(); i++){
@@ -314,6 +382,12 @@ public final class Tools {
 		return true;
 	}
 	
+	/**
+	 * Determines if filename represents special output stream.
+	 * Recognizes stdout, stderr, /dev/null, and variants.
+	 * @param s Filename to test
+	 * @return true if filename is special output stream, false otherwise
+	 */
 	public static final boolean isSpecialOutputName(String s){
 		if(s==null){return false;}
 		s=s.toLowerCase();
@@ -321,12 +395,24 @@ public final class Tools {
 				|| s.equals("/dev/null") || s.startsWith("stdout.") || s.startsWith("stderr.");
 	}
 	
+	/**
+	 * Determines if filename represents special input stream.
+	 * Recognizes stdin, standardin, and jar: protocol inputs.
+	 * @param s Filename to test
+	 * @return true if filename is special input stream, false otherwise
+	 */
 	public static final boolean isSpecialInputName(String s){
 		if(s==null){return false;}
 		s=s.toLowerCase();
 		return s.equals("stdin") || s.equals("standardin") || s.startsWith("stdin.") || s.startsWith("jar:");
 	}
 	
+	/**
+	 * Determines if a file can be read.
+	 * Handles special input names and regular file permissions.
+	 * @param s Filename to test for read capability
+	 * @return true if file can be read, false otherwise
+	 */
 	public static final boolean canRead(String s){
 		if(s==null){return false;}
 		if(isSpecialInputName(s)){return true;}
@@ -334,6 +420,14 @@ public final class Tools {
 		return f.canRead();
 	}
 
+	/**
+	 * Adds valid filenames to list after checking existence and special cases.
+	 * Handles comma-separated lists and special filename patterns.
+	 *
+	 * @param b Filename or comma-separated list of filenames
+	 * @param list ArrayList to add valid filenames to
+	 * @return true if any files were successfully added, false otherwise
+	 */
 	public static boolean addFiles(String b, ArrayList<String> list){
 		if(b==null){
 			list.clear();
@@ -364,16 +458,33 @@ public final class Tools {
 		return added&!failed;
 	}
 	
+	/**
+	 * Fills all positions in a 2D byte matrix with the specified value.
+	 * @param matrix 2D byte array to fill
+	 * @param b Value to fill matrix with
+	 */
 	public static void fill(byte[][] matrix, byte b) {
 		for(byte[] line : matrix) {Arrays.fill(line, b);}
 	}
 
+	/**
+	 * Copies values from source array to target array element by element.
+	 * Arrays must be same length.
+	 * @param target Destination array to fill
+	 * @param source Source array to copy values from
+	 */
 	public static void fill(int[] target, int[] source) {
 		for(int i=0; i<target.length; i++){
 			target[i]=source[i];
 		}
 	}
 
+	/**
+	 * Checks if integer array is sorted in ascending order.
+	 * Returns true for null or single-element arrays.
+	 * @param array Integer array to check
+	 * @return true if array is sorted ascending, false otherwise
+	 */
 	public static boolean isSorted(final int[] array) {
 		if(array==null || array.length<2){return true;}
 		for(int i=1; i<array.length; i++){
@@ -382,6 +493,12 @@ public final class Tools {
 		return true;
 	}
 	
+	/**
+	 * Attempts to fix file extensions by checking for compressed versions.
+	 * Only operates if Shared.FIX_EXTENSIONS is enabled.
+	 * @param fnames Array of filenames to process
+	 * @return Array with potentially corrected extensions
+	 */
 	public static String[] fixExtension(String[] fnames){
 		if(!Shared.FIX_EXTENSIONS){return fnames;}
 		if(fnames==null){return fnames;}
@@ -391,6 +508,12 @@ public final class Tools {
 		return fnames;
 	}
 	
+	/**
+	 * Attempts to fix file extensions by checking for compressed versions.
+	 * Only operates if Shared.FIX_EXTENSIONS is enabled.
+	 * @param fnames ArrayList of filenames to process
+	 * @return ArrayList with potentially corrected extensions
+	 */
 	public static ArrayList<String> fixExtension(ArrayList<String> fnames){
 		if(!Shared.FIX_EXTENSIONS){return fnames;}
 		if(fnames==null){return fnames;}
@@ -400,6 +523,12 @@ public final class Tools {
 		return fnames;
 	}
 	
+	/**
+	 * Attempts to fix single filename extension by checking for compressed versions.
+	 * Tries removing .gz/.bz2 extensions or adding them to find existing files.
+	 * @param fname Filename to process
+	 * @return Filename with potentially corrected extension
+	 */
 	public static String fixExtension(String fname){
 		if(!Shared.FIX_EXTENSIONS){return fname;}
 		if(fname==null || fname.startsWith("stdin") || new File(fname).exists()){return fname;}
@@ -418,28 +547,60 @@ public final class Tools {
 		return fname;
 	}
 
+	/**
+	 * Right-pads a number with spaces to reach specified width.
+	 * @param number Number to convert and pad
+	 * @param pad Minimum width of resulting string
+	 * @return Right-padded string representation of number
+	 */
 	public static String padRight(long number, int pad) {
 		String s=number+"";
 		while(s.length()<pad){s=s+" ";}
 		return s;
 	}
 
+	/**
+	 * Right-pads a string with spaces to reach specified width.
+	 * @param s String to pad
+	 * @param pad Minimum width of resulting string
+	 * @return Right-padded string
+	 */
 	public static String padRight(String s, int pad) {
 		while(s.length()<pad){s=s+" ";}
 		return s;
 	}
 
+	/**
+	 * Left-pads a number with spaces to reach specified width.
+	 * @param number Number to convert and pad
+	 * @param pad Minimum width of resulting string
+	 * @return Left-padded string representation of number
+	 */
 	public static String padLeft(long number, int pad) {
 		String s=number+"";
 		while(s.length()<pad){s=" "+s;}
 		return s;
 	}
 
+	/**
+	 * Left-pads a string with spaces to reach specified width.
+	 * @param s String to pad
+	 * @param pad Minimum width of resulting string
+	 * @return Left-padded string
+	 */
 	public static String padLeft(String s, int pad) {
 		while(s.length()<pad){s=" "+s;}
 		return s;
 	}
 
+	/**
+	 * Formats large numbers with K/M/B/T/Q suffixes and left-pads result.
+	 * Uses thresholds to convert to abbreviated forms when enabled.
+	 *
+	 * @param number Number to format and pad
+	 * @param pad Minimum width of resulting string
+	 * @return Formatted and padded number string
+	 */
 	public static String padKMB(long number, int pad) {
 		String s;
 		if(Shared.OUTPUT_KMG){
@@ -456,22 +617,111 @@ public final class Tools {
 		return s;
 	}
 	
+	/**
+	 * Formats timing and throughput information for read/base processing.
+	 * Combines timer display with calculated processing rates.
+	 *
+	 * @param t Timer containing elapsed execution time
+	 * @param reads Number of reads processed
+	 * @param bases Number of bases processed
+	 * @param pad Padding width for number formatting
+	 * @return Formatted timing and throughput string
+	 */
 	public static String timeReadsBasesProcessed(Timer t, long reads, long bases, int pad){
 		return time(t, pad)+"\n"+readsBasesProcessed(t.elapsed, reads, bases, pad);
 	}
 	
+	/**
+	 * Formats timing and throughput information for ZMW/read/base processing.
+	 * Includes Zero Mode Waveguide metrics for PacBio data processing.
+	 *
+	 * @param t Timer containing elapsed execution time
+	 * @param ZMWs Number of ZMWs processed
+	 * @param reads Number of reads processed
+	 * @param bases Number of bases processed
+	 * @param pad Padding width for number formatting
+	 * @return Formatted timing and throughput string
+	 */
 	public static String timeZMWsReadsBasesProcessed(Timer t, long ZMWs, long reads, long bases, int pad){
 		return time(t, pad)+"\n"+ZMWsReadsBasesProcessed(t.elapsed, ZMWs, reads, bases, pad);
 	}
 	
+	/**
+	 * Formats timing and throughput information for query/comparison processing.
+	 * Used in alignment and comparison operations.
+	 *
+	 * @param t Timer containing elapsed execution time
+	 * @param x Number of queries processed
+	 * @param y Number of comparisons processed
+	 * @param pad Padding width for number formatting
+	 * @return Formatted timing and throughput string
+	 */
 	public static String timeQueriesComparisonsProcessed(Timer t, long x, long y, int pad){
 		return time(t, pad)+"\n"+queriesComparisonsProcessed(t.elapsed, x, y, pad);
 	}
 	
+	/**
+	 * Formats timer information for display.
+	 * @param t Timer to format
+	 * @param pad Padding parameter (currently unused)
+	 * @return Formatted timer string
+	 */
 	public static String time(Timer t, int pad){
 		return ("Time:                         \t"+t);
 	}
 	
+	public static ByteBuilder typeReadsBases(String term, long reads, long bases, int pad1, int pad2) {
+		ByteBuilder bb=new ByteBuilder();
+		bb.append(term);
+		if(!Tools.endsWith(term, ':')) {bb.append(':');}
+		int len1=Long.toString(reads).length();
+		int len2=Long.toString(bases).length();
+		while(bb.length+len1<pad1) {bb.space();}
+		bb.append(reads).append(reads==1 ? " read " : " reads");
+		int len1b=bb.length;
+		while(bb.length-len1b+len2<pad2) {bb.space();}
+		bb.append(bases).append(bases==1 ? " base" : " bases");
+		return bb;
+	}
+
+	public static ByteBuilder typeReadsBases(String term, long reads, long reads2, long bases, long bases2, int pad1, int pad2) {
+	    ByteBuilder bb=new ByteBuilder();
+	    bb.append(term);
+	    if(!Tools.endsWith(term, ':')) {bb.append(':');}
+	    
+	    // Calculate percentage strings (reads2/reads, bases2/bases)
+	    String readPct = (reads > 0) ? String.format(" (%.2f%%)", reads2 * 100.0 / reads) : "";
+	    String basePct = (bases > 0) ? String.format(" (%.2f%%)", bases2 * 100.0 / bases) : "";
+	    
+	    // For reads section - pad to align the NUMBER
+	    int len1 = Long.toString(reads2).length();
+	    while(bb.length + len1 < pad1) {bb.space();}
+	    bb.append(reads2);
+	    bb.append(reads2 == 1 ? " read" : " reads");
+	    int posAfterReads = bb.length;
+	    bb.append(readPct);
+	    
+	    
+	    // For bases section - pad RELATIVE to end of reads section
+	    int len2 = Long.toString(bases2).length();
+	    while(bb.length - posAfterReads + len2 < pad2) {bb.space();}
+	    bb.append(bases2);
+	    bb.append(bases2 == 1 ? " base" : " bases");
+	    bb.append(basePct);
+	    
+	    return bb;
+	}
+	
+	/**
+	 * Calculates and formats processing throughput for reads and bases.
+	 * Computes rates per second based on elapsed nanoseconds.
+	 *
+	 * @param elapsed Elapsed time in nanoseconds
+	 * @param reads Number of reads processed
+	 * @param bases Number of bases processed
+	 * @param pad Padding width for number formatting
+	 * @return Formatted throughput statistics
+	 */
 	public static String readsBasesProcessed(long elapsed, long reads, long bases, int pad){
 		double rpnano=reads/(double)elapsed;
 		double bpnano=bases/(double)elapsed;
@@ -484,6 +734,15 @@ public final class Tools {
 		return sb.toString();
 	}
 	
+	/**
+	 * Formats arbitrary count statistics with consistent spacing.
+	 * Creates aligned output for various counted items.
+	 *
+	 * @param things Description of items being counted
+	 * @param amt Number of items processed
+	 * @param pad Padding width for number formatting
+	 * @return Formatted count string with consistent alignment
+	 */
 	public static String things(String things, long amt, int pad){
 		String rstring=padKMB(amt, pad);
 		StringBuilder sb=new StringBuilder();
@@ -492,6 +751,17 @@ public final class Tools {
 		return sb.append(rstring).toString();
 	}
 	
+	/**
+	 * Calculates and formats processing throughput for ZMWs, reads, and bases.
+	 * Specialized for PacBio data processing with ZMW metrics.
+	 *
+	 * @param elapsed Elapsed time in nanoseconds
+	 * @param ZMWs Number of ZMWs processed
+	 * @param reads Number of reads processed
+	 * @param bases Number of bases processed
+	 * @param pad Padding width for number formatting
+	 * @return Formatted throughput statistics including ZMW rates
+	 */
 	public static String ZMWsReadsBasesProcessed(long elapsed, long ZMWs, long reads, long bases, int pad){
 		double zpnano=ZMWs/(double)elapsed;
 		double rpnano=reads/(double)elapsed;
@@ -507,6 +777,16 @@ public final class Tools {
 		return sb.toString();
 	}
 	
+	/**
+	 * Calculates and formats processing throughput for queries and comparisons.
+	 * Used for alignment and search operation statistics.
+	 *
+	 * @param elapsed Elapsed time in nanoseconds
+	 * @param queries Number of queries processed
+	 * @param comparisons Number of comparisons performed
+	 * @param pad Padding width for number formatting
+	 * @return Formatted throughput statistics for query/comparison operations
+	 */
 	public static String queriesComparisonsProcessed(long elapsed, long queries, long comparisons, int pad){
 		double rpnano=queries/(double)elapsed;
 		double bpnano=comparisons/(double)elapsed;
@@ -519,10 +799,30 @@ public final class Tools {
 		return sb.toString();
 	}
 	
+	/**
+	 * Formats timing and throughput information for sketch processing.
+	 * Combines timer display with sketch/key processing rates.
+	 *
+	 * @param t Timer containing elapsed execution time
+	 * @param sketchesProcessed Number of sketches processed
+	 * @param keysProcessed Number of keys processed
+	 * @param pad Padding width for number formatting
+	 * @return Formatted timing and sketch throughput string
+	 */
 	public static String timeSketchesKeysProcessed(Timer t, long sketchesProcessed, long keysProcessed, int pad){
 		return time(t, pad)+"\n"+sketchesKeysProcessed(t.elapsed, sketchesProcessed, keysProcessed, pad);
 	}
 	
+	/**
+	 * Calculates and formats processing throughput for sketches and keys.
+	 * Used in MinHash and sketch-based comparison operations.
+	 *
+	 * @param elapsed Elapsed time in nanoseconds
+	 * @param sketches Number of sketches processed
+	 * @param keys Number of keys processed
+	 * @param pad Padding width for number formatting
+	 * @return Formatted throughput statistics for sketch operations
+	 */
 	public static String sketchesKeysProcessed(long elapsed, long sketches, long keys, int pad){
 		double rpnano=sketches/(double)elapsed;
 		double bpnano=keys/(double)elapsed;
@@ -535,6 +835,18 @@ public final class Tools {
 		return sb.toString();
 	}
 	
+	/**
+	 * Formats output statistics showing reads/bases written with optional percentages.
+	 * Calculates retention percentages when enabled.
+	 *
+	 * @param readsIn Total reads input
+	 * @param basesIn Total bases input
+	 * @param readsOut Reads written to output
+	 * @param basesOut Bases written to output
+	 * @param pad Padding width for number formatting
+	 * @param percent Whether to include percentage calculations
+	 * @return Formatted output statistics
+	 */
 	public static String readsBasesOut(long readsIn, long basesIn, long readsOut, long basesOut, int pad, boolean percent){
 		double rpct=readsOut*100.0/readsIn;
 		double bpct=basesOut*100.0/basesIn;
@@ -546,6 +858,16 @@ public final class Tools {
 		return sb.toString();
 	}
 	
+	/**
+	 * Calculates and formats output throughput for reads and bases.
+	 * Shows writing rates based on elapsed time.
+	 *
+	 * @param elapsed Elapsed time in nanoseconds
+	 * @param reads Number of reads written
+	 * @param bases Number of bases written
+	 * @param pad Padding width for number formatting
+	 * @return Formatted output throughput statistics
+	 */
 	public static String readsBasesOut(long elapsed, long reads, long bases, int pad){
 		double rpnano=reads/(double)elapsed;
 		double bpnano=bases/(double)elapsed;
@@ -558,6 +880,20 @@ public final class Tools {
 		return sb.toString();
 	}
 	
+	/**
+	 * Formats output statistics for ZMWs, reads, and bases with optional percentages.
+	 * Specialized for PacBio data processing output metrics.
+	 *
+	 * @param ZMWsIn Total ZMWs input
+	 * @param readsIn Total reads input
+	 * @param basesIn Total bases input
+	 * @param ZMWsOut ZMWs written to output
+	 * @param readsOut Reads written to output
+	 * @param basesOut Bases written to output
+	 * @param pad Padding width for number formatting
+	 * @param percent Whether to include percentage calculations
+	 * @return Formatted output statistics including ZMW metrics
+	 */
 	public static String ZMWsReadsBasesOut(long ZMWsIn, long readsIn, long basesIn, long ZMWsOut, long readsOut, long basesOut, int pad, boolean percent){
 		double zpct=ZMWsOut*100.0/ZMWsIn;
 		double rpct=readsOut*100.0/readsIn;
@@ -572,6 +908,17 @@ public final class Tools {
 		return sb.toString();
 	}
 	
+	/**
+	 * Formats a number with percentage and consistent text alignment.
+	 * Creates uniformly aligned output for statistical displays.
+	 *
+	 * @param text Description text to display
+	 * @param number Count value to display
+	 * @param percent Percentage value to display
+	 * @param decimals Number of decimal places for percentage
+	 * @param pad Padding width for number formatting
+	 * @return Formatted string with aligned text, number, and percentage
+	 */
 	public static String numberPercent(String text, long number, double percent, int decimals, int pad){
 		String rstring=padLeft(number, pad);
 		StringBuilder sb=new StringBuilder();
@@ -580,6 +927,16 @@ public final class Tools {
 		return sb.toString();
 	}
 	
+	/**
+	 * Formats a double value with consistent text alignment.
+	 * Creates uniformly aligned output for statistical displays.
+	 *
+	 * @param text Description text to display
+	 * @param number Double value to display
+	 * @param decimals Number of decimal places to show
+	 * @param pad Padding width for number formatting
+	 * @return Formatted string with aligned text and number
+	 */
 	public static String number(String text, double number, int decimals, int pad){
 		String rstring=padLeft(Tools.format("%."+decimals+"f", number), pad);
 		StringBuilder sb=new StringBuilder();
@@ -588,6 +945,15 @@ public final class Tools {
 		return sb.toString();
 	}
 	
+	/**
+	 * Formats a long value with consistent text alignment.
+	 * Creates uniformly aligned output for statistical displays.
+	 *
+	 * @param text Description text to display
+	 * @param number Long value to display
+	 * @param pad Padding width for number formatting
+	 * @return Formatted string with aligned text and number
+	 */
 	public static String number(String text, long number, int pad){
 		String rstring=padLeft(""+number, pad);
 		StringBuilder sb=new StringBuilder();
@@ -596,6 +962,15 @@ public final class Tools {
 		return sb.toString();
 	}
 	
+	/**
+	 * Formats a string value with consistent text alignment.
+	 * Creates uniformly aligned output for displaying string values.
+	 *
+	 * @param text Description text to display
+	 * @param value String value to display
+	 * @param pad Padding width for value formatting
+	 * @return Formatted string with aligned text and value
+	 */
 	public static String string(String text, String value, int pad){
 		String rstring=padLeft(value, pad);
 		StringBuilder sb=new StringBuilder();
@@ -604,10 +979,30 @@ public final class Tools {
 		return sb.toString();
 	}
 	
+	/**
+	 * Formats timing and throughput information for line/byte processing.
+	 * Combines timer display with line and byte processing rates.
+	 *
+	 * @param t Timer containing elapsed execution time
+	 * @param linesProcessed Number of lines processed
+	 * @param bytesProcessed Number of bytes processed
+	 * @param pad Padding width for number formatting
+	 * @return Formatted timing and line/byte throughput string
+	 */
 	public static String timeLinesBytesProcessed(Timer t, long linesProcessed, long bytesProcessed, int pad){
 		return ("Time:                         \t"+t+"\n"+linesBytesProcessed(t.elapsed, linesProcessed, bytesProcessed, pad));
 	}
 	
+	/**
+	 * Calculates and formats processing throughput for lines and bytes.
+	 * Used for file processing operations.
+	 *
+	 * @param elapsed Elapsed time in nanoseconds
+	 * @param lines Number of lines processed
+	 * @param bytes Number of bytes processed
+	 * @param pad Padding width for number formatting
+	 * @return Formatted throughput statistics for line/byte operations
+	 */
 	public static String linesBytesProcessed(long elapsed, long lines, long bytes, int pad){
 		double rpnano=lines/(double)elapsed;
 		double bpnano=bytes/(double)elapsed;
@@ -620,10 +1015,28 @@ public final class Tools {
 		return sb.toString();
 	}
 	
+	/**
+	 * Formats timing and throughput information for line processing.
+	 * Shows timer and line processing rate.
+	 *
+	 * @param t Timer containing elapsed execution time
+	 * @param linesProcessed Number of lines processed
+	 * @param pad Padding width for number formatting
+	 * @return Formatted timing and line throughput string
+	 */
 	public static String timeLinesProcessed(Timer t, long linesProcessed, int pad){
 		return ("Time:                         \t"+t+"\n"+linesProcessed(t.elapsed, linesProcessed, pad));
 	}
 	
+	/**
+	 * Calculates and formats processing throughput for lines.
+	 * Shows lines processed per second.
+	 *
+	 * @param elapsed Elapsed time in nanoseconds
+	 * @param lines Number of lines processed
+	 * @param pad Padding width for number formatting
+	 * @return Formatted line processing throughput
+	 */
 	public static String linesProcessed(long elapsed, long lines, int pad){
 		double rpnano=lines/(double)elapsed;
 
@@ -633,6 +1046,16 @@ public final class Tools {
 		return sb.toString();
 	}
 	
+	/**
+	 * Calculates and formats processing throughput for arbitrary items.
+	 * Automatically scales rate display (per second, per k-second, per m-second).
+	 *
+	 * @param elapsed Elapsed time in nanoseconds
+	 * @param count Number of items processed
+	 * @param pad Padding width for number formatting
+	 * @param name Singular name of items being counted
+	 * @return Formatted throughput statistics with appropriate rate scaling
+	 */
 	public static String thingsProcessed(long elapsed, long count, int pad, String name){
 		double tpnano=(count/(double)elapsed)*1000;
 		String rateString=null;
@@ -654,6 +1077,18 @@ public final class Tools {
 		return sb.toString();
 	}
 	
+	/**
+	 * Formats output statistics for lines and bytes with optional percentages.
+	 * Shows retention rates when enabled.
+	 *
+	 * @param linesIn Total lines input
+	 * @param bytesIn Total bytes input
+	 * @param linesOut Lines written to output
+	 * @param bytesOut Bytes written to output
+	 * @param pad Padding width for number formatting
+	 * @param percent Whether to include percentage calculations
+	 * @return Formatted output statistics for lines and bytes
+	 */
 	public static String linesBytesOut(long linesIn, long bytesIn, long linesOut, long bytesOut, int pad, boolean percent){
 		double rpct=linesOut*100.0/linesIn;
 		double bpct=bytesOut*100.0/bytesIn;
@@ -665,6 +1100,15 @@ public final class Tools {
 		return sb.toString();
 	}
 
+	/**
+	 * Splits byte array into subarray segments using delimiter.
+	 * Creates new byte arrays for each segment between delimiters.
+	 *
+	 * @param line Byte array to split
+	 * @param start Starting index for split operation
+	 * @param delimiter Byte value to use as separator
+	 * @return ArrayList containing byte arrays for each split segment
+	 */
 	public static ArrayList<byte[]> split(byte[] line, int start, byte delimiter) {
 		if(line.length<start){return null;}
 		int a=start-1, b=start;
@@ -681,6 +1125,15 @@ public final class Tools {
 		return list;
 	}
 
+	/**
+	 * Breaks long reads into smaller fragments within size constraints.
+	 * Removes reads below minimum length and fragments reads above maximum length.
+	 *
+	 * @param list ArrayList of reads to process (modified in-place)
+	 * @param max Maximum read length (unlimited if <1)
+	 * @param min Minimum read length to retain
+	 * @param outstream Optional debug output stream for fragment coordinates
+	 */
 	public static void breakReads(ArrayList<Read> list, final int max, int min, final PrintStream outstream){
 		if(!containsReadsOutsideSizeRange(list, min, max)){return;}
 		assert(max>0 || min>0) : "min or max read length must be positive.";
@@ -723,6 +1176,14 @@ public final class Tools {
 		}
 	}
 	
+	/**
+	 * Checks if any reads in list exceed the specified size limit.
+	 * Validates compatibility with breaklength operations.
+	 *
+	 * @param list ArrayList of reads to check
+	 * @param size Maximum size threshold
+	 * @return true if any reads exceed size limit, false otherwise
+	 */
 	private static boolean containsReadsAboveSize(ArrayList<Read> list, int size){
 		for(Read r : list){
 			if(r!=null && r.bases!=null){
@@ -735,6 +1196,15 @@ public final class Tools {
 		return false;
 	}
 	
+	/**
+	 * Checks if any reads fall outside specified size range.
+	 * Validates compatibility with size filtering operations.
+	 *
+	 * @param list ArrayList of reads to check
+	 * @param min Minimum size threshold
+	 * @param max Maximum size threshold (unlimited if <=0)
+	 * @return true if any reads are outside size range, false otherwise
+	 */
 	private static boolean containsReadsOutsideSizeRange(ArrayList<Read> list, int min, int max){
 		for(Read r : list){
 			if(r!=null && r.bases!=null){
@@ -747,21 +1217,47 @@ public final class Tools {
 		return false;
 	}
 	
+	/**
+	 * Shifts array elements right by specified amount, losing rightmost elements.
+	 * Moves elements from left positions to right positions.
+	 * @param array Byte array to shift (modified in-place)
+	 * @param amt Number of positions to shift right
+	 */
 	public static void shiftRight(final byte[] array, final int amt){
 		for(int i=array.length-1-amt, j=array.length-1; i>=0; i--, j--){
 			array[j]=array[i];
 		}
 	}
 	
+	/**
+	 * Shifts array elements left by specified amount, losing leftmost elements.
+	 * Moves elements from right positions to left positions.
+	 * @param array Byte array to shift (modified in-place)
+	 * @param amt Number of positions to shift left
+	 */
 	public static void shiftLeft(final byte[] array, final int amt){
 		for(int i=amt, j=0; i<array.length; i++, j++){
 			array[j]=array[i];
 		}
 	}
+	/**
+	 * Returns the last character of a string as integer.
+	 * Returns -1 for null or empty strings.
+	 * @param s String to examine
+	 * @return Last character as int, or -1 if string is null/empty
+	 */
 	public static int lastChar(String s) {
 		return s==null || s.length()<1 ? -1 : s.charAt(s.length()-1);
 	}
 	
+	/**
+	 * Tests if string starts with prefix, ignoring case differences.
+	 * Uses custom toLowerCase for consistent behavior.
+	 *
+	 * @param s String to test
+	 * @param prefix Prefix to match against
+	 * @return true if s starts with prefix (case-insensitive), false otherwise
+	 */
 	public static boolean startsWithIgnoreCase(String s, String prefix){
 		if(s==null || s.length()<prefix.length()){return false;}
 		for(int i=0; i<prefix.length(); i++){
@@ -799,14 +1295,38 @@ public final class Tools {
 		return x+Math.exp(-0.597*x);
 	}
 
+	/**
+	 * Converts k-mer coverage to equivalent read coverage.
+	 * Accounts for multiple k-mers per read based on read length.
+	 *
+	 * @param cov K-mer coverage value
+	 * @param readlen Average read length
+	 * @param k K-mer size
+	 * @return Equivalent read coverage
+	 */
 	public static double kmerToReadCoverage(double cov, double readlen, int k){
 		return readlen<=k ? 0 : cov*readlen/(readlen-k+1);
 	}
 
+	/**
+	 * Converts read coverage to equivalent k-mer coverage.
+	 * Accounts for multiple k-mers per read based on read length.
+	 *
+	 * @param cov Read coverage value
+	 * @param readlen Average read length
+	 * @param k K-mer size
+	 * @return Equivalent k-mer coverage
+	 */
 	public static double readToKmerCoverage(double cov, double readlen, int k){
 		return readlen<=k ? 0 : cov*(readlen-k+1)/readlen;
 	}
 	
+	/**
+	 * Tests if string represents a valid numeric value.
+	 * Allows optional leading minus sign and single decimal point.
+	 * @param s String to test
+	 * @return true if string is numeric, false otherwise
+	 */
 	public static boolean isNumeric(String s) {
 		if(s==null || s.length()<1){return false;}
 		char first=s.charAt(0);
@@ -825,10 +1345,21 @@ public final class Tools {
 		return nums>0 && dots<=1;
 	}
 	
+	/**
+	 * Converts all bytes in array to uppercase in-place.
+	 * Modifies the original array.
+	 * @param s Byte array to convert (modified in-place)
+	 */
 	public static void toUpperCase(byte[] s) {
 		for(int i=0; i<s.length; i++) {s[i]=toUpperCase(s[i]);}
 	}
 
+	/**
+	 * Counts the number of letter characters in a string.
+	 * Uses custom letter classification logic.
+	 * @param a String to count letters in
+	 * @return Number of letter characters found
+	 */
 	public static int countLetters(String a) {
 		int count=0;
 		for(int i=0; i<a.length(); i++) {
@@ -837,43 +1368,82 @@ public final class Tools {
 		return count;
 	}
 
+	/**
+	 * Counts array elements that are greater than the specified bound.
+	 * @param array Integer array to examine
+	 * @param bound Threshold value for comparison
+	 * @return Number of elements greater than bound
+	 */
 	public static int countGreaterThan(int[] array, int bound) {
 		int gt=0;
 		for(int x : array) {gt+=(x>bound ? 1 : 0);}
 		return gt;
 	}
 	
+	/** Tests if character is digit or sign using lookup table */
 	public static boolean isDigitOrSign(int c) {return c<0 ? false : signOrDigitMap[c];}
+	/** Tests if character is numeric using lookup table */
 	public static boolean isNumeric(int c) {return c<0 ? false : numericMap[c];}
+	/** Tests if character is digit (0-9) */
 	public static boolean isDigit(int c) {return c>='0' && c<='9';}
+	/** Tests if character is letter using lookup table */
 	public static boolean isLetter(int c) {return c<0 ? false : letterMap[c];}
+	/** Tests if character is letter or digit */
 	public static boolean isLetterOrDigit(int c) {return c<0 ? false : isDigit(c) || letterMap[c];}
+	/** Tests if character is uppercase (A-Z) */
 	public static boolean isUpperCase(int c) {return c>='A' && c<='Z';}
+	/** Tests if character is lowercase (a-z) */
 	public static boolean isLowerCase(int c) {return c>='a' && c<='z';}
+	/** Converts character to uppercase, returns unchanged if not lowercase */
 	public static int toUpperCase(int c) {return c<'a' || c>'z' ? c : c-32;}//Lookup array may be faster but would need to deal with negatives
+	/** Converts character to lowercase, returns unchanged if not uppercase */
 	public static int toLowerCase(int c) {return c<'A' || c>'Z' ? c : c+32;}
 	
+	/** Tests if byte value is digit or sign using lookup table */
 	public static boolean isDigitOrSign(byte c) {return c<0 ? false : signOrDigitMap[c];}
+	/** Tests if byte value is numeric using lookup table */
 	public static boolean isNumeric(byte c) {return c<0 ? false : numericMap[c];}
+	/** Tests if byte value is digit (0-9) */
 	public static boolean isDigit(byte c) {return c>='0' && c<='9';}
+	/** Tests if byte value is letter using lookup table */
 	public static boolean isLetter(byte c) {return c<0 ? false : letterMap[c];}
+	/** Tests if byte value is letter or digit */
 	public static boolean isLetterOrDigit(byte c) {return c<0 ? false : isDigit(c) || letterMap[c];}
+	/** Tests if byte value is uppercase (A-Z) */
 	public static boolean isUpperCase(byte c) {return c>='A' && c<='Z';}
+	/** Tests if byte value is lowercase (a-z) */
 	public static boolean isLowerCase(byte c) {return c>='a' && c<='z';}
-	public static byte toUpperCase(byte c) {return c<'a' || c>'z' ? c : (byte)(c-32);}
+	/** Converts byte to uppercase, returns unchanged if not lowercase */
+	public static byte toUpperCase(byte c) {return AminoAcid.toUpperCase[c];}
+	/** Converts byte to lowercase, returns unchanged if not uppercase */
 	public static byte toLowerCase(byte c) {return c<'A' || c>'Z' ? c : (byte)(c+32);}
 	
+	/** Tests if char is digit or sign using lookup table */
 	public static boolean isDigitOrSign(char c) {return c>127 ? false : signOrDigitMap[c];}
+	/** Tests if char is numeric using lookup table */
 	public static boolean isNumeric(char c) {return c>127 ? false : numericMap[c];}
+	/** Tests if char is digit (0-9) */
 	public static boolean isDigit(char c) {return c>='0' && c<='9';}
+	/** Tests if char is letter using lookup table */
 	public static boolean isLetter(char c) {return c>127 ? false : letterMap[c];}
+	/** Tests if char is letter or digit */
 	public static boolean isLetterOrDigit(char c) {return c<0 ? false : isDigit(c) || letterMap[c];}
+	/** Tests if char is uppercase (A-Z) */
 	public static boolean isUpperCase(char c) {return c>='A' && c<='Z';}
+	/** Tests if char is lowercase (a-z) */
 	public static boolean isLowerCase(char c) {return c>='a' && c<='z';}
+	/** Converts char to uppercase, returns unchanged if not lowercase */
 	public static char toUpperCase(char c) {return c<'a' || c>'z' ? c : (char)(c-32);}
+	/** Converts char to lowercase, returns unchanged if not uppercase */
 	public static char toLowerCase(char c) {return c<'A' || c>'Z' ? c : (char)(c+32);}
 	
 	//Taken from https://stackoverflow.com/questions/1149703/how-can-i-convert-a-stack-trace-to-a-string
+	/**
+	 * Converts exception stack trace to string format.
+	 * Uses StringWriter and PrintWriter for complete trace capture.
+	 * @param t Throwable to convert to string
+	 * @return String representation of complete stack trace
+	 */
 	public static String toString(Throwable t){
 		StringWriter sw = new StringWriter();
 		PrintWriter pw = new PrintWriter(sw);
@@ -881,6 +1451,14 @@ public final class Tools {
 		String sStackTrace = sw.toString();
 		return sStackTrace;
 	}
+	/**
+	 * Counts valid k-mers in sequence, handling ambiguous bases.
+	 * Resets count on undefined bases and continues with defined regions.
+	 *
+	 * @param bases Sequence bases to analyze
+	 * @param k K-mer length
+	 * @return Total number of valid k-mers in sequence
+	 */
 	public static int countKmers(byte[] bases, int k){
 		if(bases==null || bases.length<k || k<1){return 0;}
 		int len=0;
@@ -896,6 +1474,14 @@ public final class Tools {
 		return kmers;
 	}
 	
+	/**
+	 * Counts expected number of correct k-mers based on quality scores.
+	 * Uses sliding window probability calculation with quality score tables.
+	 *
+	 * @param quals Quality score array
+	 * @param k K-mer length
+	 * @return Expected number of correctly sequenced k-mers
+	 */
 	public static double countCorrectKmers(byte[] quals, int k){
 		if(quals==null || quals.length<k || k<1){return 0;}
 		int len=0;
@@ -920,6 +1506,12 @@ public final class Tools {
 	}
 	
 	
+	/**
+	 * Estimates uncompressed size of file based on format and compression.
+	 * Uses compression ratios specific to bioinformatics file types.
+	 * @param fname Filename to estimate size for
+	 * @return Estimated uncompressed size in bytes, or -1 if unavailable
+	 */
 	public static long estimateFileSize(String fname){
 		FileFormat ff=FileFormat.testInput(fname, FileFormat.FASTQ, null, false, false);
 		if(ff==null || ff.stdio()){return -1;}
@@ -1109,12 +1701,23 @@ public final class Tools {
 		return new double[] {memEstimate, diskEstimate, memRatio, diskRatio, readEstimate};
 	}
 	
+	/**
+	 * Generates a random boolean value using the provided Random instance.
+	 * @param randy Random number generator to use
+	 * @return Random boolean value
+	 */
 	public static final boolean nextBoolean(Random randy){
 		return randy.nextBoolean();
 //		int r=randy.nextInt()&0x7FFFFFFF;
 //		return r%294439>=147219;
 	}
 	
+	/**
+	 * Creates a new array containing the reciprocal of each element.
+	 * Computes 1/x for each element in the input array.
+	 * @param array Input array to invert
+	 * @return New array with reciprocal values
+	 */
 	public static float[] inverse(float[] array) {
 		float[] out=new float[array.length];
 		for(int i=0; i<array.length; i++){
@@ -1124,6 +1727,12 @@ public final class Tools {
 		return out;
 	}
 
+	/**
+	 * Creates a new array containing the reciprocal of each element.
+	 * Computes 1/x for each element in the input array.
+	 * @param array Input array to invert
+	 * @return New array with reciprocal values
+	 */
 	public static double[] inverse(double[] array) {
 		double[] out=new double[array.length];
 		for(int i=0; i<array.length; i++){
@@ -1166,6 +1775,12 @@ public final class Tools {
 		return sb.toString();
 	}
 
+	/**
+	 * Finds the position of the second highest value in the array.
+	 * Returns the index position containing the second largest element.
+	 * @param array Input array to search
+	 * @return Index position of second highest value
+	 */
 	public static int secondHighestPosition(int[] array) {
 		int maxP, maxP2;
 		if(array[0]>=array[1]){
@@ -1187,6 +1802,21 @@ public final class Tools {
 			}
 		}
 		return maxP2;
+	}
+	
+	public static ArrayList<String> getFileOrFiles(String b, boolean fasta, boolean fastq, boolean sam, boolean any){
+		return (ArrayList<String>)getFileOrFiles(b, (Collection<String>)null, fasta, fastq, sam, any);
+	}
+	
+	public static ArrayList<String> getFileOrFiles(String b, ArrayList<String> list, boolean fasta, boolean fastq, boolean sam, boolean any){
+		return (ArrayList<String>)getFileOrFiles(b, (Collection<String>)list, fasta, fastq, sam, any);
+	}
+	
+	public static ArrayList<String> getFileOrFiles(ArrayList<String> in, boolean fasta, boolean fastq, boolean sam, boolean any){
+		if(in==null) {return null;}
+		ArrayList<String> out=new ArrayList<String>(in.size());
+		for(String path : in) {getFileOrFiles(path, out, fasta, fastq, sam, any);}
+		return out;
 	}
 	
 	
@@ -1228,12 +1858,21 @@ public final class Tools {
 					}
 				}
 			}else{
-				list.add(s);
+				list.add(s);//Handles things like stdin
 			}
 		}
 		return list;
 	}
 	
+	/**
+	 * Converts adapter specification to list of byte arrays.
+	 * Handles both literal sequences and files containing adapter sequences.
+	 * Validates nucleotide sequences and truncates to maximum length.
+	 *
+	 * @param name Adapter name, sequence, or filename
+	 * @param maxLength Maximum adapter length to retain
+	 * @return List of adapter sequences as byte arrays, or null if none found
+	 */
 	public static ArrayList<byte[]> toAdapterList(String name, int maxLength){
 		if(maxLength<1){maxLength=Integer.MAX_VALUE;}
 		if(name==null){return null;}
@@ -1268,6 +1907,16 @@ public final class Tools {
 		return list;
 	}
 	
+	/**
+	 * Validates and processes an adapter sequence.
+	 * Truncates to maximum length, validates nucleotides, converts degenerate
+	 * bases to N, and removes trailing N characters.
+	 *
+	 * @param array Adapter sequence to validate
+	 * @param maxLength Maximum length allowed
+	 * @return Processed adapter sequence
+	 * @throws RuntimeException If invalid nucleotides are found
+	 */
 	private static byte[] checkAdapter(byte[] array, int maxLength){
 		if(array.length>maxLength){array=Arrays.copyOf(array, maxLength);}
 		
@@ -1291,6 +1940,12 @@ public final class Tools {
 		return array;
 	}
 	
+	/**
+	 * Converts adapter specification to array of byte arrays.
+	 * @param name Adapter name, sequence, or filename
+	 * @param maxLength Maximum adapter length
+	 * @return Array of adapter sequences, or null if none found
+	 */
 	public static byte[][] toAdapters(String name, final int maxLength){
 		ArrayList<byte[]> list=toAdapterList(name, maxLength);
 		return list==null ? null : list.toArray(new byte[list.size()][]);
@@ -1627,6 +2282,12 @@ public final class Tools {
 		trimSitesBelowCutoff(ssl, cutoff, retainPaired, retainSemiperfect, minSitesToRetain, maxSitesToRetain);
 	}
 	
+	/**
+	 * Checks if list elements are in ascending sorted order.
+	 * Uses compareTo method to verify each element is less than or equal to next.
+	 * @param list List to check for ordering
+	 * @return true if list is sorted in ascending order, false otherwise
+	 */
 	public static final <X extends Comparable<? super X>> boolean inOrder(ArrayList<X> list){
 		if(list==null || list.size()<2){return true;}
 		for(int i=1; i<list.size(); i++){
@@ -1639,6 +2300,16 @@ public final class Tools {
 	
 
 	
+	/**
+	 * Merges duplicate alignment sites with same genomic position.
+	 * Combines scoring information from sites that map to identical locations.
+	 * Optionally merges sites with different gap structures at same position.
+	 *
+	 * @param list List of SiteScore objects to merge
+	 * @param doAssertions Whether to perform assertion checks
+	 * @param mergeDifferentGaps Whether to merge sites with different gap patterns
+	 * @return Number of sites removed through merging
+	 */
 	public static final int mergeDuplicateSites(ArrayList<SiteScore> list, boolean doAssertions, boolean mergeDifferentGaps){
 		if(list==null || list.size()<2){return 0;}
 		Shared.sort(list, SiteScore.PCOMP);
@@ -1705,6 +2376,16 @@ public final class Tools {
 	
 
 	
+	/**
+	 * Removes lower-quality overlapping alignment sites.
+	 * Identifies overlapping sites on same strand and removes inferior ones.
+	 * Uses complex scoring hierarchy including perfect, semiperfect, and regular scores.
+	 *
+	 * @param list List of SiteScore objects to process
+	 * @param subsumeIfOnlyStartMatches Whether to subsume when only start positions match
+	 * @param subsumeInexact Whether to subsume inexact alignments
+	 * @return Number of sites removed
+	 */
 	public static final int subsumeOverlappingSites(ArrayList<SiteScore> list, boolean subsumeIfOnlyStartMatches, boolean subsumeInexact){
 		if(list==null || list.size()<2){return 0;}
 		Shared.sort(list, SiteScore.PCOMP);
@@ -1792,6 +2473,15 @@ public final class Tools {
 	
 
 	
+	/**
+	 * Removes overlapping alignment sites, keeping the best scoring ones.
+	 * More conservative than subsume - only removes when sites clearly overlap
+	 * and one is superior in score.
+	 *
+	 * @param list List of SiteScore objects to process
+	 * @param requireAMatchingEnd Whether overlapping sites must share start or end
+	 * @return Number of sites removed
+	 */
 	public static final int removeOverlappingSites(ArrayList<SiteScore> list, boolean requireAMatchingEnd){
 		if(list==null || list.size()<2){return 0;}
 		Shared.sort(list, SiteScore.PCOMP);
@@ -2055,6 +2745,16 @@ public final class Tools {
 //	}
 	
 	
+	/**
+	 * Removes low-scoring alignment sites from list while maintaining minimum count.
+	 * Processes sites in reverse order to preserve indices during removal.
+	 * @param ssl Site score list to filter
+	 * @param cutoff Minimum score threshold
+	 * @param retainPaired Whether to keep paired sites regardless of score
+	 * @param retainSemiperfect Whether to keep semiperfect sites regardless of score
+	 * @param minSitesToRetain Minimum sites to keep
+	 * @param maxSitesToRetain Maximum sites to keep
+	 */
 	public static final void trimSitesBelowCutoff(ArrayList<SiteScore> ssl, int cutoff, boolean retainPaired, boolean retainSemiperfect,
 			int minSitesToRetain, int maxSitesToRetain){
 //		assert(false);
@@ -2121,6 +2821,12 @@ public final class Tools {
 //		}
 //	}
 	
+	/**
+	 * Creates safe string representation of byte array with printable character preview.
+	 * Shows both numeric array format and ASCII interpretation if printable.
+	 * @param array Byte array to convert
+	 * @return String representation with both numeric and ASCII views
+	 */
 	public static CharSequence toStringSafe(byte[] array){
 		if(array==null){return "null";}
 		StringBuilder sb=new StringBuilder();
@@ -2135,6 +2841,12 @@ public final class Tools {
 		return sb;
 	}
 	
+	/**
+	 * Tests equality between two long arrays element-by-element.
+	 * @param a First long array
+	 * @param b Second long array
+	 * @return True if arrays are equal in length and all elements match
+	 */
 	public static boolean equals(long[] a, long[] b){
 		if(a==b){return true;}
 		if(a==null || b==null){return false;}
@@ -2145,6 +2857,12 @@ public final class Tools {
 		return true;
 	}
 	
+	/**
+	 * Tests equality between two int arrays element-by-element.
+	 * @param a First int array
+	 * @param b Second int array
+	 * @return True if arrays are equal in length and all elements match
+	 */
 	public static boolean equals(int[] a, int[] b){
 		if(a==b){return true;}
 		if(a==null || b==null){return false;}
@@ -2155,6 +2873,12 @@ public final class Tools {
 		return true;
 	}
 	
+	/**
+	 * Tests equality between two float arrays element-by-element.
+	 * @param a First float array
+	 * @param b Second float array
+	 * @return True if arrays are equal in length and all elements match
+	 */
 	public static boolean equals(float[] a, float[] b){
 		if(a==b){return true;}
 		if(a==null || b==null){return false;}
@@ -2165,6 +2889,12 @@ public final class Tools {
 		return true;
 	}
 	
+	/**
+	 * Tests equality between two byte arrays element-by-element.
+	 * @param a First byte array
+	 * @param b Second byte array
+	 * @return True if arrays are equal in length and all elements match
+	 */
 	public static boolean equals(byte[] a, byte[] b){//TODO: Vectorize
 		if(a==b){return true;}
 		if(a==null || b==null){return false;}
@@ -2175,6 +2905,12 @@ public final class Tools {
 		return true;
 	}
 	
+	/**
+	 * Tests equality between String and byte array character-by-character.
+	 * @param a String to compare
+	 * @param b Byte array to compare
+	 * @return True if string and array have same length and matching characters
+	 */
 	public static boolean equals(String a, byte[] b){
 		if(a==null || b==null){
 			return (a==null && b==null);
@@ -2186,6 +2922,14 @@ public final class Tools {
 		return true;
 	}
 	
+	/**
+	 * Tests equality between substring regions of two strings.
+	 * @param a First string
+	 * @param b Second string
+	 * @param from Starting index (inclusive)
+	 * @param toExclusive Ending index (exclusive)
+	 * @return True if substring regions match
+	 */
 	public static boolean equalsSubstring(String a, String b, int from, int toExclusive) {
 		if(a==null || b==null || a.length()<toExclusive || b.length()<toExclusive) {return false;}
 		boolean equal=true;
@@ -2238,6 +2982,12 @@ public final class Tools {
 		return startsWith(array, s, 0);
 	}
 
+	/**
+	 * Tests equality between byte array and string.
+	 * @param array Byte array to compare
+	 * @param s String to compare
+	 * @return True if array and string have same length and matching characters
+	 */
 	public static boolean equals(byte[] array, String s) {
 		return array.length==s.length() && startsWith(array, s, 0);
 	}
@@ -2265,11 +3015,26 @@ public final class Tools {
 		return true;
 	}
 	
+	/**
+	 * Tests if string ends with alphabetic character.
+	 * @param s String to test
+	 * @return True if string is non-empty and ends with letter
+	 */
 	public static boolean endsWithLetter(String s) {
 		if(s==null || s.length()==0) {return false;}
 		return Character.isLetter(s.charAt(s.length()-1));
 	}
 	
+	public static boolean endsWith(String s, char c) {
+		if(s==null || s.length()==0) {return false;}
+		return s.charAt(s.length()-1)==c;
+	}
+	
+	/**
+	 * Tests if byte array ends with alphabetic character.
+	 * @param s Byte array to test
+	 * @return True if array is non-empty and ends with letter
+	 */
 	public static boolean endsWithLetter(byte[] s) {
 		if(s==null || s.length==0) {return false;}
 		return Character.isLetter(s[s.length-1]);
@@ -2347,6 +3112,13 @@ public final class Tools {
 		return true;
 	}
 
+	/**
+	 * Lexicographically compares two byte arrays.
+	 * Returns negative if a < b, zero if equal, positive if a > b.
+	 * @param a First byte array
+	 * @param b Second byte array
+	 * @return Comparison result
+	 */
 	public static int compare(byte[] a, byte[] b){
 		if(a==b){return 0;}
 		if(a==null){return -1;}
@@ -2358,12 +3130,22 @@ public final class Tools {
 		return a.length-b.length;
 	}
 
+	/**
+	 * Fills three-dimensional long array with specified value.
+	 * @param matrix 3D array to fill
+	 * @param x Value to fill with
+	 */
 	public static void fill(long[][][] matrix, int x) {
 		for(long[][] sub : matrix){
 			fill(sub, x);
 		}
 	}
 
+	/**
+	 * Fills two-dimensional long array with specified value.
+	 * @param matrix 2D array to fill
+	 * @param x Value to fill with
+	 */
 	public static void fill(long[][] matrix, int x) {
 		for(long[] sub : matrix){
 			if(sub!=null) {Arrays.fill(sub, x);}
@@ -2371,6 +3153,11 @@ public final class Tools {
 	}
 
 	//TODO: Vectorize all below
+	/**
+	 * Computes sum of byte array elements as integer.
+	 * @param array Byte array to sum
+	 * @return Sum of array elements as int
+	 */
 	public static int sumInt(byte[] array){
 		long x=0;
 		for(byte y : array){x+=y;}
@@ -2378,132 +3165,264 @@ public final class Tools {
 		return (int)x;
 	}
 
-	public static void multiplyBy(int[] array, double mult) {
+	public static int[] multiplyBy(int[] array, double mult) {
 		for(int i=0; i<array.length; i++){
 			array[i]=(int)Math.round(array[i]*mult);
 		}
+		return array;
 	}
 
-	public static void multiplyBy(long[] array, double mult) {
+	public static float[] multiplyBy(float[] array, float mult) {
+		for(int i=0; i<array.length; i++){
+			array[i]=array[i]*mult;
+		}
+		return array;
+	}
+
+	public static long[] multiplyBy(long[] array, double mult) {
 		for(int i=0; i<array.length; i++){
 			array[i]=Math.round(array[i]*mult);
 		}
+		return array;
 	}
 
-	public static void multiplyBy(long[][] matrix, double mult) {
+	public static long[][] multiplyBy(long[][] matrix, double mult) {
 		for(long[] array : matrix){
 			multiplyBy(array, mult);
 		}
+		return matrix;
 	}
 
-	public static void multiplyBy(long[][][] matrix, double mult) {
+	public static long[][][] multiplyBy(long[][][] matrix, double mult) {
 		for(long[][] array : matrix){
 			multiplyBy(array, mult);
 		}
+		return matrix;
 	}
 
+	/**
+	 * Adds corresponding elements of two int arrays in-place.
+	 * @param array Target array to modify
+	 * @param incr Array of values to add
+	 */
 	public static void add(int[] array, int[] incr) {
 		for(int i=0; i<array.length; i++){
 			array[i]+=incr[i];
 		}
 	}
 
+	public static void add(float[] array,float incr) {
+		for(int i=0; i<array.length; i++){
+			array[i]+=incr;
+		}
+	}
+
+	/**
+	 * Adds corresponding elements of two atomic long arrays thread-safely.
+	 * @param array Target atomic array to modify
+	 * @param incr Atomic array of values to add
+	 */
 	public static void add(AtomicLongArray array, AtomicLongArray incr) {
 		for(int i=0; i<array.length(); i++){
 			array.addAndGet(i, incr.get(i));
 		}
 	}
 
+	/**
+	 * Adds corresponding elements of two long arrays in-place.
+	 * @param array Target array to modify
+	 * @param incr Array of values to add
+	 */
 	public static void add(long[] array, long[] incr) {
 		for(int i=0; i<array.length; i++){
 			array[i]+=incr[i];
 		}
 	}
 
+	/**
+	 * Adds corresponding elements of two 2D long arrays in-place.
+	 * @param array Target 2D array to modify
+	 * @param incr 2D array of values to add
+	 */
 	public static void add(long[][] array, long[][] incr) {
 		for(int i=0; i<array.length; i++){
 			if(array[i]!=null) {add(array[i], incr[i]);}
 		}
 	}
 
+	/**
+	 * Adds corresponding elements of two 3D long arrays in-place.
+	 * @param array Target 3D array to modify
+	 * @param incr 3D array of values to add
+	 */
 	public static void add(long[][][] array, long[][][] incr) {
 		for(int i=0; i<array.length; i++){
 			add(array[i], incr[i]);
 		}
 	}
 
+	/**
+	 * Adds corresponding elements of two double arrays in-place.
+	 * @param array Target array to modify
+	 * @param incr Array of values to add
+	 */
 	public static void add(double[] array, double[] incr) {
 		for(int i=0; i<array.length; i++){
 			array[i]+=incr[i];
 		}
 	}
 
+	/**
+	 * Computes sum of float array using vectorized operations.
+	 * @param array Float array to sum
+	 * @return Sum as double
+	 */
 	public static double sum(float[] array){
 		return Vector.sum(array);
 	}
 
+	/**
+	 * Computes sum of byte array using vectorized operations.
+	 * @param array Byte array to sum
+	 * @return Sum as long
+	 */
 	public static long sum(byte[] array){
 		return Vector.sum(array);
 	}
 
+	/**
+	 * Computes sum of char array using vectorized operations.
+	 * @param array Char array to sum
+	 * @return Sum as long
+	 */
 	public static long sum(char[] array){
 		return Vector.sum(array);
 	}
 	
+	/**
+	 * Computes sum of short array using vectorized operations.
+	 * @param array Short array to sum
+	 * @return Sum as long
+	 */
 	public static long sum(short[] array){
 		return Vector.sum(array);
 	}
 	
+	/**
+	 * Computes sum of int array using vectorized operations.
+	 * @param array Int array to sum
+	 * @return Sum as long
+	 */
 	public static long sum(int[] array){
 		return Vector.sum(array);
 	}
 
+	/**
+	 * Computes sum of double array using vectorized operations.
+	 * @param array Double array to sum
+	 * @return Sum as double
+	 */
 	public static double sum(double[] array){
 		return Vector.sum(array);
 	}
 	
+	/**
+	 * Computes sum of long array using vectorized operations.
+	 * @param array Long array to sum
+	 * @return Sum as long
+	 */
 	public static long sum(long[] array){
 		return Vector.sum(array);
 	}
 	
+	/**
+	 * Computes sum of int array subrange using vectorized operations.
+	 * @param array Int array to sum
+	 * @param from Starting index (inclusive)
+	 * @param to Ending index (exclusive)
+	 * @return Sum of subrange as long
+	 */
 	public static long sum(int[] array, int from, int to){
 		return Vector.sum(array, from, to);
 	}
 	
+	/**
+	 * Computes sum of long array subrange using vectorized operations.
+	 * @param array Long array to sum
+	 * @param from Starting index (inclusive)
+	 * @param to Ending index (exclusive)
+	 * @return Sum of subrange as long
+	 */
 	public static long sum(long[] array, int from, int to){
 		return Vector.sum(array, from, to);
 	}
 	
+	/**
+	 * Computes sum of atomic integer array elements.
+	 * @param array Atomic integer array to sum
+	 * @return Sum as long
+	 */
 	public static long sum(AtomicIntegerArray array){
 		long x=0;
 		for(int i=0; i<array.length(); i++){x+=array.get(i);}
 		return x;
 	}
 	
+	/**
+	 * Computes sum of atomic long array elements.
+	 * @param array Atomic long array to sum
+	 * @return Sum as long
+	 */
 	public static long sum(AtomicLongArray array){
 		long x=0;
 		for(int i=0; i<array.length(); i++){x+=array.get(i);}
 		return x;
 	}
 	
+	/**
+	 * Computes reciprocal of array sum, returns 1/max(1,sum).
+	 * @param a Int array
+	 * @return Inverse of sum
+	 */
 	public static float invSum(int[] a) {
 		return 1f/Math.max(1, Vector.sum(a));
 	}
 	
+	/**
+	 * Computes arithmetic mean of int array elements.
+	 * @param array Int array
+	 * @return Mean value as double
+	 */
 	public static double mean(int[] array){
 		return Vector.sum(array)/(double)array.length;
 	}
 	
+	/**
+	 * Computes arithmetic mean of long array elements.
+	 * @param array Long array
+	 * @return Mean value as double
+	 */
 	public static double mean(long[] array){
 		return Vector.sum(array)/(double)array.length;
 	}
 	
+	/**
+	 * Counts non-zero elements in short array.
+	 * @param array Short array to analyze
+	 * @return Number of non-zero elements
+	 */
 	public static int cardinality(short[] array){
 		int x=0;
 		for(int y : array){if(y!=0){x++;}}
 		return x;
 	}
 	
+	/**
+	 * Computes harmonic mean of positive int array elements.
+	 * Skips zero and negative values in calculation.
+	 * @param array Int array
+	 * @return Harmonic mean of positive elements
+	 */
 	public static double harmonicMean(int[] array){
 		double sum=0;
 		for(int x : array){
@@ -2512,12 +3431,23 @@ public final class Tools {
 		return array.length/sum;
 	}
 	
+	/**
+	 * Counts non-zero elements in int array.
+	 * @param array Int array to analyze
+	 * @return Number of non-zero elements
+	 */
 	public static int cardinality(int[] array){
 		int x=0;
 		for(int y : array){if(y!=0){x++;}}
 		return x;
 	}
 	
+	/**
+	 * Computes position-weighted average of array values.
+	 * Elements near center receive higher weights than edge elements.
+	 * @param array Long array to analyze
+	 * @return Weighted average based on position
+	 */
 	public static double weightedAverage(long[] array){
 		if(array.length<2){
 			return array.length==1 ? array[0] : 0;
@@ -2536,6 +3466,12 @@ public final class Tools {
 		return wsum/div;
 	}
 	
+	/**
+	 * Computes weighted sum treating array as histogram.
+	 * Each value is multiplied by its index position.
+	 * @param array Long array representing histogram
+	 * @return Weighted sum
+	 */
 	public static long sumHistogram(long[] array){
 		long x=0;
 		for(int i=1; i<array.length; i++){
@@ -2544,6 +3480,11 @@ public final class Tools {
 		return x;
 	}
 	
+	/**
+	 * Finds minimum non-zero index in histogram array.
+	 * @param array Long array representing histogram
+	 * @return Index of first non-zero value, or 0 if none
+	 */
 	public static long minHistogram(long[] array){
 		for(int i=0; i<array.length; i++){
 			if(array[i]>0){return i;}
@@ -2551,6 +3492,11 @@ public final class Tools {
 		return 0;
 	}
 	
+	/**
+	 * Finds maximum non-zero index in histogram array.
+	 * @param array Long array representing histogram
+	 * @return Index of last non-zero value, or 0 if none
+	 */
 	public static long maxHistogram(long[] array){
 		for(int i=array.length-1; i>=0; i--){
 			if(array[i]>0){return i;}
@@ -2558,37 +3504,64 @@ public final class Tools {
 		return 0;
 	}
 	
+	/**
+	 * Converts atomic long array to regular long array.
+	 * @param array Atomic long array to convert
+	 * @return Regular long array copy
+	 */
 	public static long[] toArray(AtomicLongArray array){
 		long[] x=new long[array.length()];
 		for(int i=0; i<array.length(); i++){x[i]=array.get(i);}
 		return x;
 	}
 	
+	/**
+	 * Converts coverage array to regular long array.
+	 * @param array Coverage array to convert
+	 * @return Long array containing coverage values
+	 */
 	public static long[] toArray(CoverageArray array){
 		long[] x=new long[array.maxIndex+1];
 		for(int i=0; i<=array.maxIndex; i++){x[i]=array.get(i);}
 		return x;
 	}
 	
+	/**
+	 * Finds minimum value in int array.
+	 * @param array Int array to search
+	 * @return Minimum value found
+	 */
 	public static int min(int[] array){
 		int min=Integer.MAX_VALUE;
 		for(int y : array){if(y<min){min=y;}}
 		return min;
 	}
 	
+	/**
+	 * Finds minimum value in byte array.
+	 * @param array Byte array to search
+	 * @return Minimum value found
+	 */
 	public static byte min(byte[] array){
 		byte min=Byte.MAX_VALUE;
 		for(byte y : array){if(y<min){min=y;}}
 		return min;
 	}
 	
+	/**
+	 * Computes sum of int array elements as int value.
+	 * @param array Int array to sum
+	 * @return Sum as int
+	 */
 	public static int intSum(int[] array){
 		int x=0;
 		for(int y : array){x+=y;}
 		return x;
 	}
 	
-	public static void reverseInPlace(final byte[] array){
+	/** Reverses byte array elements in-place.
+	 * @param array Byte array to reverse */
+	static void reverseInPlace(final byte[] array){
 		if(array==null){return;}
 		final int max=array.length/2, last=array.length-1;
 		for(int i=0; i<max; i++){
@@ -2598,6 +3571,8 @@ public final class Tools {
 		}
 	}
 	
+	/** Reverses char array elements in-place.
+	 * @param array Char array to reverse */
 	public static void reverseInPlace(final char[] array){
 		if(array==null){return;}
 		final int max=array.length/2, last=array.length-1;
@@ -2608,31 +3583,47 @@ public final class Tools {
 		}
 	}
 	
+	/** Reverses int array elements in-place.
+	 * @param array Int array to reverse */
 	public static void reverseInPlace(final int[] array){
 		if(array==null){return;}
 		reverseInPlace(array, 0, array.length);
 	}
 	
+	/** Reverses long array elements in-place.
+	 * @param array Long array to reverse */
 	public static void reverseInPlace(final long[] array){
 		if(array==null){return;}
 		reverseInPlace(array, 0, array.length);
 	}
 	
+	/** Reverses float array elements in-place.
+	 * @param array Float array to reverse */
 	public static void reverseInPlace(final float[] array){
 		if(array==null){return;}
 		reverseInPlace(array, 0, array.length);
 	}
 	
+	/** Reverses atomic integer array elements in-place thread-safely.
+	 * @param array Atomic integer array to reverse */
 	public static void reverseInPlace(final AtomicIntegerArray array){
 		if(array==null){return;}
 		reverseInPlace(array, 0, array.length());
 	}
 	
+	/** Reverses generic array elements in-place.
+	 * @param array Generic array to reverse */
 	public static <X> void reverseInPlace(final X[] array){
 		if(array==null){return;}
 		reverseInPlace(array, 0, array.length);
 	}
 	
+	/**
+	 * Reverses subrange of generic array in-place.
+	 * @param array Generic array to modify
+	 * @param from Starting index (inclusive)
+	 * @param to Ending index (exclusive)
+	 */
 	public static <X> void reverseInPlace(final X[] array, final int from, final int to){
 		if(array==null){return;}
 		for(int i=from, j=to-1; i<j; i++, j--){
@@ -2642,6 +3633,12 @@ public final class Tools {
 		}
 	}
 	
+	/**
+	 * Reverses subrange of byte array in-place.
+	 * @param array Byte array to modify
+	 * @param from Starting index (inclusive)
+	 * @param to Ending index (exclusive)
+	 */
 	public static void reverseInPlace(final byte[] array, final int from, final int to){
 		if(array==null){return;}
 		for(int i=from, j=to-1; i<j; i++, j--){
@@ -2651,6 +3648,12 @@ public final class Tools {
 		}
 	}
 	
+	/**
+	 * Reverses subrange of int array in-place.
+	 * @param array Int array to modify
+	 * @param from Starting index (inclusive)
+	 * @param to Ending index (exclusive)
+	 */
 	public static void reverseInPlace(final int[] array, final int from, final int to){
 		if(array==null){return;}
 		for(int i=from, j=to-1; i<j; i++, j--){
@@ -2660,6 +3663,12 @@ public final class Tools {
 		}
 	}
 	
+	/**
+	 * Reverses subrange of long array in-place.
+	 * @param array Long array to modify
+	 * @param from Starting index (inclusive)
+	 * @param to Ending index (exclusive)
+	 */
 	public static void reverseInPlace(final long[] array, final int from, final int to){
 		if(array==null){return;}
 		for(int i=from, j=to-1; i<j; i++, j--){
@@ -2669,6 +3678,12 @@ public final class Tools {
 		}
 	}
 	
+	/**
+	 * Reverses subrange of float array in-place.
+	 * @param array Float array to modify
+	 * @param from Starting index (inclusive)
+	 * @param to Ending index (exclusive)
+	 */
 	public static void reverseInPlace(final float[] array, final int from, final int to){
 		if(array==null){return;}
 		for(int i=from, j=to-1; i<j; i++, j--){
@@ -2678,6 +3693,12 @@ public final class Tools {
 		}
 	}
 	
+	/**
+	 * Reverses subrange of double array in-place.
+	 * @param array Double array to modify
+	 * @param from Starting index (inclusive)
+	 * @param to Ending index (exclusive)
+	 */
 	public static void reverseInPlace(final double[] array, final int from, final int to){
 		if(array==null){return;}
 		for(int i=from, j=to-1; i<j; i++, j--){
@@ -2687,6 +3708,12 @@ public final class Tools {
 		}
 	}
 	
+	/**
+	 * Reverses subrange of atomic integer array in-place thread-safely.
+	 * @param array Atomic integer array to modify
+	 * @param from Starting index (inclusive)
+	 * @param to Ending index (exclusive)
+	 */
 	public static void reverseInPlace(final AtomicIntegerArray array, final int from, final int to){
 		if(array==null){return;}
 		for(int i=from, j=to-1; i<j; i++, j--){
@@ -2696,6 +3723,11 @@ public final class Tools {
 		}
 	}
 	
+	/**
+	 * Creates reversed copy of byte array.
+	 * @param array Source byte array
+	 * @return New reversed byte array
+	 */
 	public static byte[] reverseAndCopy(final byte[] array){
 //		if(array==null){return null;}
 //		byte[] copy=Arrays.copyOf(array, array.length);
@@ -2704,10 +3736,20 @@ public final class Tools {
 		return reverseAndCopy(array, null);
 	}
 	
+	/**
+	 * Creates reversed copy of char array.
+	 * @param array Source char array
+	 * @return New reversed char array
+	 */
 	public static char[] reverseAndCopy(final char[] array){
 		return reverseAndCopy(array, null);
 	}
 	
+	/**
+	 * Creates reversed copy of int array.
+	 * @param array Source int array
+	 * @return New reversed int array
+	 */
 	public static int[] reverseAndCopy(final int[] array){
 //		if(array==null){return null;}
 //		int[] copy=Arrays.copyOf(array, array.length);
@@ -2716,12 +3758,23 @@ public final class Tools {
 		return reverseAndCopy(array, null);
 	}
 	
+	/**
+	 * Copies string characters into byte array.
+	 * @param s Source string
+	 * @param bs Target byte array
+	 */
 	public static void copy(String s, byte[] bs) {
 		for(int i=0; i<s.length(); i++) {
 			bs[i]=(byte)s.charAt(i);
 		}
 	}
 	
+	/**
+	 * Creates reversed copy of byte array using provided output buffer.
+	 * @param array Source byte array
+	 * @param out Output buffer, created if null
+	 * @return Reversed byte array (same as out parameter)
+	 */
 	public static byte[] reverseAndCopy(final byte[] array, byte[] out){
 		if(array==null){
 			assert(out==null);
@@ -2733,6 +3786,12 @@ public final class Tools {
 		return out;
 	}
 	
+	/**
+	 * Creates reversed copy of char array using provided output buffer.
+	 * @param array Source char array
+	 * @param out Output buffer, created if null
+	 * @return Reversed char array (same as out parameter)
+	 */
 	public static char[] reverseAndCopy(final char[] array, char[] out){
 		if(array==null){
 			assert(out==null);
@@ -2744,6 +3803,12 @@ public final class Tools {
 		return out;
 	}
 	
+	/**
+	 * Creates reversed copy of int array using provided output buffer.
+	 * @param array Source int array
+	 * @param out Output buffer, created if null
+	 * @return Reversed int array (same as out parameter)
+	 */
 	public static int[] reverseAndCopy(final int[] array, int[] out){
 		if(array==null){
 			assert(out==null);
@@ -2755,6 +3820,12 @@ public final class Tools {
 		return out;
 	}
 	
+	/**
+	 * Removes highest-frequency entries from 2D array based on length.
+	 * Nullifies arrays that exceed the calculated length threshold.
+	 * @param data 2D int array to filter
+	 * @param fractionToExclude Fraction of entries to remove (0.0 to 1.0)
+	 */
 	public static void cullHighFreqEntries(int[][] data, float fractionToExclude){
 		if(fractionToExclude<=0){return;}
 		int[] count=new int[data.length];
@@ -2785,6 +3856,13 @@ public final class Tools {
 		}
 	}
 	
+	/**
+	 * Calculates length limit for culling high-frequency entries.
+	 * Returns maximum length threshold without modifying data.
+	 * @param data 2D int array to analyze
+	 * @param fractionToExclude Fraction of entries to exclude
+	 * @return Maximum length to keep
+	 */
 	public static int findLimitForHighFreqEntries(int[][] data, float fractionToExclude){
 		if(fractionToExclude<=0){return Integer.MAX_VALUE;}
 		int[] count=new int[data.length];
@@ -2813,6 +3891,14 @@ public final class Tools {
 		return maxLengthToKeep2;
 	}
 	
+	/**
+	 * Removes arrays with clustered values from 2D dataset.
+	 * Identifies clumpy patterns based on adjacent element distances.
+	 * @param data 2D int array to filter
+	 * @param maxDist Maximum distance between adjacent elements to consider clumped
+	 * @param minLength Minimum array length to consider for culling
+	 * @param fraction Minimum fraction of adjacent pairs within maxDist to cull
+	 */
 	public static void cullClumpyEntries(final int[][] data, final int maxDist, final int minLength, final float fraction){
 		
 		long total=0;
@@ -2839,6 +3925,15 @@ public final class Tools {
 		
 	}
 	
+	/**
+	 * Identifies indices of arrays with clustered values without modifying data.
+	 * Returns set of indices that would be culled by cullClumpyEntries.
+	 * @param data 2D int array to analyze
+	 * @param maxDist Maximum distance between adjacent elements to consider clumped
+	 * @param minLength Minimum array length to consider for banning
+	 * @param fraction Minimum fraction of adjacent pairs within maxDist to ban
+	 * @return Set of indices identifying clumpy entries
+	 */
 	public static HashSet<Integer> banClumpyEntries(final int[][] data, final int maxDist, final int minLength, final float fraction){
 		
 		HashSet<Integer> set=new HashSet<Integer>(128);
@@ -2870,6 +3965,13 @@ public final class Tools {
 		
 	}
 	
+	/**
+	 * Tests if sorted array has clustered values based on distance threshold.
+	 * @param array Sorted int array to test
+	 * @param maxDist Maximum distance between adjacent elements
+	 * @param fraction Minimum fraction of adjacent pairs within maxDist
+	 * @return True if array meets clumping criteria
+	 */
 	public static final boolean isClumpy(final int[] array, final int maxDist, final float fraction){
 		if(array==null){return false;}
 		int count=0;
@@ -2880,6 +3982,12 @@ public final class Tools {
 		return count>=(array.length*fraction);
 	}
 
+	/**
+	 * Creates histogram of array lengths from 2D dataset.
+	 * @param x 2D int array dataset
+	 * @param buckets Number of histogram buckets
+	 * @return Histogram array showing length distribution
+	 */
 	public static int[] makeLengthHistogram(int[][] x, int buckets) {
 		int[] lengths=new int[x.length];
 		long total=0;
@@ -2912,6 +4020,11 @@ public final class Tools {
 		return hist;
 	}
 	
+	/**
+	 * Formats large numbers with K/M/B/T suffixes.
+	 * @param x Long value to format
+	 * @return Formatted string with appropriate suffix
+	 */
 	public static String toKMG(long x){
 		double div=1;
 		String ext="";
@@ -2955,6 +4068,12 @@ public final class Tools {
 		return (x>0 ? new String(array) : in);
 	}
 		
+	/**
+	 * Creates histogram from atomic long array data.
+	 * @param data Atomic long array source data
+	 * @param buckets Number of histogram buckets
+	 * @return Histogram showing data distribution
+	 */
 	public static int[] makeHistogram(AtomicLongArray data, int buckets) {
 		long total=sum(data);
 		long increment=total/(buckets+1);
@@ -3009,6 +4128,15 @@ public final class Tools {
 		return hist;
 	}
 	
+	/**
+	 * Creates a length histogram using count-based approach when max value is reasonable.
+	 * Falls back to old histogram method if max value exceeds array length.
+	 *
+	 * @param x Array of length values to histogram
+	 * @param buckets Number of histogram buckets to create
+	 * @param verbose Whether to print debugging information
+	 * @return Histogram array with length values at bucket boundaries
+	 */
 	public static int[] makeLengthHistogram3(int[] x, int buckets, boolean verbose) {
 		int max=max(x);
 		if(max>x.length){
@@ -3082,10 +4210,20 @@ public final class Tools {
 		return (int)(array==null || array.length==0 ? 0 : sum(array)/array.length);
 	}
 
+	/**
+	 * Calculates the double-precision average of an int array.
+	 * @param array Array to average
+	 * @return Double average, or 0.0 if array is null/empty
+	 */
 	public static double averageDouble(int[] array) {
 		return (array==null || array.length==0 ? 0 : sum(array)/(double)array.length);
 	}
 
+	/**
+	 * Calculates the double-precision average of a float array.
+	 * @param array Array to average
+	 * @return Double average, or 0.0 if array is null/empty
+	 */
 	public static double averageDouble(float[] array) {
 		return (array==null || array.length==0 ? 0 : sum(array)/(double)array.length);
 	}
@@ -3124,6 +4262,12 @@ public final class Tools {
 		return array.length-1;
 	}
 	
+	/**
+	 * Calculates the mode (most frequent value) from a histogram.
+	 * Breaks ties by choosing the value closest to the median.
+	 * @param array Histogram where array[i] contains count of values equal to i
+	 * @return Index of the most frequent value
+	 */
 	public static int calcModeHistogram(long array[]){
 		if(array==null || array.length<1){return 0;}
 		int median=percentileHistogram(array, 0.5);
@@ -3139,16 +4283,19 @@ public final class Tools {
 		return mode;
 	}
 
+	/** Returns the absolute difference between two integers */
 	public static final int absdif(int a, int b) {
 //		return a>b ? a-b : b-a;
 		return Math.abs(a-b);
 	}
 
+	/** Returns the absolute difference between two floats */
 	public static final float absdif(float a, float b) {
 //		return a>b ? a-b : b-a;
 		return Math.abs(a-b); //Tested as 4x faster
 	}
 
+	/** Returns the absolute difference between two doubles */
 	public static final double absdif(double a, double b) {
 //		return a>b ? a-b : b-a;
 		return Math.abs(a-b);
@@ -3165,6 +4312,15 @@ public final class Tools {
 		return a2<=b1 && b2>=a1;
 	}
 	
+	/**
+	 * Calculates the length of overlap between two intervals.
+	 *
+	 * @param a1 Start of first interval
+	 * @param b1 End of first interval
+	 * @param a2 Start of second interval
+	 * @param b2 End of second interval
+	 * @return Length of overlap in bases, or 0 if no overlap
+	 */
 	public static final int overlapLength(int a1, int b1, int a2, int b2){
 		if(!overlap(a1,b1,a2,b2)){return 0;}
 		if(a1<=a2){
@@ -3180,11 +4336,24 @@ public final class Tools {
 		return a1>=a2 && b1<=b2;
 	}
 	
+	/**
+	 * Constrains a point to lie within the specified bounds.
+	 *
+	 * @param point Point to constrain
+	 * @param a Lower bound (inclusive)
+	 * @param b Upper bound (inclusive)
+	 * @return point if within bounds, otherwise the nearest bound
+	 */
 	public static final int constrict(int point, int a, int b){
 		assert(a<=b);
 		return(point<a ? a : point>b ? b : point);
 	}
 	
+	/**
+	 * Counts the number of trailing digits in a string.
+	 * @param line String to examine
+	 * @return Number of digits at the end of the string
+	 */
 	public static int trailingDigits(String line) {
 		for(int x=line.length()-1; x>=0; x--) {
 			if(!isDigit(line.charAt(x))) {
@@ -3194,6 +4363,11 @@ public final class Tools {
 		return line.length();
 	}
 	
+	/**
+	 * Counts the number of trailing digits in a byte array.
+	 * @param line Byte array to examine
+	 * @return Number of digits at the end of the array
+	 */
 	public static int trailingDigits(byte[] line) {
 		for(int x=line.length-1; x>=0; x--) {
 			if(!isDigit(line[x])) {
@@ -3203,22 +4377,34 @@ public final class Tools {
 		return line.length;
 	}
 	
+	/** Finds the first occurrence of a character in a byte array */
 	public static final int indexOf(byte[] array, char b){
 		return indexOf(array, (byte)b, 0);
 	}
 	
+	/** Finds the first occurrence of a byte in a byte array */
 	public static final int indexOf(byte[] array, byte b){
 		return indexOf(array, b, 0);
 	}
 	
+	/** Finds the nth occurrence of a byte in a byte array from the start */
 	public static final int indexOfNth(byte[] array, byte b, int n){
 		return indexOfNth(array, b, n, 0);
 	}
 	
+	/** Finds the nth occurrence of a character in a byte array from the start */
 	public static final int indexOfNth(byte[] array, char b, int n){
 		return indexOfNth(array, (byte)b, n, 0);
 	}
 	
+	/**
+	 * Finds the first occurrence of a character in a string starting from a position.
+	 *
+	 * @param array String to search
+	 * @param b Character to find
+	 * @param start Starting index for search
+	 * @return Index of character, or -1 if not found
+	 */
 	public static final int indexOf(final String array, final char b, final int start){
 		int i=start;
 //		System.err.println("looking for '"+b+"' ("+(int)b+") in '"+array+"'");
@@ -3234,17 +4420,40 @@ public final class Tools {
 		return (i==array.length() ? -1 : i);
 	}
 
+	/**
+	 * Finds the first occurrence of a character in a byte array starting from a position
+	 */
 	public static final int indexOf(final byte[] array, final char b, final int start){return indexOf(array, (byte)b, start);}
+	/**
+	 * Finds the first occurrence of a byte in a byte array starting from a position.
+	 *
+	 * @param array Byte array to search
+	 * @param b Byte to find
+	 * @param start Starting index for search
+	 * @return Index of byte, or -1 if not found
+	 */
 	public static final int indexOf(final byte[] array, final byte b, final int start){
 		int i=start;
 		while(i<array.length && array[i]!=b){i++;}
 		return (i==array.length ? -1 : i);
 	}
 	
+	/**
+	 * Finds the nth occurrence of a character in a byte array starting from a position
+	 */
 	public static final int indexOfNth(final byte[] array, final char b, final int n, final int start){
 		return indexOfNth(array, (byte)b, n, start);
 	}
 	
+	/**
+	 * Finds the nth occurrence of a byte in a byte array starting from a position.
+	 *
+	 * @param array Byte array to search
+	 * @param b Byte to find
+	 * @param n Which occurrence to find (1-based)
+	 * @param start Starting index for search
+	 * @return Index of the nth occurrence, or -1 if not found
+	 */
 	public static final int indexOfNth(final byte[] array, final byte b, final int n, final int start){
 		int i=start, seen=0;
 		while(i<array.length && seen<n){
@@ -3254,6 +4463,14 @@ public final class Tools {
 		return (i==array.length ? -1 : i-1);
 	}
 	
+	/**
+	 * Finds the first occurrence of a string within a byte array.
+	 *
+	 * @param ref Byte array to search
+	 * @param query String to find
+	 * @param start Starting index for search
+	 * @return Index of string match, or -1 if not found
+	 */
 	public static final int indexOf(final byte[] ref, final String query, final int start){
 		int i=start;
 		final int lim=ref.length-query.length();
@@ -3264,6 +4481,16 @@ public final class Tools {
 		return -1;
 	}
 	
+	/**
+	 * Finds a string in a byte array that is preceded by a delimiter.
+	 * Checks for match at start position, then searches for delimiter+query.
+	 *
+	 * @param ref Byte array to search
+	 * @param query String to find
+	 * @param start Starting index for search
+	 * @param delimiter Delimiter that must precede the query
+	 * @return Index of string match (after delimiter), or -1 if not found
+	 */
 	public static final int indexOfDelimited(final byte[] ref, final String query, final int start, final byte delimiter){
 //		assert(false) : query+", "+start+", "+new String(ref);
 		final int lim=ref.length-query.length();
@@ -3277,6 +4504,14 @@ public final class Tools {
 		return -1;
 	}
 	
+	/**
+	 * Tests if a string matches the byte array at a specific location.
+	 *
+	 * @param ref Reference byte array
+	 * @param query String to match
+	 * @param loc Starting location in ref to check
+	 * @return true if query matches ref starting at loc
+	 */
 	private static boolean matches(byte[] ref, String query, int loc){
 		if(ref.length-query.length()<loc){return false;}
 		final int max=loc+query.length();
@@ -3287,6 +4522,11 @@ public final class Tools {
 		return true;
 	}
 	
+	/**
+	 * Trims a byte array to the first whitespace character.
+	 * @param array Byte array to trim
+	 * @return Trimmed array, or original array if no whitespace found
+	 */
 	public static final byte[] trimToWhitespace(byte[] array){
 		if(array!=null){
 			int index=indexOfWhitespace(array);
@@ -3295,12 +4535,22 @@ public final class Tools {
 		return array;
 	}
 	
+	/**
+	 * Finds the first whitespace character in a byte array.
+	 * @param array Byte array to search
+	 * @return Index of first whitespace, or -1 if none found
+	 */
 	public static final int indexOfWhitespace(byte[] array){
 		int i=0;
 		while(i<array.length && !Character.isWhitespace(array[i])){i++;}
 		return (i==array.length ? -1 : i);
 	}
 	
+	/**
+	 * Trims a string to the first whitespace character.
+	 * @param array String to trim
+	 * @return Trimmed string, or original string if no whitespace found
+	 */
 	public static final String trimToWhitespace(String array){
 		if(array!=null){
 			int index=indexOfWhitespace(array);
@@ -3309,24 +4559,46 @@ public final class Tools {
 		return array;
 	}
 	
+	/**
+	 * Finds the first whitespace character in a string.
+	 * @param array String to search
+	 * @return Index of first whitespace, or -1 if none found
+	 */
 	public static final int indexOfWhitespace(String array){
 		int i=0;
 		while(i<array.length() && !Character.isWhitespace(array.charAt(i))){i++;}
 		return (i==array.length() ? -1 : i);
 	}
 	
+	/**
+	 * Finds the first occurrence of a character in a char array.
+	 * @param array Char array to search
+	 * @param b Character to find
+	 * @return Index of character, or -1 if not found
+	 */
 	public static final int indexOf(char[] array, char b){
 		int i=0;
 		while(i<array.length && array[i]!=b){i++;}
 		return (i==array.length ? -1 : i);
 	}
 	
+	/**
+	 * Finds the last occurrence of a byte in a byte array.
+	 * @param array Byte array to search
+	 * @param b Byte to find
+	 * @return Index of last occurrence, or -1 if not found
+	 */
 	public static final int lastIndexOf(byte[] array, byte b){
 		int i=array.length-1;
 		while(i>=0 && array[i]!=b){i--;}
 		return i;
 	}
 	
+	/**
+	 * Calculates the string length of a long value when converted to string.
+	 * @param x Long value
+	 * @return Number of characters in string representation
+	 */
 	public static final int stringLength(long x){
 		if(x<0){
 			if(x==Integer.MIN_VALUE){return 11;}
@@ -3335,6 +4607,11 @@ public final class Tools {
 		return lengthOf(x);
 	}
 	
+	/**
+	 * Calculates the string length of an int value when converted to string.
+	 * @param x Int value
+	 * @return Number of characters in string representation
+	 */
 	public static final int stringLength(int x){
 		if(x<0){
 			if(x==Long.MIN_VALUE){return 20;}
@@ -3343,6 +4620,11 @@ public final class Tools {
 		return lengthOf(x);
 	}
 	
+	/**
+	 * Calculates the number of digits in a non-negative integer.
+	 * @param x Non-negative integer
+	 * @return Number of digits
+	 */
 	public static final int lengthOf(int x){
 		assert(x>=0);
 		int i=1;
@@ -3350,6 +4632,11 @@ public final class Tools {
 		return i;
 	}
 	
+	/**
+	 * Calculates the number of digits in a non-negative long.
+	 * @param x Non-negative long
+	 * @return Number of digits
+	 */
 	public static final int lengthOf(long x){
 		assert(x>=0);
 		int i=1;
@@ -3357,9 +4644,16 @@ public final class Tools {
 		return i;
 	}
 
+	/** Returns the maximum value in a byte array */
 	public static final byte max(byte[] array){return array[maxIndex(array)];}
+	/** Returns the maximum value in a float array */
 	public static final float max(float[] array){return array[maxIndex(array)];}
 	
+	/**
+	 * Finds the index of the maximum value in a byte array.
+	 * @param array Byte array to search
+	 * @return Index of maximum element
+	 */
 	public static final int maxIndex(byte[] array){
 		byte max=array[0];
 		int maxIndex=0;
@@ -3369,6 +4663,11 @@ public final class Tools {
 		return maxIndex;
 	}
 	
+	/**
+	 * Finds the index of the maximum value in a float array.
+	 * @param array Float array to search
+	 * @return Index of maximum element
+	 */
 	public static final int maxIndex(float[] array){
 		float max=array[0];
 		int maxIndex=0;
@@ -3378,8 +4677,14 @@ public final class Tools {
 		return maxIndex;
 	}
 
+	/** Returns the maximum value in a short array */
 	public static final int max(short[] array){return array[maxIndex(array)];}
 	
+	/**
+	 * Finds the index of the maximum value in a short array.
+	 * @param array Short array to search
+	 * @return Index of maximum element
+	 */
 	public static final int maxIndex(short[] array){
 		short max=array[0];
 		int maxIndex=0;
@@ -3389,8 +4694,14 @@ public final class Tools {
 		return maxIndex;
 	}
 
+	/** Returns the maximum value in an int array */
 	public static final int max(int[] array){return array[maxIndex(array)];}
 	
+	/**
+	 * Finds the index of the maximum value in an int array.
+	 * @param array Int array to search
+	 * @return Index of maximum element
+	 */
 	public static final int maxIndex(int[] array){
 		int max=array[0], maxIndex=0;
 		for(int i=1; i<array.length; i++){
@@ -3399,8 +4710,14 @@ public final class Tools {
 		return maxIndex;
 	}
 
+	/** Returns the maximum value in a long array */
 	public static final long max(long[] array){return array[maxIndex(array)];}
 	
+	/**
+	 * Finds the index of the maximum value in a long array.
+	 * @param array Long array to search
+	 * @return Index of maximum element
+	 */
 	public static final int maxIndex(long[] array){
 		long max=array[0];
 		int maxIndex=0;
@@ -3410,8 +4727,14 @@ public final class Tools {
 		return maxIndex;
 	}
 	
+	/** Returns the maximum value in a double array */
 	public static final double max(double[] array){return array[maxIndex(array)];}
 	
+	/**
+	 * Finds the index of the maximum value in a double array.
+	 * @param array Double array to search
+	 * @return Index of maximum element
+	 */
 	public static final int maxIndex(double[] array){
 		double max=array[0];
 		int maxIndex=0;
@@ -3421,6 +4744,11 @@ public final class Tools {
 		return maxIndex;
 	}
 	
+	/**
+	 * Calculates the standard deviation of a long array.
+	 * @param numbers Array of long values
+	 * @return Standard deviation, or 0 if array is null/has fewer than 2 elements
+	 */
 	public static final double standardDeviation(long[] numbers){
 		if(numbers==null || numbers.length<2){return 0;}
 		long sum=sum(numbers);
@@ -3434,6 +4762,11 @@ public final class Tools {
 		return Math.sqrt(sumdev2/numbers.length);
 	}
 	
+	/**
+	 * Calculates the standard deviation of a double array.
+	 * @param numbers Array of double values
+	 * @return Standard deviation, or 0 if array is null/has fewer than 2 elements
+	 */
 	public static final double standardDeviation(double[] numbers){
 		if(numbers==null || numbers.length<2){return 0;}
 		double sum=sum(numbers);
@@ -3447,6 +4780,11 @@ public final class Tools {
 		return Math.sqrt(sumdev2/numbers.length);
 	}
 	
+	/**
+	 * Calculates the standard deviation of a float array.
+	 * @param numbers Array of float values
+	 * @return Standard deviation, or 0 if array is null/has fewer than 2 elements
+	 */
 	public static final double standardDeviation(float[] numbers){
 		if(numbers==null || numbers.length<2){return 0;}
 		double sum=sum(numbers);
@@ -3478,6 +4816,11 @@ public final class Tools {
 		return Math.sqrt(sumdev2/numbers.length);
 	}
 	
+	/**
+	 * Calculates the standard deviation of an AtomicIntegerArray.
+	 * @param numbers AtomicIntegerArray of values
+	 * @return Standard deviation, or 0 if array is null/has fewer than 2 elements
+	 */
 	public static final double standardDeviation(AtomicIntegerArray numbers){
 		if(numbers==null || numbers.length()<2){return 0;}
 		long sum=sum(numbers);
@@ -3491,6 +4834,11 @@ public final class Tools {
 		return Math.sqrt(sumdev2/numbers.length());
 	}
 	
+	/**
+	 * Calculates the standard deviation of a char array.
+	 * @param numbers Array of char values
+	 * @return Standard deviation, or 0 if array is null/has fewer than 2 elements
+	 */
 	public static final double standardDeviation(char[] numbers){
 		if(numbers==null || numbers.length<2){return 0;}
 		long sum=sum(numbers);
@@ -3504,6 +4852,11 @@ public final class Tools {
 		return Math.sqrt(sumdev2/numbers.length);
 	}
 	
+	/**
+	 * Calculates the standard deviation of a short array.
+	 * @param numbers Array of short values
+	 * @return Standard deviation, or 0 if array is null/has fewer than 2 elements
+	 */
 	public static final double standardDeviation(short[] numbers){
 		if(numbers==null || numbers.length<2){return 0;}
 		long sum=sum(numbers);
@@ -3517,6 +4870,11 @@ public final class Tools {
 		return Math.sqrt(sumdev2/numbers.length);
 	}
 	
+	/**
+	 * Calculates the weighted average of a histogram.
+	 * @param histogram Array where histogram[i] contains count of values equal to i
+	 * @return Weighted average of the histogram values
+	 */
 	public static final double averageHistogram(long[] histogram){
 		long sum=max(1, sum(histogram));
 		long sum2=0;
@@ -3527,6 +4885,11 @@ public final class Tools {
 		return avg;
 	}
 	
+	/**
+	 * Calculates the standard deviation of a char histogram.
+	 * @param histogram Array where histogram[i] contains count of values equal to i
+	 * @return Standard deviation of the histogram values
+	 */
 	public static final double standardDeviationHistogram(char[] histogram){
 		long sum=max(1, sum(histogram));
 		long sum2=0;
@@ -3543,6 +4906,11 @@ public final class Tools {
 		return Math.sqrt(sumdev2/sum);
 	}
 	
+	/**
+	 * Calculates the standard deviation of an int histogram.
+	 * @param histogram Array where histogram[i] contains count of values equal to i
+	 * @return Standard deviation of the histogram values
+	 */
 	public static final double standardDeviationHistogram(int[] histogram){
 		long sum=max(1, sum(histogram));
 		long sum2=0;
@@ -3559,6 +4927,11 @@ public final class Tools {
 		return Math.sqrt(sumdev2/sum);
 	}
 	
+	/**
+	 * Calculates the standard deviation of a long histogram.
+	 * @param histogram Array where histogram[i] contains count of values equal to i
+	 * @return Standard deviation of the histogram values
+	 */
 	public static final double standardDeviationHistogram(long[] histogram){
 		long sum=max(1, sum(histogram));
 		long sum2=0;
@@ -3594,6 +4967,11 @@ public final class Tools {
 		return Math.sqrt(sumdev2/sumU);
 	}
 	
+	/**
+	 * Calculates the standard deviation of an AtomicLongArray histogram.
+	 * @param histogram Array where histogram[i] contains count of values equal to i
+	 * @return Standard deviation of the histogram values
+	 */
 	public static final double standardDeviationHistogram(AtomicLongArray histogram){
 		long sum=max(1, sum(histogram));
 		long sum2=0;
@@ -3629,6 +5007,12 @@ public final class Tools {
 		return Math.sqrt(sumdev2/sumU);
 	}
 	
+	/**
+	 * Downsamples a long array into fewer bins by combining adjacent elements.
+	 * @param array Original array to downsample
+	 * @param bins Number of bins in the output array
+	 * @return Downsampled array with combined values
+	 */
 	public static final long[] downsample(long[] array, int bins){
 		if(array==null || array.length==bins){return array;}
 		assert(bins<=array.length);
@@ -3645,6 +5029,8 @@ public final class Tools {
 	}
 
 	
+	/** Pauses execution for the specified number of milliseconds.
+	 * @param millis Number of milliseconds to sleep */
 	public static final void pause(int millis){
 		try {
 			Thread.sleep(millis);
@@ -3654,6 +5040,15 @@ public final class Tools {
 		}
 	}
 
+	/**
+	 * Determines the appropriate file extension for temporary files.
+	 * Based on input/output formats and compression settings.
+	 *
+	 * @param ffin Input file format
+	 * @param ffout Output file format
+	 * @param extout Explicit extension override
+	 * @return File extension string including leading dot
+	 */
 	public static final String getTempExt(FileFormat ffin, FileFormat ffout, String extout) {
 		String tempExt=".fq.gz";
 		if(extout==null){
@@ -3670,55 +5065,139 @@ public final class Tools {
 		return tempExt;
 	}
 
-	public static final int min(int x, int y){return x<y ? x : y;}
-	public static final int max(int x, int y){return x>y ? x : y;}
-	public static final int min(int x, int y, int z){return x<y ? (x<z ? x : z) : (y<z ? y : z);}
-	public static final int max(int x, int y, int z){return x>y ? (x>z ? x : z) : (y>z ? y : z);}
+	/** Returns the minimum of two integers */
+	public static final int min(int x, int y){return Math.min(x, y);}
+	/** Returns the maximum of two integers */
+	public static final int max(int x, int y){return Math.max(x, y);}
+	/** Returns the minimum of three integers */
+	public static final int min(int x, int y, int z){return Math.min(Math.min(x, y), z);}
+	/** Returns the maximum of three integers */
+	public static final int max(int x, int y, int z){return Math.max(Math.max(x, y), z);}
+	/** Returns the minimum of four integers */
 	public static final int min(int x, int y, int z, int z2){return min(min(x,y), min(z,z2));}
+	/** Returns the maximum of four integers */
 	public static final int max(int x, int y, int z, int z2){return max(max(x,y), max(z,z2));}
 	
 	//Median of 3
 //	public static final int mid(int x, int y, int z){return x<y ? (x<z ? min(y, z) : x) : (y<z ? min(x, z) : y);}
+	/**
+	 * Returns the median of three integers.
+	 *
+	 * @param x First integer
+	 * @param y Second integer
+	 * @param z Third integer
+	 * @return The middle value of the three inputs
+	 */
 	public static final int mid(int x, int y, int z) {
 	    return Math.max(Math.min(x, y), Math.min(Math.max(x, y), z));
 	}
 
+	/** Returns the minimum of two characters */
 	public static final char min(char x, char y){return x<y ? x : y;}
+	/** Returns the maximum of two characters */
 	public static final char max(char x, char y){return x>y ? x : y;}
 
+	/** Returns the minimum of two bytes */
 	public static final byte min(byte x, byte y){return x<y ? x : y;}
+	/** Returns the maximum of two bytes */
 	public static final byte max(byte x, byte y){return x>y ? x : y;}
+	/** Returns the minimum of three bytes */
 	public static final byte min(byte x, byte y, byte z){return x<y ? min(x, z) : min(y, z);}
+	/** Returns the maximum of three bytes */
 	public static final byte max(byte x, byte y, byte z){return x>y ? max(x, z) : max(y, z);}
+	/** Returns the minimum of four bytes */
 	public static final byte min(byte x, byte y, byte z, byte a){return min(min(x, y), min(z, a));}
+	/** Returns the maximum of four bytes */
 	public static final byte max(byte x, byte y, byte z, byte a){return max(max(x, y), max(z, a));}
 
+	/**
+	 * Returns the median of three bytes.
+	 *
+	 * @param x First byte
+	 * @param y Second byte
+	 * @param z Third byte
+	 * @return The middle value of the three inputs
+	 */
 	public static final byte mid(byte x, byte y, byte z){return x<y ? (x<z ? min(y, z) : x) : (y<z ? min(x, z) : y);}
 	
-	public static final long min(long x, long y){return x<y ? x : y;}
-	public static final long max(long x, long y){return x>y ? x : y;}
-	public static final long min(long x, long y, long z){return x<y ? (x<z ? x : z) : (y<z ? y : z);}
-	public static final long max(long x, long y, long z){return x>y ? (x>z ? x : z) : (y>z ? y : z);}
+	/** Returns the minimum of two longs */
+	public static final long min(long x, long y){return Math.min(x, y);}
+	/** Returns the maximum of two longs */
+	public static final long max(long x, long y){return Math.max(x, y);}
+	/** Returns the minimum of three longs */
+	public static final long min(long x, long y, long z){return Math.min(Math.min(x, y), z);}
+	/** Returns the maximum of three longs */
+	public static final long max(long x, long y, long z){return Math.max(Math.max(x, y), z);}
+	/** Returns the minimum of four longs */
 	public static final long min(long x, long y, long z, long z2){return min(min(x,y), min(z,z2));}
+	/** Returns the maximum of four longs */
 	public static final long max(long x, long y, long z, long z2){return max(max(x,y), max(z,z2));}
+	/**
+	 * Returns the median of three longs.
+	 *
+	 * @param x First long
+	 * @param y Second long
+	 * @param z Third long
+	 * @return The middle value of the three inputs
+	 */
 	public static final long mid(long x, long y, long z){return x<y ? (x<z ? min(y, z) : x) : (y<z ? min(x, z) : y);}
+	/**
+	 * Converts a long to int with bounds checking.
+	 * @param x Long value to convert
+	 * @return Int value clamped to Integer.MIN_VALUE/MAX_VALUE
+	 */
 	public static final int longToInt(long x){return x<Integer.MIN_VALUE ? Integer.MIN_VALUE : x>Integer.MAX_VALUE ? Integer.MAX_VALUE : (int)x;}
 	
-	public static final double min(double x, double y){return x<y ? x : y;}
-	public static final double max(double x, double y){return x>y ? x : y;}
-	public static final double min(double x, double y, double z){return x<y ? (x<z ? x : z) : (y<z ? y : z);}
-	public static final double max(double x, double y, double z){return x>y ? (x>z ? x : z) : (y>z ? y : z);}
+	/** Returns the minimum of two doubles */
+	public static final double min(double x, double y){return Math.min(x, y);}
+	/** Returns the maximum of two doubles */
+	public static final double max(double x, double y){return Math.max(x, y);}
+	/** Returns the minimum of three doubles */
+	public static final double min(double x, double y, double z){return Math.min(Math.min(x, y), z);}
+	/** Returns the maximum of three doubles */
+	public static final double max(double x, double y, double z){return Math.max(Math.max(x, y), z);}
+	/** Returns the maximum of four doubles */
 	public static final double max(double w, double x, double y, double z){return max(max(w, x), max(y, z));}
+	/**
+	 * Returns the median of three doubles.
+	 *
+	 * @param x First double
+	 * @param y Second double
+	 * @param z Third double
+	 * @return The middle value of the three inputs
+	 */
 	public static final double mid(double x, double y, double z){return x<y ? (x<z ? min(y, z) : x) : (y<z ? min(x, z) : y);}
 	
-	public static final float min(float x, float y){return x<y ? x : y;}
-	public static final float max(float x, float y){return x>y ? x : y;}
-	public static final float min(float x, float y, float z){return x<y ? (x<z ? x : z) : (y<z ? y : z);}
-	public static final float max(float x, float y, float z){return x>y ? (x>z ? x : z) : (y>z ? y : z);}
+	/** Returns the minimum of two floats */
+	public static final float min(float x, float y){return Math.min(x, y);}
+	/** Returns the maximum of two floats */
+	public static final float max(float x, float y){return Math.max(x, y);}
+	/** Returns the minimum of three floats */
+	public static final float min(float x, float y, float z){return Math.min(Math.min(x, y), z);}
+	/** Returns the maximum of three floats */
+	public static final float max(float x, float y, float z){return Math.max(Math.max(x, y), z);}
+	/** Returns the minimum of four floats */
 	public static final float min(float x, float y, float z, float z2){return min(min(x, y), min(z, z2));}
+	/** Returns the maximum of four floats */
 	public static final float max(float x, float y, float z, float z2){return max(max(x, y), max(z, z2));}
+	/**
+	 * Returns the median of three floats.
+	 *
+	 * @param x First float
+	 * @param y Second float
+	 * @param z Third float
+	 * @return The middle value of the three inputs
+	 */
 	public static final float mid(float x, float y, float z){return x<y ? (x<z ? min(y, z) : x) : (y<z ? min(x, z) : y);}
 
+	/**
+	 * Returns the minimum value in a subrange of an int array.
+	 *
+	 * @param array Array to search
+	 * @param fromIndex Starting index (inclusive)
+	 * @param toIndex Ending index (inclusive)
+	 * @return Minimum value in the specified range
+	 */
 	public static final int min(int[] array, int fromIndex, int toIndex){
 		int min=array[fromIndex];
 		for(int i=fromIndex+1; i<=toIndex; i++){
@@ -3727,6 +5206,14 @@ public final class Tools {
 		return min;
 	}
 	
+	/**
+	 * Returns the maximum value in a subrange of an int array.
+	 *
+	 * @param array Array to search
+	 * @param fromIndex Starting index (inclusive)
+	 * @param toIndex Ending index (inclusive)
+	 * @return Maximum value in the specified range
+	 */
 	public static final int max(int[] array, int fromIndex, int toIndex){
 		int max=array[fromIndex];
 		for(int i=fromIndex+1; i<=toIndex; i++){
@@ -3735,6 +5222,14 @@ public final class Tools {
 		return max;
 	}
 	
+	/**
+	 * Returns the minimum value in a subrange of a long array.
+	 *
+	 * @param array Array to search
+	 * @param fromIndex Starting index (inclusive)
+	 * @param toIndex Ending index (inclusive)
+	 * @return Minimum value in the specified range
+	 */
 	public static final long min(long[] array, int fromIndex, int toIndex){
 		long min=array[fromIndex];
 		for(int i=fromIndex+1; i<=toIndex; i++){
@@ -3743,6 +5238,14 @@ public final class Tools {
 		return min;
 	}
 	
+	/**
+	 * Returns the maximum value in a subrange of a long array.
+	 *
+	 * @param array Array to search
+	 * @param fromIndex Starting index (inclusive)
+	 * @param toIndex Ending index (inclusive)
+	 * @return Maximum value in the specified range
+	 */
 	public static final long max(long[] array, int fromIndex, int toIndex){
 		long max=array[fromIndex];
 		for(int i=fromIndex+1; i<=toIndex; i++){
@@ -3751,6 +5254,11 @@ public final class Tools {
 		return max;
 	}
 
+	/**
+	 * Finds the index of the minimum value in an int array.
+	 * @param array Array to search
+	 * @return Index of minimum element, or -1 if array is null/empty
+	 */
 	public static int minIndex(int[] array) {
 		if(array==null || array.length<1){return -1;}
 		float min=array[0];
@@ -3764,6 +5272,11 @@ public final class Tools {
 		return index;
 	}
 	
+	/**
+	 * Trims a string at the first whitespace character.
+	 * @param s String to trim
+	 * @return Substring from start to first whitespace, or original string
+	 */
 	public static String trimWhitespace(String s){
 		for(int i=0; i<s.length(); i++){
 			if(Character.isWhitespace(s.charAt(i))){
@@ -3774,11 +5287,24 @@ public final class Tools {
 		return s;
 	}
 	
+	/**
+	 * Calculates GC content of a DNA sequence.
+	 * @param s Byte array containing DNA bases
+	 * @return GC content as fraction (0.0 to 1.0)
+	 */
 	public static float calcGC(byte[] s) {
 		if(s==null) {return 0;}
 		return calcGC(s, 0, s.length-1);
 	}
 	
+	/**
+	 * Calculates GC content of a DNA sequence within a specified range.
+	 *
+	 * @param s Byte array containing DNA bases
+	 * @param from Starting index (inclusive)
+	 * @param to Ending index (inclusive)
+	 * @return GC content as fraction (0.0 to 1.0)
+	 */
 	public static float calcGC(byte[] s, int from, int to) {
 		if(s==null) {return 0;}
 		int[] acgtn=localACGTN.get();
@@ -3820,9 +5346,15 @@ public final class Tools {
 		return true;
 	}
 	
+	/**
+	 * Converts a DNA sequence to canonical form in-place.
+	 * If not already canonical, reverse-complements the sequence.
+	 * @param s DNA sequence as byte array (modified in-place)
+	 * @return true if sequence was reverse-complemented, false if already canonical
+	 */
 	public static boolean canonize(byte[] s) {
 		if(canonical(s)) {return false;}
-		AminoAcid.reverseComplementBasesInPlace(s);
+		Vector.reverseComplementInPlace(s);
 		return true;
 	}
 	
@@ -3832,16 +5364,119 @@ public final class Tools {
 	 *  This is much faster than the table version.  Results seem similar y.
 	 */
 	public static long hash64shift(long key){
-		key = (~key) + (key << 21); // key = (key << 21) - key - 1;
-		key = key ^ (key >>> 24);
-		key = (key + (key << 3)) + (key << 8); // key * 265
-		key = key ^ (key >>> 14);
-		key = (key + (key << 2)) + (key << 4); // key * 21
-		key = key ^ (key >>> 28);
-		key = key + (key << 31);
+		key=(~key)+(key<<21); // key=(key<<21) - key - 1;
+		key=key^(key>>>24);
+		key=(key+(key<<3))+(key<<8); // key*265
+		key=key^(key>>>14);
+		key=(key+(key<<2))+(key<<4); // key*21
+		key=key^(key>>>28);
+		key=key+(key<<31);
 		return key;
 	}
 	
+	public static int hash64plus(long key){
+		key=(~key)+(key<<21);
+		key=key^(key>>>24);
+		key=(key+(key<<3))+(key<<8);
+		key=key^(key>>>14);
+		key=(key+(key<<2))+(key<<4);
+		key=key^(key>>>28);
+		key=key+(key<<31);
+		int ikey=(int)(key&0x7FFFFFFF);
+		return ikey<0x7FFFF800 ? ikey : (ikey-0x7FFFF800)*64;
+	}
+
+	public static int hash32shift(int key){
+		key=~key+(key<<15); // key=(key<<15) - key - 1;
+		key=key^(key>>>12);
+		key=key+(key<<2);
+		key=key^(key>>>4);
+		key=key*2057; // key=(key+(key<<3))+(key<<11);
+		key=key^(key>>>16);
+		return key;
+	}
+
+	/** Returns a positive number below Java max array length */
+	public static int hash32plus(int key){
+		key=~key+(key<<15);
+		key=key^(key>>>12);
+		key=key+(key<<2);
+		key=key^(key>>>4);
+		key=key*2057;
+		key=key^(key>>>16);
+		key=key&(0x7FFFFFFF);
+		return key<0x7FFFF800 ? key : (key-0x7FFFF800)*64;
+	}
+
+	/** Returns a positive number below Java max array length 
+	 * Slow */
+	public static int hash32plus2(int key){
+		key=~key+(key<<15);
+		key=key^(key>>>12);
+		key=key+(key<<2);
+		key=key^(key>>>4);
+		key=key*2057;
+		key=key^(key>>>16);
+		key=key&(0x7FFFFFFF);
+		return (int)((key*4095L)>>12);
+	}
+
+	/** Returns a positive number below Java max array length 
+	 * Slow */
+	public static int hash32plus3(int key){
+		key=~key+(key<<15);
+		key=key^(key>>>12);
+		key=key+(key<<2);
+		key=key^(key>>>4);
+		key=key*2057;
+		key=key^(key>>>16);
+		key=key&(0x7FFFFFFF);
+		return (int)(key*hashMult);
+	}
+
+	public static long murmur64(long key){
+		key^=key>>>33;
+		key*=0xff51afd7ed558ccdL;
+		key^=key>>>33;
+		key*=0xc4ceb9fe1a85ec53L;
+		key^=key>>>33;
+		return key;
+	}
+
+	public static int murmur32(int key){
+		key^=key>>>16;
+		key*=0x85ebca6b;
+		key^=key>>>13;
+		key*=0xc2b2ae35;
+		key^=key>>>16;
+		return key;
+	}
+
+	public static int murmur64plus(long key){
+		key^=key>>>33;
+		key*=0xff51afd7ed558ccdL;
+		key^=key>>>33;
+		key*=0xc4ceb9fe1a85ec53L;
+		key^=key>>>33;
+		int ikey=(int)(key&0x7FFFFFFF);
+		return ikey<0x7FFFF800 ? ikey : (ikey-0x7FFFF800)*64;
+	}
+
+	public static int murmur32plus(int key){
+		key^=key>>>16;
+		key*=0x85ebca6b;
+		key^=key>>>13;
+		key*=0xc2b2ae35;
+		key^=key>>>16;
+		return key<0x7FFFF800 ? key : (key-0x7FFFF800)*64;
+	}
+
+	/**
+	 * Generates exponentially distributed random values.
+	 * @param randy Random number generator
+	 * @param lamda Rate parameter (lambda) of the exponential distribution
+	 * @return Random value from exponential distribution
+	 */
 	public static double exponential(Random randy, double lamda){
 //		for(int i=0; i<20; i++){
 //			double p=randy.nextDouble();
@@ -3853,34 +5488,61 @@ public final class Tools {
 		return -Math.log(1-p)/lamda;
 	}
 	
+	/**
+	 * Calculates base-2 logarithm of a value.
+	 * @param d Value to take log of
+	 * @return Base-2 logarithm
+	 */
 	public static double log2(double d){
 		return Math.log(d)*invlog2;
 	}
 	
+	/**
+	 * Calculates logarithm base sqrt(2) of a value.
+	 * @param d Value to take log of
+	 * @return Logarithm base sqrt(2)
+	 */
 	public static double logRoot2(double d){
 		return Math.log(d)*invlogRoot2;
 	}
 	
+	/**
+	 * Calculates logarithm base 1.2 of a value.
+	 * @param d Value to take log of
+	 * @return Logarithm base 1.2
+	 */
 	public static double log1point2(double d){
 		return Math.log(d)*invlog1point2;
 	}
 
+	/** Natural logarithm of 2 */
 	public static final double log2=Math.log(2);
+	/** Inverse of natural logarithm of 2 (1/ln(2)) */
 	public static final double invlog2=1/log2;
+	/** Natural logarithm of sqrt(2) */
 	private static final double logRoot2=Math.log(Math.sqrt(2));
+	/** Inverse of natural logarithm of sqrt(2) */
 	private static final double invlogRoot2=1/logRoot2;
+	/** Natural logarithm of 1.2 */
 	private static final double log1point2=Math.log(1.2);
+	/** Inverse of natural logarithm of 1.2 */
 	private static final double invlog1point2=1/log1point2;
 
+	/** Lookup table for digit characters (0-9) */
 	public static final boolean[] digitMap;
+	/** Lookup table for sign or digit characters (0-9, -) */
 	public static final boolean[] signOrDigitMap;
+	/** Lookup table for numeric characters (0-9, -, .) */
 	public static final boolean[] numericMap;
+	/** Lookup table for letter characters (a-z, A-Z) */
 	public static final boolean[] letterMap;
 	
 	/** ASCII equivalents for extended-ASCII characters */
 	public static final char[] specialChars;
 	
+	/** Precomputed string lengths for integers */
 	public static final int[] ilens;
+	/** Precomputed string lengths for longs */
 	public static final long[] llens;
 	
 	/* Precompiled regular expressions */
@@ -3908,6 +5570,7 @@ public final class Tools {
 	/** Equals */
 	public static final Pattern underscorePattern = Pattern.compile("_");
 	
+	/** Flag to force use of Java's parseDouble method over native parsing */
 	public static boolean FORCE_JAVA_PARSE_DOUBLE=false;
 	
 	static{
@@ -3991,18 +5654,39 @@ public final class Tools {
 		specialChars[253]='2';
 	}
 
+	/**
+	 * Tests if a string starts with a letter character.
+	 * @param a String to test
+	 * @return true if first character is a letter, false otherwise
+	 */
 	public static final boolean startsWithLetter(String a) {
 		return a!=null && a.length()>0 && Character.isLetter(a.charAt(0));
 	}
 
+	/**
+	 * Tests if a byte array starts with a letter character.
+	 * @param a Byte array to test
+	 * @return true if first byte is a letter, false otherwise
+	 */
 	public static final boolean startsWithLetter(byte[] a) {
 		return a!=null && a.length>0 && Character.isLetter(a[0]);
 	}
 
+	/**
+	 * Tests if a string starts with a digit character.
+	 * @param a String to test
+	 * @return true if first character is a digit, false otherwise
+	 */
 	public static final boolean startsWithDigit(String a) {
 		return a!=null && a.length()>0 && Character.isDigit(a.charAt(0));
 	}
 
+	/**
+	 * Tests if a string starts with a numeric character (digit or dot).
+	 * Does not handle negative signs or scientific notation.
+	 * @param a String to test
+	 * @return true if first character is numeric, false otherwise
+	 */
 	public static final boolean startsWithNumeric(String a) {
 		if(a==null || a.length()<1) {return false;}
 		char c=a.charAt(0);
@@ -4072,21 +5756,61 @@ public final class Tools {
 		return a;
 	}
 
+	/**
+	 * Gets the last element of an ArrayList.
+	 * @param list ArrayList to get last element from
+	 * @return Last element, or null if list is empty
+	 */
 	public static final <X> X getLast(ArrayList<X> list) {
 		return (list.size()>0 ? list.get(list.size()-1) : null);
 	}
 	
+	/**
+	 * Tests if a string represents a readable file path.
+	 * @param s File path string
+	 * @return true if path exists and is a readable file
+	 */
 	public static boolean isReadableFile(String s) {
 		if(s==null) {return false;}
 		File f=new File(s);
 		return f.canRead() && f.isFile();
 	}
 	
+	/**
+	 * Tests if an argument looks like an input stream specification.
+	 * Checks for "stdin" prefix or readable file without parameter syntax.
+	 * @param arg Argument string to test
+	 * @return true if argument appears to be an input stream
+	 */
 	public static boolean looksLikeInputStream(String arg) {
 		if(arg==null || arg.indexOf('=')>=0) {return false;}
 		return arg.toLowerCase().startsWith("stdin") || isReadableFile(arg);
 	}
+	
+	public static boolean looksLikeOutputStream(String arg) {
+		if(arg==null || arg.indexOf('=')>=0) {return false;}
+		String lc=arg.toLowerCase();
+		int dot=lc.indexOf('.');
+		return lc.startsWith("stdout") || lc.startsWith("stderr") || (dot>0 && dot<lc.length()-1);
+	}
+	
+	public static boolean looksLikeInputSequenceStream(String arg) {
+		if(arg==null || arg.indexOf('=')>=0 || !FileFormat.isSequence(arg)) {return false;}
+		return arg.toLowerCase().startsWith("stdin") || isReadableFile(arg);
+	}
+	
+	public static boolean looksLikeOutputSequenceStream(String arg) {
+		if(arg==null || arg.indexOf('=')>=0 || !FileFormat.isSequence(arg)) {return false;}
+		String lc=arg.toLowerCase();
+		int dot=lc.indexOf('.');
+		return lc.startsWith("stdout") || lc.startsWith("stderr") || (dot>0 && dot<lc.length()-1);
+	}
 
+    /**
+     * Sleeps for the specified duration with retry on interruption.
+     * Continues sleeping until the full duration has elapsed.
+     * @param millis Number of milliseconds to sleep
+     */
     public static void sleep(int millis){
 		if(millis<1){return;}
 		
@@ -4098,13 +5822,21 @@ public final class Tools {
 		}
 	}
 
+	/** Reference to AminoAcid.baseToNumber array */
 	private static final byte[] baseToNumber=AminoAcid.baseToNumber;
+	/** Reference to AminoAcid.baseToNumber0 array */
 	private static final byte[] baseToNumber0=AminoAcid.baseToNumber0;
+	/** Reference to AminoAcid.baseToComplementNumber array */
 	private static final byte[] baseToComplementNumber=AminoAcid.baseToComplementNumber;
+	/** Reference to AminoAcid.baseToHashcode array */
 	private static final byte[] baseToHashcode=AminoAcid.baseToHashcode;
+	/** Reference to AminoAcid.baseToNumberExtended array */
 	private static final byte[] baseToNumberExtended=AminoAcid.baseToNumberExtended;
+	/** Reference to AminoAcid.baseToComplementNumberExtended array */
 	private static final byte[] baseToComplementNumberExtended=AminoAcid.baseToComplementNumberExtended;
+	private static final float hashMult=0.99993896484375f;
 	
+	/** Thread-local storage for ACGTN count arrays used in GC calculations */
 	private static final ThreadLocal<int[]> localACGTN=new ThreadLocal<int[]>(){
         @Override protected int[] initialValue() {return new int[5];}
     };

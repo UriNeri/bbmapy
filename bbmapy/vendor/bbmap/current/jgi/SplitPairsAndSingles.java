@@ -32,6 +32,8 @@ import tracker.ReadStats;
  */
 public final class SplitPairsAndSingles {
 	
+	/** Program entry point for splitting paired and single reads.
+	 * @param args Command-line arguments specifying input/output files and processing options */
 	public static void main(String[] args){
 		SplitPairsAndSingles x=new SplitPairsAndSingles(args);
 		x.process();
@@ -40,6 +42,12 @@ public final class SplitPairsAndSingles {
 		Shared.closeStream(outstream);
 	}
 	
+	/**
+	 * Constructs a new SplitPairsAndSingles processor with command-line arguments.
+	 * Parses arguments to configure input/output files, quality trimming parameters,
+	 * and processing modes (standard, fix interleaving, or repair).
+	 * @param args Command-line arguments including file paths and options
+	 */
 	public SplitPairsAndSingles(String[] args){
 
 		{//Preparse block for help, config files, and outstream
@@ -213,6 +221,11 @@ public final class SplitPairsAndSingles {
 		Shared.closeStream(outstream);
 	}
 
+	/**
+	 * Main processing method that executes the read splitting pipeline.
+	 * Invokes the appropriate processing mode, measures execution time,
+	 * and reports processing statistics including input/output counts and trimming results.
+	 */
 	public void process(){
 		
 		Timer t=new Timer();
@@ -244,6 +257,11 @@ public final class SplitPairsAndSingles {
 		}
 	}
 	
+	/**
+	 * Sets up input and output streams and delegates to the appropriate processing method.
+	 * Creates concurrent read input/output streams, determines if input is paired,
+	 * and calls process3, process3_fixInterleaving, or process3_repair based on mode.
+	 */
 	private void process2(){
 		final ConcurrentReadInputStream cris;
 		if(in2!=null && repair){
@@ -387,6 +405,15 @@ public final class SplitPairsAndSingles {
 //		basesOut+=singleBasesOut+pairBasesOut;
 //	}
 	
+	/**
+	 * Standard processing mode that splits paired and single reads.
+	 * Processes each read pair, applies trimming and length filters,
+	 * then routes to paired or single output streams accordingly.
+	 *
+	 * @param cris Concurrent read input stream
+	 * @param ros Output stream for paired reads (may be null)
+	 * @param rosb Output stream for single reads (may be null)
+	 */
 	private void process3(final ConcurrentReadInputStream cris, final ConcurrentReadOutputStream ros, final ConcurrentReadOutputStream rosb){
 
 		ListNum<Read> ln=cris.nextList();
@@ -424,6 +451,15 @@ public final class SplitPairsAndSingles {
 		basesOut+=singleBasesOut+pairBasesOut;
 	}
 	
+	/**
+	 * Interleaving repair mode that fixes improperly interleaved files.
+	 * Reads sequential reads and tests pair names to determine proper pairing,
+	 * handling cases where reads may not be properly alternated in the input.
+	 *
+	 * @param cris Concurrent read input stream containing improperly interleaved reads
+	 * @param ros Output stream for properly paired reads (may be null)
+	 * @param rosb Output stream for orphaned single reads (may be null)
+	 */
 	private void process3_fixInterleaving(final ConcurrentReadInputStream cris, final ConcurrentReadOutputStream ros, final ConcurrentReadOutputStream rosb){
 
 		ListNum<Read> ln=cris.nextList();
@@ -495,6 +531,15 @@ public final class SplitPairsAndSingles {
 		basesOut+=singleBasesOut+pairBasesOut;
 	}
 	
+	/**
+	 * Repair mode for dual input streams that matches reads by name prefix.
+	 * Uses a HashMap to store unpaired reads temporarily and matches them
+	 * when their mate is encountered, outputting remaining singletons at the end.
+	 *
+	 * @param cris Dual concurrent read input stream
+	 * @param ros Output stream for repaired paired reads (may be null)
+	 * @param rosb Output stream for singleton reads (may be null)
+	 */
 	private void process3_repair(final DualCris cris, final ConcurrentReadOutputStream ros, final ConcurrentReadOutputStream rosb){
 
 		ListNum<Read> ln=cris.nextList();
@@ -556,6 +601,15 @@ public final class SplitPairsAndSingles {
 		basesOut+=singleBasesOut+pairBasesOut;
 	}
 	
+	/**
+	 * Repair mode for single input stream that matches reads by name prefix.
+	 * Uses a HashMap to store unpaired reads temporarily and matches them
+	 * when their mate is encountered, outputting remaining singletons at the end.
+	 *
+	 * @param cris Concurrent read input stream
+	 * @param ros Output stream for repaired paired reads (may be null)
+	 * @param rosb Output stream for singleton reads (may be null)
+	 */
 	private void process3_repair(final ConcurrentReadInputStream cris, final ConcurrentReadOutputStream ros, final ConcurrentReadOutputStream rosb){
 
 		ListNum<Read> ln=cris.nextList();
@@ -609,6 +663,17 @@ public final class SplitPairsAndSingles {
 	}
 	
 	
+	/**
+	 * Processes a single read pair, applying quality trimming and length filtering.
+	 * Routes reads to paired output if both pass filters, to single output if only one passes,
+	 * or discards both if neither passes minimum length requirements.
+	 *
+	 * @param r1 First read in the pair (never null)
+	 * @param r2 Second read in the pair (may be null for singleton)
+	 * @param pairs List to collect paired reads (may be null)
+	 * @param singles List to collect singleton reads (may be null)
+	 * @return Number of reads removed due to filtering
+	 */
 	private int processPair(Read r1, Read r2, ArrayList<Read> pairs, ArrayList<Read> singles){
 		int removed=0;
 		readsIn++;
@@ -676,6 +741,14 @@ public final class SplitPairsAndSingles {
 	}
 	
 	
+	/**
+	 * Attempts to repair a read by finding its mate in the repair HashMap.
+	 * Parses read names to determine pair numbers, stores unpaired reads,
+	 * and returns properly paired reads when both mates are found.
+	 *
+	 * @param r Read to repair (may be null)
+	 * @return Paired read if mate was found, null if read was stored for later pairing
+	 */
 	private Read repair(Read r){
 		if(r==null){return null;}
 		r.mate=null;
@@ -762,47 +835,75 @@ public final class SplitPairsAndSingles {
 	
 	private String in1=null, in2=null;
 	private String out1=null, out2=null;
+	/** Output file path for singleton reads */
 	private String outsingle=null;
+	/** Maximum number of reads to process (-1 for unlimited) */
 	private long maxReads=-1;
+	/** Indicates whether processing encountered errors */
 	public boolean errorState=false;
 	
+	/** Total number of input reads processed */
 	long readsIn=0;
+	/** Total number of input bases processed */
 	long basesIn=0;
+	/** Total number of reads written to output */
 	long readsOut=0;
+	/** Total number of bases written to output */
 	long basesOut=0;
+	/** Number of reads written as properly paired */
 	long pairsOut=0;
+	/** Number of bases in reads written as properly paired */
 	long pairBasesOut=0;
+	/** Number of reads written as singletons */
 	long singlesOut=0;
+	/** Number of bases in reads written as singletons */
 	long singleBasesOut=0;
+	/** Number of reads that underwent quality trimming */
 	long readsTrimmed=0;
+	/** Number of bases removed by quality trimming */
 	long basesTrimmed=0;
 
+	/** HashMap for storing unpaired reads during repair mode operations */
 	private final LinkedHashMap<String, Read> pairMap;
 
+	/** Quality score threshold for trimming (Phred scale) */
 	private float trimq=6;
 	/** Error rate for trimming (derived from trimq) */
 	private final float trimE;
+	/** Minimum read length after trimming to retain the read */
 	private int minReadLength=20;
 	private final boolean qtrimLeft, qtrimRight;
 	
+	/** Flag indicating interleaving repair mode is enabled */
 	private final boolean fixInterleaving;
+	/** Flag allowing identical read names for paired reads */
 	private final boolean allowIdenticalPairNames;
+	/** Flag indicating name-based read repair mode is enabled */
 	private final boolean repair;
 
+	/** Flag to add slash notation (/1, /2) to read names */
 	private boolean addslash=false;
+	/** Flag to add colon notation (1:, 2:) to read names */
 	private boolean addcolon=false;
 	
+	/** Output stream for status messages and statistics */
 	private static PrintStream outstream=System.err;
 	/** Permission to overwrite existing files */
 	public static boolean overwrite=true;
 	/** Permission to append to existing files */
 	public static boolean append=false;
+	/** Flag to display processing speed statistics */
 	public static boolean showSpeed=true;
+	/** Flag for verbose debugging output */
 	public static boolean verbose=false;
 	
+	/** Slash notation suffix for first read in pair */
 	private static final String slash1=" /1";
+	/** Slash notation suffix for second read in pair */
 	private static final String slash2=" /2";
+	/** Colon notation suffix for first read in pair */
 	private static final String colon1=" 1:";
+	/** Colon notation suffix for second read in pair */
 	private static final String colon2=" 2:";
 	
 }

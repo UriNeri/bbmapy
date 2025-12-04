@@ -70,12 +70,6 @@ public class BBDuk {
 	 * @param args Command line arguments
 	 */
 	public static void main(String[] args){
-		
-//		if(PreParser.isAmino(args)){
-//			BBDukAA.main(args);//No longer needed since this supports AAs
-//			return;
-//		}
-		
 		//Create a new BBDuk instance
 		BBDuk x=new BBDuk(args);
 		
@@ -117,7 +111,7 @@ public class BBDuk {
 		boolean rcomp_=true;
 		boolean forbidNs_=false;
 		boolean useForest_=false, useTable_=false, useArray_=true, prealloc_=false;
-		int k_=27, kbig_=-1;
+		int k_=31, kbig_=-1;
 		int mink_=-1;
 		int ways_=-1; //Currently disabled for speed
 		int maxBadKmers_=0;
@@ -173,6 +167,8 @@ public class BBDuk {
 			}else if(Parser.parseQuality(arg, a, b)){
 				//do nothing
 			}else if(Parser.parseFasta(arg, a, b)){
+				//do nothing
+			}else if(Parser.parseSam(arg, a, b)){
 				//do nothing
 			}else if(parser.parseInterleaved(arg, a, b)){
 				//do nothing
@@ -422,8 +418,6 @@ public class BBDuk {
 				entropyCutoff=Float.parseFloat(b);
 			}else if(a.equals("verifyentropy")){
 				EntropyTracker.verify=Parse.parseBoolean(b);
-//			}else if(a.equals("entropytracker") || a.equals("usetracker")){
-//				useEntropyTracker=Parse.parseBoolean(b);
 			}else if(a.equals("entropymask") || a.equals("maskentropy")){
 				if(b==null){
 					entropyMask=true;
@@ -597,12 +591,9 @@ public class BBDuk {
 			samplerate=parser.samplerate;
 			sampleseed=parser.sampleseed;
 			recalibrateQuality=parser.recalibrateQuality;
-			
+			THREADS=parser.workers();
 			overwrite=ReadStats.overwrite=parser.overwrite;
 			append=ReadStats.append=parser.append;
-//			testsize=parser.testsize;
-//			trimBadSequence=parser.trimBadSequence;
-//			breakLength=parser.breakLength;
 			
 			forceTrimModulo=parser.forceTrimModulo;
 			forceTrimLeft=parser.forceTrimLeft;
@@ -634,9 +625,6 @@ public class BBDuk {
 			maxReadLength=parser.maxReadLength;
 			maxNs=parser.maxNs;
 			minConsecutiveBases=parser.minConsecutiveBases;
-//			untrim=parser.untrim;
-//			minTrimLength=(parser.minTrimLength>=0 ? parser.minTrimLength : minTrimLength);
-//			requireBothBad=parser.requireBothBad;
 			removePairsIfEitherBad=(!parser.requireBothBad) && (!trimFailuresTo1bp_);
 			tossJunk=parser.tossJunk;
 
@@ -648,7 +636,6 @@ public class BBDuk {
 			loglogIn=(parser.loglog ? CardinalityTracker.makeTracker(parser) : null);
 			loglogOut=(parser.loglogOut ? CardinalityTracker.makeTracker(parser) : null);
 			
-			THREADS=Shared.threads();
 			silent=Parser.silent;
 			if(silent){
 				DISPLAY_PROGRESS=false;
@@ -885,8 +872,6 @@ public class BBDuk {
 		}else{
 			middleMask=-1L;
 		}
-//		assert(false) : Long.toBinaryString(middleMask)+", "+Long.toBinaryString((1L<<(2*k))-1);
-//		middleMask=maskMiddle ? ~(symbolMask<<(bitsPerBase*(k/2))) : -1L;
 		
 		hitCounts=(outduk==null ? null : new long[HITCOUNT_LEN+1]);
 		
@@ -1045,14 +1030,18 @@ public class BBDuk {
 		
 		//Initialize polymer-tracking
 		if(countPolymers){
-//			assert(polymerChar1>=0 && AminoAcid.baseToNumberACGTN[polymerChar1]>=0);
-//			assert(polymerChar2>=0 && AminoAcid.baseToNumberACGTN[polymerChar2]>=0);
 			pTracker=new PolymerTracker();
 		}else{
 			pTracker=null;
 		}
 	}
 	
+	/**
+	 * Processes array of reference paths and adds modified paths to list.
+	 * @param array Array of reference file paths
+	 * @param list Output list to store processed paths
+	 * @return Modified array of reference paths
+	 */
 	String[] modifyRefPath(String[] array, ArrayList<String> list){
 		if(array==null){return array;}
 		for(String s : array){
@@ -1062,6 +1051,14 @@ public class BBDuk {
 		return list.toArray(new String[0]);
 	}
 	
+	/**
+	 * Resolves reference path shortcuts to actual file paths.
+	 * Handles special keywords like "phix", "adapters", "truseq", etc.
+	 * to their corresponding resource files.
+	 *
+	 * @param s Reference path or keyword
+	 * @return Resolved file path
+	 */
 	public static String modifyRefPath(String s){
 		if(s==null || Tools.isReadableFile(s)){
 			//do nothing
@@ -1107,6 +1104,11 @@ public class BBDuk {
 	/*--------------------------------------------------------------*/
 	
 	
+	/**
+	 * Main processing method that coordinates the entire workflow.
+	 * Loads variants if specified, initializes quality recalibration,
+	 * calls process2 for core processing, and calculates final statistics.
+	 */
 	public void process(){
 		
 		if(samref!=null){
@@ -1123,14 +1125,6 @@ public class BBDuk {
 				outstream.println("Loading variants.");
 				varMap=VcfLoader.loadVcfFile(vcfFile, scafMap, false, false);
 			}
-//			if(varMap!=null && varMap.size()>0){
-//				varKeySet=new HashSet<VarKey>();
-//				for(Var v : varMap.toArray(false)){
-//					if(v.type==Var.INS || v.type==Var.DEL){
-//						varKeySet.add(VarKey.toVarKey(v));
-//					}
-//				}
-//			}
 			fixVariants=(makeReadStats && varMap!=null && varMap.size()>0 && scafMap!=null && scafMap.size()>0);
 		}
 		
@@ -1149,18 +1143,7 @@ public class BBDuk {
 		/* Start overall timer */
 		Timer t=new Timer();
 		
-//		boolean dq0=FASTQ.DETECT_QUALITY;
-//		boolean ti0=FASTQ.TEST_INTERLEAVED;
-//		int rbl0=Shared.bufferLen();;
-//		FASTQ.DETECT_QUALITY=false;
-//		FASTQ.TEST_INTERLEAVED=false;
-//		Shared.setBufferLen(16;
-		
 		process2(t.time1);
-		
-//		FASTQ.DETECT_QUALITY=dq0;
-//		FASTQ.TEST_INTERLEAVED=ti0;
-//		Shared.setBufferLen(rbl0;
 		
 		/* Stop timer and calculate speed statistics */
 		t.stop();
@@ -1180,6 +1163,12 @@ public class BBDuk {
 	}
 	
 	
+	/**
+	 * Core processing method that loads reference kmers and processes input reads.
+	 * Fills kmer tables from reference sequences, then spawns threads to match
+	 * reads against reference kmers and perform filtering/trimming operations.
+	 * @param startTime Start time in nanoseconds for timing calculations
+	 */
 	public void process2(long startTime){
 		
 		/* Start phase timer */
@@ -1376,6 +1365,11 @@ public class BBDuk {
 		}
 	}
 	
+	/**
+	 * Formats processing statistics as JSON string.
+	 * @param startTime Processing start time in nanoseconds
+	 * @return JSON-formatted statistics string
+	 */
 	private String toJson(long startTime){
 
 		jsonStats.add("k", k);
@@ -1460,11 +1454,23 @@ public class BBDuk {
 		return jsonStats.toString();
 	}
 	
+	/**
+	 * Formats ratio as percentage string with two decimal places.
+	 * @param numerator Numerator value
+	 * @param denominator Denominator value
+	 * @return Percentage string (e.g., "45.32%")
+	 */
 	public static String toPercent(long numerator, long denominator){
 		if(denominator<1){return "0.00%";}
 		return Tools.format("%.2f%%",numerator*100.0/denominator);
 	}
 	
+	/**
+	 * Right-pads string with spaces to minimum length.
+	 * @param s Input string
+	 * @param minLen Minimum desired length
+	 * @return Padded string
+	 */
 	private static String padRight(String s, int minLen){
 		while(s.length()<minLen){s=s+" ";}
 		return s;
@@ -1661,6 +1667,8 @@ public class BBDuk {
 		tsw.poisonAndWait();
 	}
 	
+	/** Formats RQC statistics map as string output.
+	 * @return Formatted RQC statistics string */
 	public static String rqcString(){
 		if(RQC_MAP==null){return null;}
 		StringBuilder sb=new StringBuilder();
@@ -1678,6 +1686,8 @@ public class BBDuk {
 		return sb.toString();
 	}
 	
+	/** Populates RQC statistics map with processing counts.
+	 * Adds input, filtered, trimmed, and output read/base counts. */
 	private void addToRqcMap(){
 		putRqc("inputReads", readsIn, false, false);
 		putRqc("inputBases", basesIn, false, false);
@@ -1699,6 +1709,14 @@ public class BBDuk {
 		putRqc("outputBases", basesOut, true, false);
 	}
 	
+	/**
+	 * Adds or updates entry in RQC statistics map.
+	 *
+	 * @param key Statistics key name
+	 * @param value Count value to store
+	 * @param evict Whether to replace existing value
+	 * @param add Whether to add to existing value
+	 */
 	public static void putRqc(String key, Long value, boolean evict, boolean add){
 		if(RQC_MAP==null){RQC_MAP=new HashMap<String,Long>();}
 		Long old=RQC_MAP.get(key);
@@ -1775,15 +1793,15 @@ public class BBDuk {
 			final int scafs=refScafCounts[r];
 			final int lim=s+scafs;
 			final String name=ReadWrite.stripToCore(refNames.get(r));
-//			outstream.println("r="+r+", s="+s+", scafs="+scafs+", lim="+lim+", name="+name);
 			while(s<lim){
-//				outstream.println(r+", "+s+". Setting "+scaffoldNames.get(s)+" -> "+name);
 				scaffoldNames.set(s, name);
 				s++;
 			}
 		}
 	}
 	
+	/** Calculates ratio of two specified polymer bases.
+	 * @return Ratio of polymer base counts (base1/base2) */
 	public double getPolymerRatio(){
 		return pTracker.calcRatioCumulative(polymerChar1, polymerChar2, polymerLength);
 	}
@@ -1928,7 +1946,6 @@ public class BBDuk {
 				try {
 					lt.join();
 				} catch (InterruptedException e) {
-					// TODO Auto-generated catch block
 					e.printStackTrace();
 				}
 			}
@@ -1936,7 +1953,6 @@ public class BBDuk {
 			refKmers+=lt.refKmersT;
 			refBases+=lt.refBasesT;
 			refReads+=lt.refReadsT;
-//			modsum+=lt.modsumT;
 			success&=lt.success;
 		}
 		if(!success){KillSwitch.kill("Failed loading ref kmers; aborting.");}
@@ -2151,7 +2167,6 @@ public class BBDuk {
 				try {
 					list=queue.take();
 				} catch (InterruptedException e) {
-					// TODO Auto-generated catch block
 					e.printStackTrace();
 				}
 			}
@@ -2231,9 +2246,7 @@ public class BBDuk {
 					final byte b=bases[i];
 					final long x=symbolToNumber0[b];
 					final long x2=symbolToComplementNumber0[b];
-//					assert(x!=x2) : x+", "+x2+", "+Character.toString((char)b)+"\n"+Arrays.toString(symbolToNumber0)+"\n"+Arrays.toString(symbolToComplementNumber);
 					kmer=((kmer<<bitsPerBase)|x)&mask;
-					//10000, 1111111111, 16, 16, 2, 10, 8
 					rkmer=((rkmer>>>bitsPerBase)|(x2<<shift2))&mask;
 					if(isFullyDefined(b)){len++;}else{len=0; rkmer=0;}
 					if(verbose){
@@ -2257,12 +2270,10 @@ public class BBDuk {
 						}
 					}
 					if(len>=k){
-//						assert(kmer==rcomp(rkmer, k)) : Long.toBinaryString(kmer)+", "+Long.toBinaryString(rkmer)+", "+Long.toBinaryString(mask)+", x="+x+", x2="+x2+", bits="+bitsPerBase+", s="+shift+", s2="+shift2+", b="+Character.toString((char)b);
 						refKmersT++;
 						final long extraBase=(i>=bases.length-1 ? -1 : symbolToNumber[bases[i+1]]);
 						final long atm=addToMap(kmer, rkmer, k, extraBase, id, kmask, hammingDistance, editDistance);
 						added+=atm;
-//						assert(false) : atm+", "+map.contains(toValue(kmer, rkmer, kmask));
 						if(useShortKmers){
 							if(i==k2){added+=addToMapRightShift(kmer, rkmer, id);}
 							if(i==bases.length-1){added+=addToMapLeftShift(kmer, rkmer, extraBase, id);}
@@ -2317,8 +2328,6 @@ public class BBDuk {
 				long extraBase=kmer&symbolMask;
 				kmer=kmer>>>bitsPerBase;
 				rkmer=rkmer&rightMasks[i];
-//				assert(Long.numberOfLeadingZeros(kmer)>=2*(32-i)) : Long.numberOfLeadingZeros(kmer)+", "+i+", "+kmer+", "+kMasks[i];
-//				assert(Long.numberOfLeadingZeros(rkmer)>=2*(32-i)) : Long.numberOfLeadingZeros(rkmer)+", "+i+", "+rkmer+", "+kMasks[i];
 				long x=addToMap(kmer, rkmer, i, extraBase, id, lengthMasks[i], hammingDistance2, editDistance2);
 				added+=x;
 				if(verbose){
@@ -2401,11 +2410,6 @@ public class BBDuk {
 				for(int j=0; j<symbols; j++){
 					for(int i=0; i<len; i++){
 						final long temp=(kmer&clearMasks[i])|setMasks[j][i]; //TODO:  6/14/23, fixed incorrect description of setMasks that swapped i and j; may need changing in Seal and etc
-//						System.err.println("cm:"+kmerToString(clearMasks[i], k));//123
-//						System.err.println("sm:"+kmerToString(setMasks[j][i], k));//123
-//						assert(Long.bitCount((temp^kmer))<=bitsPerBase) : //Warning: Slow assertion //123
-//							"\n"+kmerToString(kmer, k)+"\n"+kmerToString(temp, k)+"\n"+i+","+j+","+k;
-//						System.err.println(j+"\t"+i+"\t"+kmerToString(temp, k));//123
 						if(temp!=kmer){
 							long rtemp=rcomp(temp, len);
 							added+=mutate(temp, rtemp, len, id, dist2, extraBase);
@@ -2441,11 +2445,6 @@ public class BBDuk {
 
 			}
 			
-//			if(dist==1){//123
-//				System.err.println("Added "+added);
-//				assert(false);
-//			}
-			
 			return added;
 		}
 		
@@ -2459,8 +2458,6 @@ public class BBDuk {
 		public final int tnum;
 		/** Buffer of input read lists */
 		public final ArrayBlockingQueue<ArrayList<Read>> queue=new ArrayBlockingQueue<ArrayList<Read>>(32);
-//		/** Used to trick compiler */
-//		public long modsumT=0; //123
 		
 		/** Destination for storing kmers */
 		private final AbstractKmerTable map;
@@ -2782,8 +2779,6 @@ public class BBDuk {
 									xsum+=trimmed;
 									rktsum+=(trimmed>0 ? 1 : 0);
 									rlen1=r1.length();
-//									if(rlen1<minlen1){setDiscarded(r1);}
-//									if(b && r1.mateLength()<minlen1){setDiscarded(r1);}
 								}
 							}
 							
@@ -2876,9 +2871,7 @@ public class BBDuk {
 						if(bprob==null || bprob.length<r2.length()){bprob=new float[r2.length()];}
 						
 						//Do overlap trimming
-						r2.reverseComplement();
-//						int bestInsert=BBMergeOverlapper.mateByOverlap(r1, r2, aprob, bprob, overlapVector, minOverlap0, minOverlap,
-//								overlapMargin, overlapMaxMismatches0, overlapMaxMismatches, overlapMinq);
+						r2.reverseComplementFast();
 						int bestInsert=BBMergeOverlapper.mateByOverlapRatio(r1, r2, aprob, bprob, overlapVector, minOverlap0, minOverlap,
 								minInsert0, minInsert, maxRatio, 0.12f, ratioMargin, ratioOffset, 0.95f, 0.95f, useQualityForOverlap);
 						
@@ -2901,7 +2894,7 @@ public class BBDuk {
 							}
 						}
 						
-						r2.reverseComplement();
+						r2.reverseComplementFast();
 						
 						if(bestInsert>0 && !ambig){
 							if(bestInsert<r1.length()){
@@ -3326,14 +3319,8 @@ public class BBDuk {
 				for(int j=0; j<symbols && id<1; j++){
 					for(int i=0; i<len && id<1; i++){
 						final long temp=(kmer&clearMasks[i])|setMasks[j][i];
-//						outstream.println(i+", "+j+", "+setMasks[j][i]+", "+qHDist);
 						if(temp!=kmer){
 							long rtemp=rcomp(temp, len);
-//							assert(lengthMask==0 || (temp<lengthMask && rtemp<lengthMask)) : lengthMask+", "+temp+", "+rtemp+", "+kmer+", "+rkmer+
-//							"\n"+len+", "+Long.numberOfTrailingZeros(lengthMask)+"\n"+
-//									Long.toBinaryString(lengthMask|0x8000000000000000L)+"\n"+
-//											Long.toBinaryString(temp|0x8000000000000000L)+"\n"+
-//													Long.toBinaryString(rtemp|0x8000000000000000L);
 							id=getValue(temp, rtemp, lengthMask, qPos, len, qHDist2, sets);
 						}
 					}
@@ -3710,7 +3697,6 @@ public class BBDuk {
 			
 			int minLoc=999999999, minLocExclusive=999999999;
 			int maxLoc=-1, maxLocExclusive=-1;
-			final int initialLength=r.length();
 			
 			//Scan for normal kmers
 			for(int i=start; i<stop; i++){
@@ -3867,7 +3853,6 @@ public class BBDuk {
 			
 			int minLoc=999999999, minLocExclusive=999999999;
 			int maxLoc=-1, maxLocExclusive=-1;
-			final int initialLength=r.length();
 			
 			//Scan for normal kmers
 			for(int i=start; i<stop; i++){
@@ -4461,7 +4446,6 @@ public class BBDuk {
 				if(bs.get(i)){right++;}
 				else {break;}
 			}
-//			System.err.println(new String(bases)+"\nleft="+left+", right="+right);
 			if(left==0 && right==0){return 0;}
 			return TrimRead.trimByAmount(r, left, right, 1);
 		}
@@ -4510,8 +4494,7 @@ public class BBDuk {
 				for(int i=bs.nextSetBit(0); i>=0; i=bs.nextSetBit(i+1)){
 					if(!Tools.isLowerCase(bases[i])){
 						 if(bases[i]!='N'){sum++;}
-						 bases[i]=(byte)Tools.toLowerCase(bases[i]);
-						 //Don't change quality
+						 bases[i]=(byte)Tools.toLowerCase(bases[i]);//Don't change quality
 					}
 				}
 			}
@@ -4543,7 +4526,6 @@ public class BBDuk {
 		private final IntList countList;
 		
 		//These "*T" fields are used to store counts on a per-thread basis.
-		
 		long[] hitCountsT;
 		long[] scaffoldReadCountsT;
 		long[] scaffoldBaseCountsT;
@@ -4601,6 +4583,11 @@ public class BBDuk {
 	/*----------------        Static Methods        ----------------*/
 	/*--------------------------------------------------------------*/
 	
+	/**
+	 * Parses literal sequence argument into array of sequences.
+	 * @param arg Comma-separated list of literal sequences
+	 * @return Array of processed literal sequences
+	 */
 	public static final String[] processLiteralArg(String arg) {
 //		System.err.println("Caught "+arg);
 		if(arg==null) {return null;}
@@ -4615,6 +4602,11 @@ public class BBDuk {
 		return ret;
 	}
 	
+	/**
+	 * Processes individual literal sequence term, expanding polymer shortcuts.
+	 * @param b Single literal sequence or polymer specification
+	 * @return Processed literal sequence
+	 */
 	public static final String processLiteralTerm(String b) {
 //		System.err.println("Parsing "+b);
 		assert(b.length()>0) : "Invalid literal sequence: '"+b+"'";
@@ -4666,18 +4658,40 @@ public class BBDuk {
 		return ret;
 	}
 	
+	/**
+	 * Computes reverse complement of kmer.
+	 * @param kmer Input kmer
+	 * @param len Kmer length
+	 * @return Reverse complement kmer
+	 */
 	final long rcomp(long kmer, int len){
 		return amino ? kmer : AminoAcid.reverseComplementBinaryFast(kmer, len);
 	}
 	
+	/**
+	 * Determines if kmer passes speed filtering threshold.
+	 * @param key Kmer hash value
+	 * @return true if kmer should be processed
+	 */
 	final boolean passesSpeed(long key){
 		return speed<1 || ((key&Long.MAX_VALUE)%17)>=speed;
 	}
 	
+	/**
+	 * Determines if kmer fails speed filtering threshold.
+	 * @param key Kmer hash value
+	 * @return true if kmer should be skipped
+	 */
 	final boolean failsSpeed(long key){
 		return speed>0 && ((key&Long.MAX_VALUE)%17)<speed;
 	}
 
+	/**
+	 * Trims poly-A/poly-T tails from read sequences.
+	 * @param r Input read
+	 * @param minPoly Minimum homopolymer length to trim
+	 * @return Number of bases trimmed
+	 */
 	public static int trimPolyA(final Read r, final int minPoly){
 		assert(minPoly>0);
 		if(r==null || r.length()<minPoly){return 0;}
@@ -4694,16 +4708,20 @@ public class BBDuk {
 		return trimmed;
 	}
 
+	/**
+	 * Trims homopolymer sequences from read ends.
+	 *
+	 * @param r Input read
+	 * @param minPolyLeft Minimum left homopolymer length
+	 * @param minPolyRight Minimum right homopolymer length
+	 * @param maxNonPoly Maximum allowed non-matching bases within homopolymer
+	 * @param c Target base character for homopolymer
+	 * @return Number of bases trimmed
+	 */
 	public static int trimPoly(final Read r, final int minPolyLeft, final int minPolyRight, 
 			int maxNonPoly, final byte c){
 		assert(minPolyLeft>0 || minPolyRight>0);
 		if(r==null){return 0;}
-
-//		int left=minPolyLeft>0 ? r.countLeft(c) : 0;
-//		int right=minPolyRight>0 ? r.countRight(c) : 0;
-//
-//		if(left<minPolyLeft){left=0;}
-//		if(right<minPolyRight){right=0;}
 
 		int left=minPolyLeft>0 ? detectPolyLeft(r, minPolyLeft, maxNonPoly, c) : 0;
 		int right=minPolyRight>0 ? detectPolyRight(r, minPolyRight, maxNonPoly, c) : 0;
@@ -4715,6 +4733,15 @@ public class BBDuk {
 		return trimmed;
 	}
 
+	/**
+	 * Detects homopolymer sequence at left end of read.
+	 *
+	 * @param r Input read
+	 * @param minPoly Minimum homopolymer length
+	 * @param maxNonPoly Maximum allowed mismatches
+	 * @param c Target homopolymer base
+	 * @return Length of homopolymer sequence to trim
+	 */
 	public static int detectPolyLeft(final Read r, final int minPoly, final int maxNonPoly, final byte c){
 		assert(minPoly>0);
 		final byte[] bases=r.bases;
@@ -4737,6 +4764,15 @@ public class BBDuk {
 		return trimTo+1;
 	}
 
+	/**
+	 * Detects homopolymer sequence at right end of read.
+	 *
+	 * @param r Input read
+	 * @param minPoly Minimum homopolymer length
+	 * @param maxNonPoly Maximum allowed mismatches
+	 * @param c Target homopolymer base
+	 * @return Length of homopolymer sequence to trim
+	 */
 	public static int detectPolyRight(final Read r, final int minPoly, final int maxNonPoly, final byte c){
 		assert(minPoly>0);
 		final byte[] bases=r.bases;
@@ -4982,9 +5018,13 @@ public class BBDuk {
 	/** Stores JSON output */
 	JsonObject jsonStats;
 	
+	/** Total number of input reads processed */
 	long readsIn=0;
+	/** Total number of input bases processed */
 	long basesIn=0;
+	/** Total number of reads written to output */
 	long readsOut=0;
+	/** Total number of bases written to output */
 	long basesOut=0;
 	
 	long readsQTrimmed=0;
@@ -5001,9 +5041,13 @@ public class BBDuk {
 	long readsPolyTrimmed=0;
 	long basesPolyTrimmed=0;
 	
+	/** Number of reads modified by kmer trimming */
 	long readsKTrimmed=0;
+	/** Number of bases removed by kmer trimming */
 	long basesKTrimmed=0;
+	/** Number of reads removed by kmer filtering */
 	long readsKFiltered=0;
+	/** Number of bases removed by kmer filtering */
 	long basesKFiltered=0;
 	
 	long badGcReads;
@@ -5018,12 +5062,16 @@ public class BBDuk {
 	long readsTrimmedBySwift;
 	long basesTrimmedBySwift;
 	
+	/** Number of reference reads processed for kmer loading */
 	long refReads=0;
+	/** Number of reference bases processed for kmer loading */
 	long refBases=0;
+	/** Number of reference kmers encountered during loading */
 	long refKmers=0;
 	
 //	public long modsum=0; //123
 	
+	/** Number of unique kmers actually stored in hash tables */
 	long storedKmers=0;
 	
 	/*--------------------------------------------------------------*/

@@ -35,7 +35,7 @@ environments:
       - pypi: https://files.pythonhosted.org/packages/b3/38/89ba8ad64ae25be8de66a6d463314cf1eb366222074cfda9ee839c56a4b4/mdurl-0.1.2-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/c7/21/705964c7812476f378728bdf590ca4b771ec72385c533964653c68e86bdc/pygments-2.19.2-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/e3/30/3c4d035596d3cf444529e0b2953ad0466f6049528a879d27534700580395/rich-14.1.0-py3-none-any.whl
-      - pypi: .
+      - pypi: ./
 packages:
 - conda: https://conda.anaconda.org/conda-forge/linux-64/_libgcc_mutex-0.1-conda_forge.tar.bz2
   sha256: fe51de6107f9edc7aa4f786a70f4a883943bc9d39b3bb7307c04c41410990726
@@ -58,10 +58,10 @@ packages:
   purls: []
   size: 23621
   timestamp: 1650670423406
-- pypi: .
+- pypi: ./
   name: bbmapy
-  version: 0.0.51
-  sha256: e37c4d6e6594bac9b2367ccad26c7223c6a936dc8ca56d0902bcd1f4c3cadae8
+  version: 0.0.55
+  sha256: 2acfe755c182d6676ff73946f503a1e12e593b4afd8d58796c9f5c98adafb30a
   requires_dist:
   - rich
   - install-jdk

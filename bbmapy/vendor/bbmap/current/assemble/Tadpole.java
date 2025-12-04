@@ -25,6 +25,7 @@ import shared.Shared;
 import shared.Timer;
 import shared.Tools;
 import shared.TrimRead;
+import shared.Vector;
 import sort.ContigLengthComparator;
 import stream.ConcurrentReadInputStream;
 import stream.ConcurrentReadOutputStream;
@@ -67,6 +68,15 @@ public abstract class Tadpole extends ShaveObject{
 		Shared.closeStream(outstream);
 	}
 	
+	/**
+	 * Factory method creating appropriate Tadpole implementation based on k-mer size.
+	 * Creates Tadpole2 for k-mers >31 or when FORCE_TADPOLE2 is enabled, otherwise creates Tadpole1.
+	 * Sets AbstractKmerTableSet.MASK_CORE appropriately for memory optimization.
+	 *
+	 * @param args Command line arguments containing k-mer size and other parameters
+	 * @param setDefaults Whether to apply default configuration settings
+	 * @return Tadpole1 for short k-mers (≤31) or Tadpole2 for long k-mers (>31)
+	 */
 	public static Tadpole makeTadpole(String[] args, boolean setDefaults){
 		final int k=preparseK(args);
 		if(k>31 || FORCE_TADPOLE2){
@@ -85,6 +95,14 @@ public abstract class Tadpole extends ShaveObject{
 		}
 	}
 	
+	/**
+	 * Pre-parses command line arguments to determine k-mer size.
+	 * Extracts k-mer value and FORCE_TADPOLE2 flag before full argument processing.
+	 * Adjusts k-mer size using Kmer.getMult() and Kmer.getK() for efficient representation.
+	 *
+	 * @param args Command line arguments
+	 * @return Processed k-mer size suitable for table creation
+	 */
 	public static final int preparseK(String[] args){
 		int k=31;
 		for(int i=0; i<args.length; i++){
@@ -698,6 +716,14 @@ public abstract class Tadpole extends ShaveObject{
 	/*--------------------------------------------------------------*/
 	
 	
+	/**
+	 * Main processing method executing the complete assembly pipeline.
+	 * Validates output files, loads k-mers, processes based on selected mode,
+	 * and outputs results with comprehensive statistics. Handles parallel histogram
+	 * and k-mer output generation when threading is enabled.
+	 *
+	 * @param t Timer for tracking execution time
+	 */
 	public final void process(Timer t){
 		
 		/* Check for output file collisions */
@@ -768,15 +794,32 @@ public abstract class Tadpole extends ShaveObject{
 		}
 	}
 	
+	/** Creates k-mer frequency histogram for quality assessment and optimization */
 	abstract void makeKhist();
+	/** Exports k-mer frequency table to text format for analysis */
 	abstract void dumpKmersAsText();
+	/**
+	 * Loads k-mers from input reads into hash tables.
+	 * Implementation varies between Tadpole1 and Tadpole2 for different k-mer sizes.
+	 * @param t Timer for tracking k-mer loading performance
+	 * @return Number of k-mers loaded
+	 */
 	public abstract long loadKmers(Timer t);
 	
+	/**
+	 * Clears assembly data structures to free memory after processing completion
+	 */
 	public final void clearData(){
 		allContigs=null;
 		tables().clear();
 	}
 	
+	/**
+	 * Core processing method implementing mode-specific assembly operations.
+	 * Handles k-mer loading, range filtering, graph cleaning, and mode-specific processing
+	 * including contig building, read extension, or error correction.
+	 * @param mode Processing mode: contigMode, extendMode, correctMode, insertMode, or discardMode
+	 */
 	public final void process2(int mode){
 		
 		/* Start phase timer */
@@ -904,6 +947,17 @@ public abstract class Tadpole extends ShaveObject{
 	/*----------------         Inner Methods        ----------------*/
 	/*--------------------------------------------------------------*/
 	
+	/**
+	 * Performs graph cleaning operations to remove dead ends and bubbles.
+	 * Coordinates shaving (dead-end removal) and rinsing (bubble removal) operations
+	 * with optional progress reporting and performance timing.
+	 *
+	 * @param t Timer for tracking operation duration
+	 * @param shave Whether to remove dead ends
+	 * @param rinse Whether to remove bubbles
+	 * @param print Whether to output progress information
+	 * @return Number of k-mers removed during cleaning
+	 */
 	public final long shaveAndRinse(Timer t, boolean shave, boolean rinse, boolean print){
 		long removed=0;
 		if(shave || rinse){
@@ -931,7 +985,18 @@ public abstract class Tadpole extends ShaveObject{
 		return removed;
 	}
 	
+	/**
+	 * Performs graph shaving operations to remove spurious structures.
+	 * Implementation varies between Tadpole1 and Tadpole2 for different k-mer table types.
+	 *
+	 * @param shave Whether to remove dead ends
+	 * @param rinse Whether to remove bubbles
+	 * @return Number of k-mers removed
+	 */
 	abstract long shave(boolean shave, boolean rinse);
+	/**
+	 * Initializes thread ownership tracking for k-mers to prevent race conditions during parallel processing
+	 */
 	abstract void initializeOwnership();
 	
 	/**
@@ -1011,6 +1076,14 @@ public abstract class Tadpole extends ShaveObject{
 		}
 	}
 	
+	/**
+	 * Executes parallel build threads for contig construction.
+	 * Creates BUILD_THREADS worker threads, manages their lifecycle, and aggregates
+	 * statistics including contig counts, base counts, and insert size data.
+	 *
+	 * @param mode Processing mode for build threads
+	 * @param crisa Array of concurrent read input streams for parallel processing
+	 */
 	void runBuildThreads(int mode, ConcurrentReadInputStream[] crisa){
 		Timer t=new Timer(outstream, true);
 		
@@ -1049,6 +1122,11 @@ public abstract class Tadpole extends ShaveObject{
 		t.stop("Time: ");
 	}
 	
+	/**
+	 * Post-processes assembled contigs to create connectivity graph.
+	 * Initializes contig graph structure, runs parallel processing threads,
+	 * optionally performs bubble popping, and generates DOT format output for visualization.
+	 */
 	void processContigs(){
 //		outstream.println("Initializing contigs.\n");
 		Timer t=new Timer(outstream, true);
@@ -1101,6 +1179,12 @@ public abstract class Tadpole extends ShaveObject{
 		}
 	}
 	
+	/**
+	 * Creates mapping from destination contig IDs to incoming edges.
+	 * Builds lookup table for all edges pointing to each contig, enabling
+	 * efficient edge updates during bubble popping and graph modifications.
+	 * @return Map from destination contig ID to list of incoming edges
+	 */
 	HashMap<Integer, ArrayList<Edge>> destToEdgeMap(){
 		HashMap<Integer, ArrayList<Edge>> destToEdgeMap=new HashMap<Integer, ArrayList<Edge>>();
 		for(Contig c : allContigs){
@@ -1132,6 +1216,15 @@ public abstract class Tadpole extends ShaveObject{
 		return destToEdgeMap;
 	}
 	
+	/**
+	 * Removes bubble structures from contig graph to improve assembly contiguity.
+	 * Uses BubblePopper to identify and collapse alternative paths between shared
+	 * endpoints, with optional debranching to remove short dead-end branches.
+	 * Updates assembly statistics and renumbers contigs after modifications.
+	 *
+	 * @param debranch Whether to remove short dead-end branches
+	 * @return Number of bubbles successfully popped
+	 */
 	int popBubbles(boolean debranch){
 		outstream.println("Popping bubbles; contigs="+allContigs.size());
 		HashMap<Integer, ArrayList<Edge>> destToEdgeMap=destToEdgeMap();
@@ -1213,6 +1306,11 @@ public abstract class Tadpole extends ShaveObject{
 		return bubblesPoppedThisPass;
 	}
 	
+	/**
+	 * Executes parallel contig processing threads for connectivity analysis.
+	 * Creates worker threads to analyze contig connections and edge relationships,
+	 * aggregating edge creation statistics across all threads.
+	 */
 	void runProcessContigThreads(){
 		/* Create ProcessThreads */
 		AtomicInteger next=new AtomicInteger(0);
@@ -1234,10 +1332,32 @@ public abstract class Tadpole extends ShaveObject{
 		}
 	}
 	
+	/**
+	 * Initializes contig connectivity data structures for graph processing.
+	 * Implementation varies between Tadpole1 and Tadpole2 for different k-mer sizes.
+	 * @param contigs List of assembled contigs to initialize
+	 */
 	abstract void initializeContigs(ArrayList<Contig> contigs);
 	
+	/**
+	 * Factory method creating build threads for contig construction.
+	 * Returns thread implementation appropriate for k-mer table type.
+	 *
+	 * @param i Thread identifier
+	 * @param mode Processing mode
+	 * @param crisa Array of input streams for parallel processing
+	 * @return Build thread implementation
+	 */
 	abstract AbstractBuildThread makeBuildThread(int i, int mode, ConcurrentReadInputStream[] crisa);
 	
+	/**
+	 * Factory method creating threads for contig processing operations.
+	 * Returns thread implementation appropriate for k-mer table type.
+	 *
+	 * @param contigs List of contigs to process
+	 * @param next Atomic counter for work distribution
+	 * @return Process thread implementation
+	 */
 	abstract AbstractProcessContigThread makeProcessContigThread(ArrayList<Contig> contigs, AtomicInteger next);
 	
 	/**
@@ -1311,6 +1431,15 @@ public abstract class Tadpole extends ShaveObject{
 		}
 	}
 	
+	/**
+	 * Creates array of concurrent read input streams from file lists.
+	 * Supports both single-end and paired-end read files with automatic
+	 * format detection and thread-safe access configuration.
+	 *
+	 * @param list1 Primary read files
+	 * @param list2 Mate pair read files (may be empty)
+	 * @return Array of configured input streams
+	 */
 	private final ConcurrentReadInputStream[] makeCrisArray(ArrayList<String> list1, ArrayList<String> list2){
 		final ConcurrentReadInputStream[] array;
 
@@ -1331,6 +1460,15 @@ public abstract class Tadpole extends ShaveObject{
 		return array;
 	}
 	
+	/**
+	 * Creates array of concurrent read output streams for parallel writing.
+	 * Configures output streams with appropriate buffering and compression
+	 * settings for optimal performance.
+	 *
+	 * @param list1 Primary output files
+	 * @param list2 Mate pair output files (may be empty)
+	 * @return Array of configured output streams
+	 */
 	private final static ConcurrentReadOutputStream[] makeCrosArray(ArrayList<String> list1, ArrayList<String> list2){
 		final ConcurrentReadOutputStream[] array;
 
@@ -1481,6 +1619,15 @@ public abstract class Tadpole extends ShaveObject{
 			}
 		}
 		
+		/**
+		 * Processes reads from a single input stream through the extension pipeline.
+		 * Handles read pairs through error correction, extension, and quality filtering,
+		 * directing output to appropriate streams based on processing results.
+		 *
+		 * @param cris Input stream for reading sequences
+		 * @param ros Output stream for processed reads
+		 * @param rosd Output stream for discarded reads
+		 */
 		private void run(ConcurrentReadInputStream cris, ConcurrentReadOutputStream ros, ConcurrentReadOutputStream rosd){
 			
 			ListNum<Read> ln=cris.nextList();
@@ -1517,6 +1664,15 @@ public abstract class Tadpole extends ShaveObject{
 			cris.returnList(ln);
 		}
 		
+		/**
+		 * Finds overlap between paired reads for merging operations.
+		 * Uses either strict or very strict overlap detection based on configuration.
+		 *
+		 * @param r1 First read in pair
+		 * @param r2 Second read in pair
+		 * @param ecc Whether error correction should be applied during overlap detection
+		 * @return Overlap length in bases, or negative value if no valid overlap found
+		 */
 		final int findOverlap(Read r1, Read r2, boolean ecc){
 			if(vstrict){
 				return BBMerge.findOverlapVStrict(r1, r2, ecc);
@@ -1525,6 +1681,15 @@ public abstract class Tadpole extends ShaveObject{
 			}
 		}
 		
+		/**
+		 * Processes paired reads through merging, extension, and error correction.
+		 * Handles read overlap detection, merging validation, error correction,
+		 * and post-processing unmerging when required. Updates statistics for
+		 * all operations performed.
+		 *
+		 * @param r10 First read in pair
+		 * @param r20 Second read in pair (may be null for single-end)
+		 */
 		private void processReadPair(final Read r10, final Read r20){
 			Read r1=r10, r2=r20;
 			if(verbose){outstream.println("Considering read "+r1.id+" "+new String(r1.bases));}
@@ -1544,17 +1709,17 @@ public abstract class Tadpole extends ShaveObject{
 				final int insert=findOverlap(r1, r2, false);
 				if(merge){
 					if(insert>0){
-						r2.reverseComplement();
+						r2.reverseComplementFast();
 						r1=r1.joinRead(insert);
-						r2.reverseComplement();
+						r2.reverseComplementFast();
 						r2=null;
 						if(testMerge && !mergeOK(r1, initialLength1, initialLength2, mergeOKBitsetT, countList, kmerT, testMergeWidth, testMergeThresh, testMergeMult)){
 							r1=r1_0;
 							r2=r2_0;
 						}else{
-							r2_0.reverseComplement();
+							r2_0.reverseComplementFast();
 							int errors=BBMerge.countErrors(r1_0, r2_0, r1);
-							r2_0.reverseComplement();
+							r2_0.reverseComplementFast();
 							basesCorrectedEccoT+=errors;
 							readsCorrectedEccoT+=(errors>0 ? 1 : 0);
 							readsMergedT++;
@@ -1563,7 +1728,7 @@ public abstract class Tadpole extends ShaveObject{
 				}else if(ecco){
 //					findOverlap(r1, r2, true);
 					if(insert>0){
-						r2.reverseComplement();
+						r2.reverseComplementFast();
 						Read merged=r1.joinRead(insert);
 						if(!testMerge || mergeOK(merged, initialLength1, initialLength2, mergeOKBitsetT, countList, kmerT, testMergeWidth, testMergeThresh, testMergeMult)){
 							int errors=BBMerge.errorCorrectWithInsert(r1, r2, insert);
@@ -1571,7 +1736,7 @@ public abstract class Tadpole extends ShaveObject{
 							readsCorrectedEccoT+=(errors>0 ?1 : 0);
 							readsMergedT++;
 						}
-						r2.reverseComplement();
+						r2.reverseComplementFast();
 					}
 				}
 			}
@@ -1585,7 +1750,7 @@ public abstract class Tadpole extends ShaveObject{
 				final int len=Tools.min(r1.length(), initialLength2);
 				r2=r1.subRead(to-len+1, to);
 				r2.setPairnum(1);
-				r2.reverseComplement();
+				r2.reverseComplementFast();
 				r2.mate=r1;
 				r1.mate=r2;
 				r2.id=r2id;
@@ -1604,6 +1769,14 @@ public abstract class Tadpole extends ShaveObject{
 			}
 		}
 		
+		/**
+		 * Processes individual read through error correction, extension, and quality filtering.
+		 * Applies error correction algorithms, junk detection, coverage-based filtering,
+		 * bidirectional extension, and optional rollback operations. Updates thread-local
+		 * statistics for all processing steps.
+		 *
+		 * @param r Read to process (may be null)
+		 */
 		private void processRead(Read r){
 			if(r==null){return;}
 			if(!r.validated()){r.validate(true);}
@@ -1737,6 +1910,17 @@ public abstract class Tadpole extends ShaveObject{
 	/*----------------       Extension Methods      ----------------*/
 	/*--------------------------------------------------------------*/
 
+	/**
+	 * Extends read sequence using k-mer graph traversal.
+	 * Implementation varies between Tadpole1 and Tadpole2 for different k-mer sizes.
+	 *
+	 * @param r Read to extend
+	 * @param bb ByteBuilder for sequence construction
+	 * @param leftCounts Array for left-side base frequency analysis
+	 * @param rightCounts Array for right-side base frequency analysis
+	 * @param distance Maximum extension distance in bases
+	 * @return Number of bases added during extension
+	 */
 	public abstract int extendRead(Read r, ByteBuilder bb, int[] leftCounts, int[] rightCounts, int distance);
 	public abstract int extendRead(Read r, ByteBuilder bb, int[] leftCounts, int[] rightCounts, int distance, final Kmer kmer);
 //	{
@@ -1767,6 +1951,15 @@ public abstract class Tadpole extends ShaveObject{
 	/** Test a read to see if it could possibly assemble. */
 	public abstract boolean isJunk(Read r);
 	
+	/**
+	 * Tests read to determine if it could possibly assemble using provided data structures.
+	 * Implementation varies between Tadpole1 and Tadpole2 for different k-mer sizes.
+	 *
+	 * @param r Read to evaluate
+	 * @param localLeftCounts Array for base frequency analysis
+	 * @param kmer Kmer object for k-mer operations
+	 * @return true if read appears unassemblable (junk), false if potentially assemblable
+	 */
 	public abstract boolean isJunk(Read r, final int[] localLeftCounts, Kmer kmer);
 	
 	/** True if at least fraction of the reads kmers are at or below count. */
@@ -1779,6 +1972,15 @@ public abstract class Tadpole extends ShaveObject{
 	/*----------------       Error Correction       ----------------*/
 	/*--------------------------------------------------------------*/
 	
+	/**
+	 * Counts potential errors in sequence based on k-mer coverage patterns.
+	 * Uses bidirectional error detection comparing adjacent k-mer counts
+	 * with quality score integration when available.
+	 *
+	 * @param counts List of k-mer counts for sequence
+	 * @param quals Quality scores for sequence bases (may be null)
+	 * @return Number of potential errors detected
+	 */
 	public final int countErrors(IntList counts, byte[] quals){
 		int possibleErrors=0;
 		for(int i=1; i<counts.size; i++){
@@ -1797,14 +1999,70 @@ public abstract class Tadpole extends ShaveObject{
 		return possibleErrors;
 	}
 	
+	/**
+	 * Performs error correction on read using k-mer frequency analysis.
+	 * Implementation varies between Tadpole1 and Tadpole2 for different k-mer sizes.
+	 * @param r Read to correct
+	 * @return Number of errors corrected
+	 */
 	public abstract int errorCorrect(Read r);
 	
+	/**
+	 * Performs comprehensive error correction using multiple algorithms and data structures.
+	 * Implementation varies between Tadpole1 and Tadpole2 for different k-mer sizes.
+	 *
+	 * @param r Read to correct
+	 * @param leftCounts Array for left-side base frequency analysis
+	 * @param rightCounts Array for right-side base frequency analysis
+	 * @param kmers List for k-mer storage
+	 * @param counts Primary k-mer count list
+	 * @param counts2 Secondary k-mer count list
+	 * @param bb Primary sequence builder
+	 * @param bb2 Secondary sequence builder
+	 * @param tracker Error tracking statistics
+	 * @param bs BitSet for position marking
+	 * @param kmer Primary k-mer object
+	 * @param kmer2 Secondary k-mer object
+	 * @return Number of errors corrected
+	 */
 	public abstract int errorCorrect(Read r, final int[] leftCounts, final int[] rightCounts, LongList kmers, IntList counts, IntList counts2,
 			final ByteBuilder bb, final ByteBuilder bb2, final ErrorTracker tracker, final BitSet bs, Kmer kmer, Kmer kmer2);
 	
+	/**
+	 * Performs inner reassembly algorithm for error correction.
+	 * Implementation varies between Tadpole1 and Tadpole2 for different k-mer sizes.
+	 *
+	 * @param bb Sequence builder containing sequence to reassemble
+	 * @param quals Quality scores for bases
+	 * @param rightCounts Array for right-side base counting
+	 * @param counts K-mer count list
+	 * @param extension Extension length for reassembly
+	 * @param kmer Primary k-mer object
+	 * @param kmer2 Secondary k-mer object
+	 * @return Number of corrections applied
+	 */
 	public abstract int reassemble_inner(ByteBuilder bb, byte[] quals, final int[] rightCounts, IntList counts,
 			final int extension, final Kmer kmer, final Kmer kmer2);
 	
+	/**
+	 * Performs multi-pass reassembly error correction with bidirectional validation.
+	 * Constructs candidate sequences from both directions, applies quality filtering,
+	 * and performs consensus calling with rollback protection for over-correction.
+	 *
+	 * @param bases Sequence to reassemble
+	 * @param quals Quality scores for bases
+	 * @param rightCounts Array for base frequency analysis
+	 * @param counts Primary k-mer count list
+	 * @param counts2 Secondary k-mer count list
+	 * @param tracker Error tracking statistics
+	 * @param errorExtension Extension length for reassembly operations
+	 * @param bb Primary sequence builder
+	 * @param bb2 Secondary sequence builder
+	 * @param kmer Primary k-mer object
+	 * @param regenKmer K-mer object for regeneration
+	 * @param bs BitSet for position marking
+	 * @return Total number of corrections applied across all passes
+	 */
 	public final int reassemble(final byte[] bases, final byte[] quals, final int[] rightCounts, final IntList counts, final IntList counts2,
 			final ErrorTracker tracker, final int errorExtension, final ByteBuilder bb, final ByteBuilder bb2, final Kmer kmer, final Kmer regenKmer, BitSet bs){
 		if(bases.length<kbig+1+deadZone){return 0;}
@@ -1831,6 +2089,25 @@ public abstract class Tadpole extends ShaveObject{
 		return corrected;
 	}
 	
+	/**
+	 * Performs single pass of reassembly error correction algorithm.
+	 * Builds sequences from both directions, compares results for consensus,
+	 * applies sliding window quality filtering, and regenerates k-mer counts.
+	 *
+	 * @param bases Original sequence being corrected
+	 * @param quals Quality scores for bases
+	 * @param fromLeft Sequence builder for left-to-right assembly
+	 * @param fromRight Sequence builder for right-to-left assembly
+	 * @param rightCounts Array for base frequency analysis
+	 * @param counts Primary k-mer count list
+	 * @param counts2 Secondary k-mer count list
+	 * @param tracker Error tracking statistics
+	 * @param errorExtension Extension length for reassembly
+	 * @param kmer Primary k-mer object
+	 * @param kmer2 Secondary k-mer object
+	 * @param bs BitSet for position marking
+	 * @return Number of corrections applied in this pass
+	 */
 	public final int reassemble_pass(final byte[] bases, final byte[] quals, final ByteBuilder fromLeft, final ByteBuilder fromRight,
 			final int[] rightCounts, final IntList counts, final IntList counts2, final ErrorTracker tracker, final int errorExtension,
 			final Kmer kmer, final Kmer kmer2, final BitSet bs){
@@ -1892,10 +2169,10 @@ public abstract class Tadpole extends ShaveObject{
 		
 		int clearedLeft=clearWindow2(fromLeft, quals, windowLen, windowCount, windowQualSum/*, windowCountHQ, windowHQThresh*/);
 		fromRight.reverseInPlace();
-		Tools.reverseInPlace(quals);
+		Vector.reverseInPlace(quals);
 		int clearedRight=clearWindow2(fromRight, quals, windowLen, windowCount, windowQualSum/*, windowCountHQ, windowHQThresh*/);
 		fromRight.reverseInPlace();
-		Tools.reverseInPlace(quals);
+		Vector.reverseInPlace(quals);
 		
 		for(int i=0; i<bases.length; i++){
 			byte a=bases[i];
@@ -1957,6 +2234,18 @@ public abstract class Tadpole extends ShaveObject{
 		return corrected;
 	}
 	
+	/**
+	 * Applies sliding window quality filtering to clear low-quality corrections.
+	 * Removes corrections when window contains too many changes or low-quality bases
+	 * to prevent over-correction in problematic regions.
+	 *
+	 * @param bb ByteBuilder containing correction candidates
+	 * @param quals Quality scores for bases
+	 * @param window Window size for quality assessment
+	 * @param limit Maximum corrections allowed in window
+	 * @param qsumLimit Maximum quality sum allowed in window
+	 * @return Number of corrections cleared
+	 */
 	private static int clearWindow2(final ByteBuilder bb, final byte[] quals, final int window,
 			final int limit, final int qsumLimit/*, final int limitHQ, final byte hqThresh*/){
 		final int len=bb.length;
@@ -2055,6 +2344,17 @@ public abstract class Tadpole extends ShaveObject{
 		return marked;
 	}
 	
+	/**
+	 * Tests if k-mer count is similar to counts in specified range.
+	 * Uses coverage similarity thresholds to determine if counts represent
+	 * the same underlying coverage level within measurement variance.
+	 *
+	 * @param a Reference k-mer count for comparison
+	 * @param loc1 Start position in count list
+	 * @param loc2 End position in count list
+	 * @param counts K-mer count list
+	 * @return true if all counts in range are similar to reference count
+	 */
 	protected final boolean isSimilar(final int a, int loc1, int loc2, final IntList counts){
 		loc1=Tools.max(loc1, 0);
 		loc2=Tools.min(loc2, counts.size-1);
@@ -2064,6 +2364,14 @@ public abstract class Tadpole extends ShaveObject{
 		return true;
 	}
 	
+	/**
+	 * Tests if two k-mer counts are similar within configured thresholds.
+	 * Uses both constant and proportional similarity criteria for robust comparison.
+	 *
+	 * @param a First k-mer count
+	 * @param b Second k-mer count
+	 * @return true if counts are similar within configured tolerance
+	 */
 	protected final boolean isSimilar(final int a, final int b){
 		int min=Tools.min(a, b);
 		int max=Tools.max(a, b);
@@ -2072,6 +2380,17 @@ public abstract class Tadpole extends ShaveObject{
 		return (dif<pathSimilarityConstant || dif<max*pathSimilarityFraction);
 	}
 	
+	/**
+	 * Tests if reference count indicates error compared to counts in specified range.
+	 * Uses error detection thresholds to identify likely sequencing errors
+	 * based on dramatic coverage differences.
+	 *
+	 * @param a Reference k-mer count
+	 * @param loc1 Start position in count list
+	 * @param loc2 End position in count list
+	 * @param counts K-mer count list
+	 * @return true if all counts in range indicate error relative to reference
+	 */
 	protected final boolean isError(final int a, int loc1, int loc2, final IntList counts){
 		loc1=Tools.max(loc1, 0);
 		loc2=Tools.min(loc2, counts.size-1);
@@ -2081,10 +2400,30 @@ public abstract class Tadpole extends ShaveObject{
 		return true;
 	}
 	
+	/**
+	 * Tests for bidirectional error pattern using quality score integration.
+	 * Compares k-mer counts in both directions with quality-weighted error thresholds
+	 * to identify likely sequencing errors.
+	 *
+	 * @param a First k-mer count
+	 * @param b Second k-mer count
+	 * @param qa Quality score for first position
+	 * @param qb Quality score for second position
+	 * @return true if bidirectional error pattern detected
+	 */
 	protected final boolean isErrorBidirectional(final int a, final int b, final byte qa, final byte qb){
 		return (a>=b ? isError(a, b, qb) : isError(b, a, qa));
 	}
 	
+	/**
+	 * Tests if coverage ratio indicates sequencing error.
+	 * Uses configurable error multipliers and lower bounds to identify
+	 * dramatic coverage differences characteristic of errors.
+	 *
+	 * @param high Higher k-mer count
+	 * @param low Lower k-mer count
+	 * @return true if coverage ratio indicates likely error
+	 */
 	protected final boolean isError(final int high, final int low){
 		float em1;
 		if(errorPath==1){
@@ -2099,6 +2438,16 @@ public abstract class Tadpole extends ShaveObject{
 		return (low*em1<high || (low<=errorLowerConst && high>=Tools.max(minCountCorrect, low*errorMult2)));
 	}
 	
+	/**
+	 * Tests if coverage ratio indicates sequencing error with quality integration.
+	 * Adjusts error thresholds based on base quality score to improve
+	 * error detection accuracy.
+	 *
+	 * @param high Higher k-mer count
+	 * @param low Lower k-mer count
+	 * @param q Quality score for position being evaluated
+	 * @return true if coverage ratio indicates likely error
+	 */
 	protected final boolean isError(final int high, final int low, final byte q){
 		float em1;
 		if(errorPath==1){
@@ -2113,6 +2462,17 @@ public abstract class Tadpole extends ShaveObject{
 		return (low*em1<high || (low<=errorLowerConst && high>=Tools.max(minCountCorrect, low*errorMult2)));
 	}
 	
+	/**
+	 * Tests if position represents a single-base substitution error.
+	 * Analyzes flanking k-mer coverage patterns to identify isolated
+	 * substitution errors suitable for correction.
+	 *
+	 * @param ca Position index in count array
+	 * @param errorExtension Extension distance for context analysis
+	 * @param qb Quality score at position
+	 * @param counts K-mer count list
+	 * @return true if position appears to be substitution error
+	 */
 	protected final boolean isSubstitution(int ca, int errorExtension, byte qb, IntList counts){
 		final int cb=ca+1;
 		final int aCount=counts.get(ca);
@@ -2137,6 +2497,16 @@ public abstract class Tadpole extends ShaveObject{
 	/*----------------        Helper Methods        ----------------*/
 	/*--------------------------------------------------------------*/
 	
+	/**
+	 * Extracts k-mer from sequence at specified position.
+	 * Builds k-mer by adding nucleotides sequentially with validation
+	 * for ambiguous bases.
+	 *
+	 * @param bases Sequence containing k-mer
+	 * @param loc Starting position of k-mer
+	 * @param kmer Kmer object to populate
+	 * @return Populated kmer object or null if ambiguous bases encountered
+	 */
 	protected static final Kmer getKmer(byte[] bases, int loc, Kmer kmer){
 		kmer.clear();
 		for(int i=loc, lim=loc+kmer.kbig; i<lim; i++){
@@ -2149,6 +2519,16 @@ public abstract class Tadpole extends ShaveObject{
 		return kmer;
 	}
 	
+	/**
+	 * Tests if position represents a junction based on left and right branch analysis.
+	 * Considers position a junction if either direction shows significant branching.
+	 *
+	 * @param rightMax Highest count in right direction
+	 * @param rightSecond Second-highest count in right direction
+	 * @param leftMax Highest count in left direction
+	 * @param leftSecond Second-highest count in left direction
+	 * @return true if either direction indicates junction
+	 */
 	protected final boolean isJunction(int rightMax, int rightSecond, int leftMax, int leftSecond){
 		if(isJunction(rightMax, rightSecond)){return true;}
 		return isJunction(leftMax, leftSecond);
@@ -2166,6 +2546,12 @@ public abstract class Tadpole extends ShaveObject{
 		return true;
 	}
 	
+	/**
+	 * Calculates ratio between highest and second-highest counts.
+	 * Used for branch strength analysis in junction detection algorithms.
+	 * @param counts Array of counts to analyze
+	 * @return Ratio of highest to second-highest count, or 99.0 if no branching
+	 */
 	float calcRatio(int[] counts){
 		int a=0, b=0;
 		for(int i=0; i<counts.length; i++){
@@ -2184,6 +2570,9 @@ public abstract class Tadpole extends ShaveObject{
 	/*----------------        Helper Classes        ----------------*/
 	/*--------------------------------------------------------------*/
 	
+	/**
+	 * Worker thread for dumping k-mer frequency tables to text format in parallel
+	 */
 	private final class DumpKmersThread extends Thread {
 		
 		DumpKmersThread(){}
@@ -2195,6 +2584,7 @@ public abstract class Tadpole extends ShaveObject{
 		
 	}
 	
+	/** Worker thread for generating k-mer frequency histograms in parallel */
 	private final class MakeKhistThread extends Thread {
 		
 		MakeKhistThread(){}
@@ -2209,19 +2599,29 @@ public abstract class Tadpole extends ShaveObject{
 	/*----------------            Fields            ----------------*/
 	/*--------------------------------------------------------------*/
 	
+	/**
+	 * Returns k-mer hash table set for this assembler instance.
+	 * Implementation varies between Tadpole1 and Tadpole2 for different k-mer sizes.
+	 * @return K-mer table set containing all loaded k-mers
+	 */
 	public abstract AbstractKmerTableSet tables();
 	
 //	int ways; //MUST be set by subclass
 	/** Big kmer length */
 	final int kbig;
+	/** Returns k-mer size for this assembler.
+	 * @return K-mer length in bases */
 	public final int k(){return kbig;}
 
+	/** Collection of all assembled contigs */
 	private ArrayList<Contig> allContigs;
+	/** Collection of insert size measurements for paired reads */
 	private LongList allInserts;
 	private long contigsBuilt=0;
 	private long basesBuilt=0;
 	private long longestContig=0;
 	
+	/** Whether to extend reads through left junction points during extension */
 	protected boolean extendThroughLeftJunctions=true;
 	
 	private boolean removeBubbles=false;
@@ -2405,6 +2805,11 @@ public abstract class Tadpole extends ShaveObject{
 	/*----------------       ThreadLocal Temps      ----------------*/
 	/*--------------------------------------------------------------*/
 	
+	/**
+	 * Initializes thread-local data structures for parallel processing.
+	 * Creates per-thread arrays, builders, and tracking objects to avoid
+	 * synchronization overhead during intensive k-mer operations.
+	 */
 	protected final void initializeThreadLocals(){
 		if(localLeftCounts.get()!=null){return;}
 		localLeftCounts.set(new int[4]);
@@ -2434,12 +2839,22 @@ public abstract class Tadpole extends ShaveObject{
 	private ThreadLocal<Kmer> localKmer2=new ThreadLocal<Kmer>();
 	protected ThreadLocal<ErrorTracker> localTracker=new ThreadLocal<ErrorTracker>();
 	
+	/**
+	 * Returns cleared thread-local Kmer object for k-mer operations.
+	 * Provides fast access to thread-specific Kmer instance without allocation.
+	 * @return Cleared Kmer object for current thread
+	 */
 	protected Kmer getLocalKmer(){
 		Kmer local=localKmer.get();
 		local.clearFast();
 		return local;
 	}
 	
+	/**
+	 * Returns cleared thread-local secondary Kmer object for complex operations.
+	 * Provides access to second Kmer instance for algorithms requiring multiple k-mers.
+	 * @return Cleared secondary Kmer object for current thread
+	 */
 	protected Kmer getLocalKmer2(){
 		Kmer local=localKmer2.get();
 		local.clearFast();
@@ -2509,7 +2924,9 @@ public abstract class Tadpole extends ShaveObject{
 	/** Do garbage collection prior to printing memory usage */
 	private static final boolean GC_BEFORE_PRINT_MEMORY=false;
 
+	/** Whether to ignore k-mer ownership conflicts during parallel processing */
 	static boolean IGNORE_BAD_OWNER=false;
+	/** Whether to force use of Tadpole2 implementation regardless of k-mer size */
 	static boolean FORCE_TADPOLE2=false;
 	
 }

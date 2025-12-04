@@ -34,7 +34,7 @@ polyerror=0.2   Max error rate for trimming poly-A.
 flaglongreads=f    True to flag reads longer than 1.5x median to be discarded.
 longreadmult=1.5   Multiplier to consider a read suspiciously long.
 
-Whitelists and Blacklists:
+Whitelist and Blacklist Parameters:
 whitelist=      ZMW identifiers, as a comma-delimited list of integers,
                 or files with one integer per line.  All ZMWs not in the
                 list will be discarded.
@@ -61,7 +61,7 @@ minsubreads=0   Discard ZMWs with fewer than this many subreads.
 reorient=f      Try aligning both strands in case ZMW ordering is broken.
 minshredid=0.6  Do not include shreds with identity below this in consensus.
 
-Entropy parameters (recommended setting is 'entropy=t'):
+Entropy Parameters (recommended setting is 'entropy=t'):
 minentropy=-1   Set to 0.4 or above to remove low-entropy reads;
                 range is 0-1, recommended value is 0.55.  0.7 is too high.
                 Negative numbers disable this function.
@@ -83,54 +83,43 @@ Java Parameters:
 -da             Disable assertions.
 
 Please contact Brian Bushnell at bbushnell@lbl.gov if you encounter any problems.
+For documentation and the latest version, visit: https://bbmap.org
 "
 }
 
-#This block allows symlinked shellscripts to correctly set classpath.
-pushd . > /dev/null
-DIR="${BASH_SOURCE[0]}"
-while [ -h "$DIR" ]; do
-  cd "$(dirname "$DIR")"
-  DIR="$(readlink "$(basename "$DIR")")"
-done
-cd "$(dirname "$DIR")"
-DIR="$(pwd)/"
-popd > /dev/null
-
-#DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )/"
-CP="$DIR""current/"
-JNI="-Djava.library.path=""$DIR""jni/"
-#JNI=""
-
-z="-Xmx2g"
-z2="-Xms2g"
-#z3="-Xss16m"
-set=0
-
-if [ -z "$1" ] || [[ $1 == -h ]] || [[ $1 == --help ]]; then
+if [ -z "$1" ] || [ "$1" = "-h" ] || [ "$1" = "--help" ]; then
 	usage
 	exit
 fi
 
-calcXmx () {
-	source "$DIR""/calcmem.sh"
-	setEnvironment
-	parseXmx "$@"
-	if [[ $set == 1 ]]; then
-		return
-	fi
-	freeRam 2000m 42
-	z="-Xmx${RAM}m"
-	z2="-Xms${RAM}m"
+resolveSymlinks(){
+	SCRIPT="$0"
+	while [ -h "$SCRIPT" ]; do
+		DIR="$(dirname "$SCRIPT")"
+		SCRIPT="$(readlink "$SCRIPT")"
+		[ "${SCRIPT#/}" = "$SCRIPT" ] && SCRIPT="$DIR/$SCRIPT"
+	done
+	DIR="$(cd "$(dirname "$SCRIPT")" && pwd)"
+	CP="$DIR/current/"
+	JNI="-Djava.library.path=$DIR/jni/"
 }
-calcXmx "$@"
 
-reformatpb() {
-	local CMD="java $EA $EOOM $z $z2 -cp $CP icecream.ReformatPacBio $@"
-	if [[ $silent != 1 ]]; then
-		echo $CMD >&2
+setEnv(){
+	. "$DIR/javasetup.sh"
+	. "$DIR/memdetect.sh"
+
+	parseJavaArgs "--xmx=2g" "--xms=2g" "--percent=42" "--mode=auto" "$@"
+	setEnvironment
+}
+
+launch() {
+	CMD="java $EA $EOOM $SIMD $JNI $XMX $XMS -cp $CP icecream.ReformatPacBio $@"
+	if [ "$silent" != "1" ]; then
+		echo "$CMD" >&2
 	fi
 	eval $CMD
 }
 
-reformatpb "$@"
+resolveSymlinks
+setEnv "$@"
+launch "$@"

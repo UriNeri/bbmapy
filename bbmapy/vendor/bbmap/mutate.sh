@@ -3,10 +3,11 @@
 usage(){
 echo "
 Written by Brian Bushnell
-Last modified May 25, 2025
+Last modified October 13, 2025
 
 Description:  Creates a mutant version of a genome.
 Also produces a VCF listing the added mutations.
+To create a mutant from a vcf, see applyvariants.sh.
 
 Usage:  mutate.sh in=<input file> out=<output file> id=<identity>
 
@@ -45,9 +46,13 @@ nohomopolymers=f  If true, prevent indels in homopolymers that lead to
                 AC or deleting T from TTTT.  This is mainly for grading 
                 purposes.  It does not fully solve the problem, but greatly
                 improves concordance (reducing disagreements by 70%).
-                NOTE! nohomopolymers is temporarily disabled.
 pad=0           Add this many random bases to the ends of input sequences.
                 Padleft and padright may also be specified independently.
+sinewaves=0     Vary mutation rate across the genome, yielding more- and
+                less-mutated areas, when >1.  More sinewaves will give
+		a more complicated conservation pattern.
+mod3=f		Forbid indels that are not a multiple of 3 in length.
+preservegc=t    Substitutions are selected to maintain GC fraction.
 
 Java Parameters:
 -Xmx            This will set Java's memory usage, overriding autodetection.
@@ -58,49 +63,40 @@ Java Parameters:
 -da             Disable assertions.
 
 Please contact Brian Bushnell at bbushnell@lbl.gov if you encounter any problems.
+For documentation and the latest version, visit: https://bbmap.org
 "
 }
 
-#This block allows symlinked shellscripts to correctly set classpath.
-pushd . > /dev/null
-DIR="${BASH_SOURCE[0]}"
-while [ -h "$DIR" ]; do
-  cd "$(dirname "$DIR")"
-  DIR="$(readlink "$(basename "$DIR")")"
-done
-cd "$(dirname "$DIR")"
-DIR="$(pwd)/"
-popd > /dev/null
-
-#DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )/"
-CP="$DIR""current/"
-
-z="-Xmx4g"
-z2="-Xms4g"
-set=0
-
-if [ -z "$1" ] || [[ $1 == -h ]] || [[ $1 == --help ]]; then
+if [ -z "$1" ] || [ "$1" = "-h" ] || [ "$1" = "--help" ]; then
 	usage
 	exit
 fi
 
-calcXmx () {
-	source "$DIR""/calcmem.sh"
-	setEnvironment
-	parseXmx "$@"
-	if [[ $set == 1 ]]; then
-		return
-	fi
-	freeRam 4000m 84
-	z="-Xmx${RAM}m"
-	z2="-Xms${RAM}m"
+resolveSymlinks(){
+	SCRIPT="$0"
+	while [ -h "$SCRIPT" ]; do
+		DIR="$(dirname "$SCRIPT")"
+		SCRIPT="$(readlink "$SCRIPT")"
+		[ "${SCRIPT#/}" = "$SCRIPT" ] && SCRIPT="$DIR/$SCRIPT"
+	done
+	DIR="$(cd "$(dirname "$SCRIPT")" && pwd)"
+	CP="$DIR/current/"
 }
-calcXmx "$@"
 
-mutate() {
-	local CMD="java $EA $EOOM $z $z2 -cp $CP synth.MutateGenome $@"
-	echo $CMD >&2
+setEnv(){
+	. "$DIR/javasetup.sh"
+	. "$DIR/memdetect.sh"
+
+	parseJavaArgs "--xmx=4g" "--xms=4g" "--percent=84" "--mode=auto" "$@"
+	setEnvironment
+}
+
+launch() {
+	CMD="java $EA $EOOM $SIMD $XMX $XMS -cp $CP synth.MutateGenome $@"
+	echo "$CMD" >&2
 	eval $CMD
 }
 
-mutate "$@"
+resolveSymlinks
+setEnv "$@"
+launch "$@"

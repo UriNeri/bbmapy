@@ -11,8 +11,22 @@ import fileIO.TextFile;
 import fileIO.TextStreamWriter;
 import shared.Timer;
 
+/**
+ * Utility for concatenating multiple files into a single output file.
+ * Supports both directory-based concatenation and pattern-based sequence file merging.
+ * Provides binary file copying for general use and specialized FASTA processing.
+ * @author Brian Bushnell
+ */
 public class ConcatenateFiles {
 	
+	/**
+	 * Program entry point for file concatenation operations.
+	 * Routes to directory concatenation if input path is a directory,
+	 * otherwise performs pattern-based concatenation for sequence files.
+	 *
+	 * @param args Command-line arguments where args[0] is input path/pattern
+	 * and args[1] is optional output path
+	 */
 	public static void main(String[] args){
 		
 		Timer t=new Timer();
@@ -33,6 +47,15 @@ public class ConcatenateFiles {
 		
 	}
 	
+	/**
+	 * Concatenates chromosome-specific sequence files using a numbered pattern.
+	 * Replaces '#' placeholder in basename with chromosome numbers 1-25.
+	 * Outputs FASTA format with chromosome headers, filtering out existing headers.
+	 * Note: Contains human-specific logic as indicated by assertion.
+	 *
+	 * @param basename File pattern with '#' placeholder for chromosome number
+	 * @param out Output filename, or null to auto-generate by replacing '#' with 'ALL'
+	 */
 	public static void concatenatePattern(final String basename, final String out){
 		assert(false) : "This is human-specific.";
 		String outname=(out==null ? basename.replace("#", "ALL") : out);
@@ -56,6 +79,16 @@ public class ConcatenateFiles {
 		tsw.poisonAndWait();
 	}
 	
+	/**
+	 * Concatenates all files in a directory using binary copying.
+	 * Reads directory contents, sorts files alphabetically, and copies each file's
+	 * content to the output stream using a 32KB buffer for efficiency.
+	 * Skips the output file itself if it exists in the same directory.
+	 *
+	 * @param in Input directory path containing files to concatenate
+	 * @param out Output file path, or null/"stdout" for standard output
+	 * @throws IOException If directory cannot be read or file I/O operations fail
+	 */
 	public static void concatenateDirectory(final String in, String out) throws IOException{
 		if(out==null){out="stdout";}
 		
@@ -73,7 +106,7 @@ public class ConcatenateFiles {
 				String fname=f.getAbsolutePath();
 				System.err.println("Processing "+fname);
 				
-				InputStream is=ReadWrite.getInputStream(fname, false, false);
+				InputStream is=ReadWrite.getInputStream(fname, false, false, true);
 				
 				for(int lim=is.read(buf); lim>0; lim=is.read(buf)){
 					os.write(buf, 0, lim);
