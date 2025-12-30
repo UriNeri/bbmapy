@@ -7,10 +7,14 @@ import java.util.Arrays;
 
 import fileIO.FileFormat;
 import fileIO.ReadWrite;
+import shared.Parse;
+import shared.Parser;
 import shared.Shared;
 import shared.Timer;
 import shared.Tools;
 import shared.Vector;
+import stream.bam.BgzfInputStreamMT2;
+import stream.bam.BgzfSettings;
 import structures.ByteBuilder;
 import structures.IntList;
 import structures.ListNum;
@@ -24,14 +28,32 @@ import structures.ListNum;
 public final class FastqScan{
 
 	public static void main(String[] args) {
-		Timer t=new Timer();
-		if(args.length!=1) {
-			System.err.println("Usage: fastqscan.sh filename");
-		}
+		Timer t=new Timer(System.out);
+		if(args.length<1) {throw new RuntimeException("Usage: fastqscan.sh filename");}
 		String fname=args[0];
 		while(fname.startsWith("-")) {fname=fname.substring(1);}
 		if(fname.startsWith("in=")) {fname=fname.substring(3);}
+		int threads=1;
+		BgzfSettings.READ_THREADS=Tools.mid(1, 18, Shared.threads());
+		for(int i=1; i<args.length; i++) {
+			String arg=args[i];
+			String[] split=arg.split("=");
+			String a=split[0].toLowerCase();
+			String b=split.length>1 ? split[1] : null;
+			if(b!=null && b.equalsIgnoreCase("null")){b=null;}
+			
+			if(a.equals("t") || a.equals("threads")) {threads=Integer.parseInt(b);}
+			else if(a.equalsIgnoreCase("simd")) {Shared.SIMD&=Parse.parseBoolean(b);}
+			else if(Tools.isNumeric(arg)) {threads=Integer.parseInt(arg);}
+			else if(Parser.parseCommonStatic(arg, a, b)) {}
+			else if(Parser.parseZip(arg, a, b)) {}
+			else {assert(false) : "Unknown parameter "+arg;}
+		}
 		FileFormat ff=FileFormat.testInput(fname, FileFormat.FASTQ, null, true, false);
+		if(threads>1 && ff.fastq()) {
+			FastqScanMT.main(args);
+			return;
+		}
 		if(ff.stdin()) {
 			//Do nothing
 		}else{
@@ -40,30 +62,38 @@ public final class FastqScan{
 				throw new RuntimeException("Can't read "+fname);
 			}
 		}
+		final int rt=BgzfSettings.READ_THREADS=Tools.mid(1, BgzfSettings.READ_THREADS, Shared.threads());
 		FastqScan fqs=new FastqScan(ff);
 		try{fqs.read();}
 		catch(IOException e){throw new RuntimeException(e);}
-		t.stop("Time:   \t");
-		System.err.println("Records:\t"+fqs.totalRecords);
-		System.err.println("Bases:  \t"+fqs.totalBases);
-		if(ff.samOrBam()) {System.err.println("Headers:\t"+fqs.totalHeaders);}
+		t.stop("Time:   \t");		
+		System.out.println("Records:\t"+fqs.totalRecords);
+		System.out.println("Bases:  \t"+fqs.totalBases);
+		System.out.println("Quals:  \t"+fqs.totalQuals);
+		System.out.println("Bytes:  \t"+fqs.totalBytes);
+		if(ff.samOrBam()) {System.out.println("Headers:\t"+fqs.totalHeaders);}
 		ByteBuilder bb=fqs.corruption();
 		if(fqs.slashrLines>0) {
-			System.err.println("Contained Windows-style \r\n");
+			System.out.println("Contained Windows-style \r\n");
 		}
 		if(bb!=null) {
-			System.err.print(bb);
+			System.out.print(bb);
 			System.exit(1);
 		}
 	}
 
-	public static long[] countReadsAndBases(String fname, boolean halveInterleaved) {
+	public static long[] countReadsAndBases(String fname, boolean halveInterleaved, int readThreads, int zipThreads) {
 		FileFormat ff=FileFormat.testInput(fname, FileFormat.FASTQ, null, true, false);
-		return countReadsAndBases(ff, halveInterleaved);
+		return countReadsAndBases(ff, halveInterleaved, readThreads, zipThreads);
 	}
 
 	/** Returns molecules, reads, bases, file headers */
-	public static long[] countReadsAndBases(FileFormat ff, boolean halveInterleaved) {
+	public static long[] countReadsAndBases(FileFormat ff, boolean halveInterleaved, int readThreads, int zipThreads) {
+		if(readThreads>1 && ff.fastq()) {return FastqScanMT.countReadsAndBases(ff, halveInterleaved, readThreads, zipThreads);}
+		final int oldZT=BgzfSettings.READ_THREADS;
+		if(ff.compressed()) {
+			BgzfSettings.READ_THREADS=(zipThreads>1 ? zipThreads : Tools.mid(1, Shared.threads(), 18));
+		}
 		int recordsPerRead=1;
 		if(ff.fastq() && halveInterleaved) {
 			int[] iq=FileFormat.testInterleavedAndQuality(ff.name(), false);
@@ -75,7 +105,7 @@ public final class FastqScan{
 			e.printStackTrace();
 			//throw new RuntimeException(e);
 			return null;
-		}
+		}finally {BgzfSettings.READ_THREADS=oldZT;}
 		long[] ret=new long[] {fqs.totalRecords/recordsPerRead, fqs.totalRecords, 
 			fqs.totalBases, fqs.totalRecords};
 		return ret;
@@ -119,6 +149,7 @@ public final class FastqScan{
 		for(int r=is.read(buffer); r>0 || bstop>0; r=is.read(buffer, bstop, buffer.length-bstop)) {
 			assert(bstart==0);
 			r=Math.max(r, 0);
+			totalBytes+=r;
 			bstop+=r;
 			if(r==0 && buffer[bstop-1]!='\n') {
 				if(bstop>=buffer.length) {expand();}
@@ -140,6 +171,7 @@ public final class FastqScan{
 				final int bases=basesEnd-headerEnd-1-slashr1;
 				final int quals=recordEnd-plusEnd-1-slashr2;
 				totalBases+=bases;
+				totalQuals+=quals;
 				bstart=recordEnd+1;
 				qualMismatch|=(quals!=bases);
 				missingAt|=(buffer[recordStart]!='@');
@@ -172,6 +204,7 @@ public final class FastqScan{
 		for(int r=is.read(buffer); r>0 || bstop>0; r=is.read(buffer, bstop, buffer.length-bstop)) {
 			assert(bstart==0);
 			r=Math.max(r, 0);
+			totalBytes+=r;
 			bstop+=r;
 			if(r==0 && buffer[bstop-1]!='\n') {
 				if(bstop>=buffer.length) {expand();}
@@ -218,6 +251,7 @@ public final class FastqScan{
 		for(int r=is.read(buffer); r>0 || bstop>0; r=is.read(buffer, bstop, buffer.length-bstop)) {
 			assert(bstart==0);
 			r=Math.max(r, 0);
+			totalBytes+=r;
 			bstop+=r;
 			if(r==0 && buffer[bstop-1]!='\n') {
 				if(bstop>=buffer.length) {expand();}
@@ -244,6 +278,7 @@ public final class FastqScan{
 						int quals=(buffer[basesStopTab+1]=='*' ? 0 : qualsStopSymbol-basesStopTab-1-slashr);
 						qualMismatch|=(quals>0 && quals!=bases);
 						totalBases+=bases;
+						totalQuals+=quals;
 					}else {
 						partialRecords++;
 					}
@@ -274,6 +309,7 @@ public final class FastqScan{
 		for(int r=is.read(buffer); r>0 || bstop>0; r=is.read(buffer, bstop, buffer.length-bstop)) {
 			assert(bstart==0);
 			r=Math.max(r, 0);
+			totalBytes+=r;
 			bstop+=r;
 			if(r==0 && buffer[bstop-1]!='\n') {
 				if(bstop>=buffer.length) {expand();}
@@ -298,6 +334,7 @@ public final class FastqScan{
 					qualMismatch|=(quals<bases || 
 						(quals>bases && !Tools.isDigit(buffer[basesStopSym+1]))); //Quals can be decimal
 					totalBases+=bases;
+					totalQuals+=quals;
 				}else {
 					partialRecords++;
 				}
@@ -327,6 +364,7 @@ public final class FastqScan{
 		for(int r=is.read(buffer); r>0 || bstop>0; r=is.read(buffer, bstop, buffer.length-bstop)) {
 			assert(bstart==0);
 			r=Math.max(r, 0);
+			totalBytes+=r;
 			bstop+=r;
 			if(r==0 && buffer[bstop-1]!='\n') {
 				if(bstop>=buffer.length) {expand();}
@@ -383,6 +421,7 @@ public final class FastqScan{
 		for(int r=is.read(buffer); r>0 || bstop>0; r=is.read(buffer, bstop, buffer.length-bstop)) {
 			assert(bstart==0);
 			r=Math.max(r, 0);
+			totalBytes+=r;
 			bstop+=r;
 			if(r==0 && buffer[bstop-1]!='\n') {
 				if(bstop>=buffer.length) {expand();}
@@ -430,6 +469,9 @@ public final class FastqScan{
 	}
 	
 	void readBam() throws IOException {
+		SamLine.PARSE_0=SamLine.PARSE_2=SamLine.PARSE_5=SamLine.PARSE_6=false;
+		SamLine.PARSE_7=SamLine.PARSE_8=SamLine.PARSE_OPTIONAL=false;
+		SamLine.FLIP_ON_LOAD=false;
 		Streamer st=StreamerFactory.makeStreamer(ff, 0, false, -1, false, false, -1);
 		st.start();
 		for(ListNum<SamLine> ln=st.nextLines(); ln!=null && !ln.poison(); ln=st.nextLines()) {
@@ -438,10 +480,14 @@ public final class FastqScan{
 				int quals=sl.qual==null ? 0 : sl.qual.length;
 				totalRecords++;
 				totalBases+=bases;
+				totalQuals+=quals;
 				qualMismatch|=(quals>0 && quals!=bases);
 			}
 		}
 		st.close();
+		if(st.getClass()==BamStreamer.class) {
+			totalBytes=((BamStreamer)st).bytesProcessed();
+		}
 	}
 	
 	void readOther() throws IOException {
@@ -453,6 +499,8 @@ public final class FastqScan{
 				int quals=r.quality==null ? 0 : r.quality.length;
 				totalRecords++;
 				totalBases+=bases;
+				totalQuals+=quals;
+				totalBytes+=r.countFastqBytes();
 				qualMismatch|=(quals>0 && quals!=bases);
 			}
 		}
@@ -471,6 +519,8 @@ public final class FastqScan{
 	long totalHeaders;
 	long totalRecords;
 	long totalBases;
+	long totalQuals;
+	long totalBytes;
 	
 	long partialRecords;
 	long slashrLines;

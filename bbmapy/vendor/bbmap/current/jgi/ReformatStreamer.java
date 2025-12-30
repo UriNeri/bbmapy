@@ -114,7 +114,7 @@ public class ReformatStreamer implements Accumulator<ReformatStreamer.ProcessThr
 	/*--------------------------------------------------------------*/
 
 	private Parser parse(String[] args){
-
+//		assert(false);
 		Parser parser=new Parser();
 
 		for(int i=0; i<args.length; i++){
@@ -703,7 +703,7 @@ public class ReformatStreamer implements Accumulator<ReformatStreamer.ProcessThr
 			throw new RuntimeException("Can't precount reads from standard in, only from a file.");
 		}
 		if(ffin2==null && (ffin1.fastq() || ffin1.fasta() || ffin1.sam())){
-			return FastqScan.countReadsAndBases(ffin1, true);
+			return FastqScan.countReadsAndBases(ffin1, true, -1, -1);
 		}
 
 		final Streamer st=StreamerFactory.makeStreamer(ffin1, ffin2, true, maxReads,

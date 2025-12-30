@@ -82,7 +82,7 @@ def _pack_args(kwargs: Dict[str, Union[str, bool, int]]) -> List[str]:
     return args
 
 
-def _run_command(tool: str, args: List[str], capture_output: bool = False) -> Union[None, Tuple[str, str]]:
+def _run_command(tool: str, args: List[str], capture_output: bool = False,print_sh_command:bool = False) -> Union[None, Tuple[str, str]]:
     """Run a BBTools command using subprocess (fallback method)."""
 
     # Find the BBTools path if not already set
@@ -96,29 +96,35 @@ def _run_command(tool: str, args: List[str], capture_output: bool = False) -> Un
     # Build the command
     command = [os.path.join(BBTOOLS_PATH, tool)] + args
     escaped_command = ' '.join(escape(str(arg)) for arg in command)
+    if print_sh_command:
+        print(f"Running: {escaped_command}")
     
+    # if capture_output:
+    #     result = subprocess.run(command, capture_output=True, text=True)
+    #     if result.returncode != 0:
+    #         raise RuntimeError(f"Command failed: {escaped_command}\nError: {escape(result.stderr)}")
+    #     return result.stdout, result.stderr
+    # else:
+    process = subprocess.Popen(command, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+    all_stdoud=[]
+    all_stderr=[]
+    while True:
+        stdout_line = process.stdout.readline()
+        stderr_line = process.stderr.readline()
+        
+        if not stdout_line and not stderr_line and process.poll() is not None:
+            break
+        if stdout_line:
+            rprint(escape(stdout_line.strip()))
+            all_stdoud.append(stdout_line)
+        if stderr_line:
+            rprint("[bold red]" + escape(stderr_line.strip()) + "[/bold red]")
+            all_stderr.append(stderr_line)
+
+    if process.returncode != 0:
+        raise RuntimeError(f"Command failed : {escaped_command}")
     if capture_output:
-        result = subprocess.run(command, capture_output=True, text=True)
-        if result.returncode != 0:
-            raise RuntimeError(f"Command failed: {escaped_command}\nError: {escape(result.stderr)}")
-        return result.stdout, result.stderr
-    else:
-        process = subprocess.Popen(command, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
-        
-        while True:
-            stdout_line = process.stdout.readline()
-            stderr_line = process.stderr.readline()
-            
-            if not stdout_line and not stderr_line and process.poll() is not None:
-                break
-            
-            if stdout_line:
-                rprint(escape(stdout_line.strip()))
-            if stderr_line:
-                rprint("[bold red]" + escape(stderr_line.strip()) + "[/bold red]")
-        
-        if process.returncode != 0:
-            raise RuntimeError(f"Command failed: {escaped_command}")
-        
-        return None
+        return ((all_stdoud,all_stderr))
+    return None
+
 

@@ -35,9 +35,9 @@ public class Shared {
 	
 	// Version and identification
 	/** Version String, proper float with in XX.xx format */
-	public static String BBTOOLS_VERSION_STRING="39.55";
+	public static String BBTOOLS_VERSION_STRING="39.59";
 	/** Release name */
-	public static String BBMAP_VERSION_NAME="Circular Contigs";
+	public static String BBMAP_VERSION_NAME="Tricky Trace";
 	/** Main class name for current execution */
 	public static String BBMAP_CLASS=null;
 	/** Class object for main executing class */
@@ -127,7 +127,7 @@ public class Shared {
 	/** True if parallel sort is available */
 	public static boolean parallelSort=testParallelSort();
 	/** True if SIMD optimizations are enabled */
-	public static boolean SIMD=(Vector.vectorLoaded && Vector.simd256);
+	public static boolean SIMD=(Vector.simd256);
 	
 	// Memory management
 	/** True if running in low memory mode */

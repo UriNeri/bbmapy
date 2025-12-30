@@ -4,4 +4,4 @@
 # Information about documentation is in /docs/readme.txt.
 # Official website: https://bbmap.org
 
-# Version 39.55
+# Version 39.59

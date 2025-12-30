@@ -81,6 +81,18 @@ public class Parser {
 	 * @return true if the argument was successfully parsed, false otherwise
 	 */
 	public boolean parse(String arg, String a, String b){
+		return (parseStatic(arg, a, b) || parseNonStatic(arg, a, b));
+	}
+	
+	/**
+	 * Entry point for parsing static fields.
+	 *
+	 * @param arg The complete argument string (e.g., "ziplevel=4")
+	 * @param a The parameter name portion (e.g., "ziplevel")
+	 * @param b The parameter value portion (e.g., "4")
+	 * @return true if the argument was successfully parsed, false otherwise
+	 */
+	public static boolean parseStatic(String arg, String a, String b) {
 		if(isJavaFlag(arg)){return true;}
 
 		if(parseQuality(arg, a, b)){return true;}
@@ -90,7 +102,18 @@ public class Parser {
 		if(parseCommonStatic(arg, a, b)){return true;}
 		if(parseHist(arg, a, b)){return true;}
 		if(parseQualityAdjust(arg, a, b)){return true;}
-
+		return false;
+	}
+	
+	/**
+	 * Entry point for parsing non-static fields.
+	 *
+	 * @param arg The complete argument string (e.g., "qtrim=r")
+	 * @param a The parameter name portion (e.g., "qtrim")
+	 * @param b The parameter value portion (e.g., "r")
+	 * @return true if the argument was successfully parsed, false otherwise
+	 */
+	public boolean parseNonStatic(String arg, String a, String b){
 		if(parseFiles(arg, a, b)){return true;}
 		if(parseCommon(arg, a, b)){return true;}
 		if(parseTrim(arg, a, b)){return true;}
@@ -883,7 +906,7 @@ public class Parser {
 		
 		else if(a.equalsIgnoreCase("simd")){
 			if(b!=null && b.equalsIgnoreCase("auto")) {
-				Shared.SIMD=(Vector.simd256 && Vector.vectorLoaded);
+				Shared.SIMD=(Vector.simd256);
 			}else {
 				Shared.SIMD=Parse.parseBoolean(b);
 			}
@@ -1175,6 +1198,7 @@ public class Parser {
 			int x=Integer.parseInt(b);
 			if(x>=0){
 				ReadWrite.ZIPLEVEL=Tools.min(x, 11);
+				ReadWrite.ALLOW_ZIPLEVEL_CHANGE=false;
 			}
 		}else if(a.equals("bziplevel") || a.equals("bzl")){
 			int x=Integer.parseInt(b);
@@ -1196,6 +1220,8 @@ public class Parser {
 				}
 			}else{ReadWrite.USE_BGZIP=Parse.parseBoolean(b);}
 			if(ReadWrite.USE_BGZIP){ReadWrite.PREFER_BGZIP=true;}
+		}else if(a.equals("usebgzf") || a.equals("bgzf")){
+			ReadWrite.USE_BGZF=Parse.parseBoolean(b);
 		}else if(a.equals("forcepigz")){
 			ReadWrite.FORCE_PIGZ=Parse.parseBoolean(b);
 			if(ReadWrite.FORCE_PIGZ){ReadWrite.USE_PIGZ=true;}
@@ -1248,8 +1274,8 @@ public class Parser {
 			ReadWrite.ALLOW_NATIVE_BGZF|=ReadWrite.PREFER_NATIVE_BGZF_IN;
 		}else if(a.equals("nativebgzipmt") || a.equals("nativebgzfmt") || a.equals("multithreadedbgzf")){
 			BgzfSettings.USE_MULTITHREADED_BGZF=Parse.parseBoolean(b);
-		}else if(a.equals("nativebgzipmt") || a.equals("nativebgzfmt") || a.equals("multithreadedbgzf")){
-			BgzfSettings.USE_MULTITHREADED_BGZF=Parse.parseBoolean(b);
+		}else if(a.equals("bgzfosmt2")){
+			BgzfSettings.USE_BGZFOS_MT2=Parse.parseBoolean(b);
 		}else if(a.equals("filteredbgzf")){
 			BgzfOutputStreamMT.FILTERED_BGZF=Parse.parseBoolean(b);
 		}else if(a.equals("bgzfthreadsin") || a.equals("bgzftin") || a.equals("bgzfreadthreads")){

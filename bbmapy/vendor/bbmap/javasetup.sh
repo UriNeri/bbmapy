@@ -1,20 +1,20 @@
-#!/bin/bash
+#!/bin/sh
 
-# javasetup.sh v1.21
+# javasetup.sh v1.23 - POSIX compliant
 # Parses Java command-line arguments and sets up paths
-# Authors: Brian Bushnell, Doug Jacobsen, Alex Copeland, Bryce Foster, Isla
-# Date: November 16, 2025
+# Authors: Brian Bushnell, Doug Jacobsen, Alex Copeland, Bryce Foster, Isla, Chloe
+# Date: December 11, 2025
 
 # Source memory detection script
 # Check if DIR was already set by the calling script (new style)
 if [ -n "$DIR" ]; then
 	# New style - caller already resolved symlinks
-	source "$DIR/memdetect.sh"
+	. "$DIR/memdetect.sh"
 else
 	# Old style - need to find our own directory
-	# Use BASH_SOURCE[0] which works when sourced (bash-specific but this file already uses bash)
-	SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-	source "$SCRIPT_DIR/memdetect.sh"
+	# Use $0 for POSIX compatibility
+	SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+	. "$SCRIPT_DIR/memdetect.sh"
 fi
 
 # Initialize global variables
@@ -28,7 +28,7 @@ json=0
 silent=0
 
 # Detect if CPU supports AVX2 (or ARM NEON equivalent)
-function detectCPUVectorSupport() {
+detectCPUVectorSupport() {
 	if [ -f /proc/cpuinfo ]; then
 		# x86_64: Check for AVX2 (256-bit minimum)
 		if grep -q "avx2" /proc/cpuinfo; then
@@ -57,7 +57,7 @@ function detectCPUVectorSupport() {
 }
 
 # Detect Java version (need 17+)
-function detectJavaVersion() {
+detectJavaVersion() {
 	if ! command -v java >/dev/null 2>&1; then
 		return 1  # Java not found
 	fi
@@ -89,7 +89,7 @@ function detectJavaVersion() {
 }
 
 # Auto-detect SIMD support
-function autoDetectSIMD() {
+autoDetectSIMD() {
 	if detectCPUVectorSupport && detectJavaVersion; then
 		SIMD="--add-modules jdk.incubator.vector"
 		SIMD_AUTO="simd"
@@ -108,7 +108,7 @@ normalizeMemory() {
 	local prefix="$2"
 	
 	# Strip excessive leading dashes (handle ---, ----, etc.)
-	while [[ "$mem" == --* ]]; do
+	while [ "${mem#--}" != "$mem" ]; do
 		mem="${mem#-}"
 	done
 	
@@ -123,15 +123,30 @@ normalizeMemory() {
 	mem="${mem#xms}"
 	
 	# Check if already has suffix (case-insensitive)
-	if [[ "$mem" =~ ^[0-9]+[gGmMkK]$ ]]; then
-		# Already has suffix, normalize to lowercase
-		mem=$(echo "$mem" | tr '[:upper:]' '[:lower:]')
-		echo "${prefix}${mem}"
-		return
-	fi
+	case "$mem" in
+		*[gGmMkK])
+			# Check if it's all digits followed by suffix
+			local digits="${mem%?}"
+			case "$digits" in
+				''|*[!0-9]*)
+					# Not all digits, fall through
+					;;
+				*)
+					# Already has suffix, normalize to lowercase
+					mem=$(echo "$mem" | tr '[:upper:]' '[:lower:]')
+					echo "${prefix}${mem}"
+					return
+					;;
+			esac
+			;;
+	esac
 	
 	# Pure number - apply heuristic
-	if [[ "$mem" =~ ^[0-9]+$ ]]; then
+	case "$mem" in
+		''|*[!0-9]*)
+			# Not a pure number, fall through to fallback
+			;;
+		*)
 		# Get TOTAL installed physical memory in GB (not available)
 		local physicalMemGB=0
 		if [ -e /proc/meminfo ]; then
@@ -160,7 +175,8 @@ normalizeMemory() {
 			echo "${prefix}${mem}m"
 		fi
 		return
-	fi
+		;;
+	esac
 	
 	# Fallback: use as-is with prefix
 	echo "${prefix}${mem}"
@@ -169,7 +185,7 @@ normalizeMemory() {
 # Parse Java memory and other flags
 # Arguments:
 #   All command-line arguments
-function parseJavaArgs() {
+parseJavaArgs() {
 	local setxmx=0
 	local setxms=0
 	local defaultXmx="4g"  # Default max heap
@@ -194,12 +210,32 @@ function parseJavaArgs() {
 		elif [ "${arg%%=*}" = "--mode" ]; then
 			memMode="$(echo "$arg" | cut -d= -f2)"
 			
-		# Fix broken Xmx flags
-		elif [[ "$arg" =~ ^-*[xX][mM][xX]=?([0-9].*)$ ]]; then
-			XMX=$(normalizeMemory "${BASH_REMATCH[1]}" "-Xmx")
+		# Fix broken Xmx flags - POSIX version using case
+		elif case "$arg" in -*[xX][mM][xX]*|*[xX][mM][xX]*) true;; *) false;; esac; then
+			# Extract the memory value part
+			local value="$arg"
+			# Remove leading dashes
+			value="${value#-}"; value="${value#-}"; value="${value#-}"
+			# Remove Xmx/xmx prefix (case insensitive)
+			case "$value" in
+				[xX][mM][xX]*) value="${value#[xX][mM][xX]}" ;;
+			esac
+			# Remove optional = sign
+			value="${value#=}"
+			XMX=$(normalizeMemory "$value" "-Xmx")
 			setxmx=1
-		elif [[ "$arg" =~ ^-*[xX][mM][sS]=?([0-9].*)$ ]]; then
-			XMS=$(normalizeMemory "${BASH_REMATCH[1]}" "-Xms")
+		elif case "$arg" in -*[xX][mM][sS]*|*[xX][mM][sS]*) true;; *) false;; esac; then
+			# Extract the memory value part
+			local value="$arg"
+			# Remove leading dashes
+			value="${value#-}"; value="${value#-}"; value="${value#-}"
+			# Remove Xms/xms prefix (case insensitive)
+			case "$value" in
+				[xX][mM][sS]*) value="${value#[xX][mM][sS]}" ;;
+			esac
+			# Remove optional = sign
+			value="${value#=}"
+			XMS=$(normalizeMemory "$value" "-Xms")
 			setxms=1
 		
 		# Assertion settings
@@ -251,19 +287,12 @@ function parseJavaArgs() {
 	
 	# Handle Xms (min heap)
 	if [ "$setxms" = "0" ]; then
-		if [ -n "$defaultXms" ]; then
-			# Use separate Xms default
-			if [ "$memMode" = "fixed" ]; then
-				XMS=$(normalizeMemory "$defaultXms" "-Xms")
-			else
-				# For auto mode with separate Xms, detect based on Xms default
-				local savedXmx="$XMX"  # Save Xmx
-				detectMemory "$defaultXms" "$memPercent" "$memMode"
-				XMS="-Xms${RAM}m"
-				XMX="$savedXmx"  # Restore Xmx
-			fi
+		if [ -n "$defaultXms" ] && [ "$memMode" = "fixed" ]; then
+			# Use separate Xms default ONLY in fixed mode
+			XMS=$(normalizeMemory "$defaultXms" "-Xms")
 		else
-			# Legacy behavior: Xms = Xmx
+			# For auto/partial mode OR no defaultXms: Xms = Xmx
+			# This prevents Xms > Xmx due to separate rounding in detectMemory
 			local substring=$(echo $XMX | cut -d'x' -f 2)
 			XMS="-Xms$substring"
 		fi
@@ -285,7 +314,7 @@ function parseJavaArgs() {
 }
 
 # Setup environment paths based on the execution environment
-function setEnvironment() {
+setEnvironment() {
 	if [ "$SHIFTER_RUNTIME" = "1" ]; then
 		shifter=1
 	elif [ -n "$EC2_HOME" ]; then
@@ -307,7 +336,7 @@ function setEnvironment() {
 #   $@ - All command-line arguments
 # Returns:
 #   Echoes the complete Java command
-function getJavaCommand() {
+getJavaCommand() {
 	parseJavaArgs "$@"
 	setEnvironment
 	
@@ -316,8 +345,14 @@ function getJavaCommand() {
 }
 
 # Check if this script is being sourced or run directly
-if [ "$0" != "$BASH_SOURCE" ] && [ "$BASH_SOURCE" != "" ]; then
-	:
-else
-	getJavaCommand "$@"
-fi
+# In POSIX sh, we can't reliably detect sourcing, but this works in most cases
+case "$0" in
+	*javasetup.sh|javasetup.sh)
+		# Being run directly
+		getJavaCommand "$@"
+		;;
+	*)
+		# Being sourced (or run with different name)
+		:
+		;;
+esac

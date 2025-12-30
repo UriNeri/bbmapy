@@ -41,10 +41,10 @@ import stream.Writer;
 import stream.bam.BamInputStream;
 import stream.bam.BamOutputStream;
 import stream.bam.BgzfInputStream;
-import stream.bam.BgzfInputStreamMT;
 import stream.bam.BgzfInputStreamMT2;
 import stream.bam.BgzfOutputStream;
 import stream.bam.BgzfOutputStreamMT;
+import stream.bam.BgzfOutputStreamMT2;
 import stream.bam.BgzfSettings;
 import structures.ByteBuilder;
 
@@ -349,6 +349,7 @@ public class ReadWrite {
 	 */
 	public static final boolean finishReading(InputStream is, String fname, boolean killProcess, Reader...ra){
 		if(verbose){System.err.println("finishReading("+is+", "+fname+", "+killProcess+", "+ra.length+")");}
+//		assert(!killProcess);
 		boolean error=false;
 		if(ra!=null){
 			for(Reader r : ra){
@@ -376,6 +377,7 @@ public class ReadWrite {
 	 */
 	public static final boolean finishReading(InputStream is, String fname, boolean killProcess){
 		if(verbose){System.err.println("finishReading("+is+", "+fname+", "+killProcess+")");}
+//		assert(!killProcess);
 		boolean error=false;
 		if(is!=System.in){
 			try {
@@ -416,20 +418,20 @@ public class ReadWrite {
 		return error;
 	}
 	
-	/**
-	 * Closes output stream and kills associated subprocess if specified.
-	 * @param os Output stream to close
-	 * @param fname Filename for process identification
-	 * @return true if any errors occurred during closure
-	 */
-	public static final boolean close(OutputStream os, String fname){
-		if(verbose){System.err.println("close("+os+", "+fname+")");}
-		boolean error=false;
-		if(os!=null){error|=close(os);}
-		if(fname!=null && os!=System.err && os!=System.out){error|=killProcess(fname);}
-		if(verbose){System.err.println("close("+os+", "+fname+") returned "+error);}
-		return error;
-	}
+//	/**
+//	 * Closes output stream and kills associated subprocess if specified.
+//	 * @param os Output stream to close
+//	 * @param fname Filename for process identification
+//	 * @return true if any errors occurred during closure
+//	 */
+//	public static final boolean close(OutputStream os, String fname){
+//		if(verbose){System.err.println("close("+os+", "+fname+")");}
+//		boolean error=false;
+//		if(os!=null){error|=close(os);}
+//		if(fname!=null && os!=System.err && os!=System.out){error|=killProcess(fname);}
+//		if(verbose){System.err.println("close("+os+", "+fname+") returned "+error);}
+//		return error;
+//	}
 	
 	/**
 	 * Closes output stream with proper handling of compression formats.
@@ -762,7 +764,7 @@ public class ReadWrite {
 	 */
 	public static OutputStream getGZipOutputStream(String fname, boolean append, boolean allowSubprocess){
 		if(verbose){System.err.println("getGZipOutputStream("+fname+", "+append+", "+allowSubprocess+"); "+FORCE_BGZIP+", "+USE_BGZIP+", "+Data.BGZIP()+", "+USE_PIGZ+", "+USE_GZIP+", "+RAWMODE);}
-		final boolean bgzip=(USE_BGZIP && (ALLOW_NATIVE_BGZF || Data.BGZIP()));
+		final boolean bgzip=(USE_BGZF && (ALLOW_NATIVE_BGZF || (USE_BGZIP && Data.BGZIP())));
 		if(bgzip && (FORCE_BGZIP || (PREFER_BGZIP && ZIPLEVEL<10))){return getBgzipStream(fname, append);}
 		if(FORCE_PIGZ || (allowSubprocess && Shared.threads()>=2)){
 			if((fname.endsWith(".vcf.gz") || fname.endsWith(".sam.gz") || (PREFER_BGZIP && ZIPLEVEL<10)) && bgzip){return getBgzipStream(fname, append);}
@@ -882,7 +884,7 @@ public class ReadWrite {
 		threads=Tools.max(1, Tools.min(Shared.threads(), threads));
 		int zl=Tools.mid(ZIPLEVEL, 1, 9);
 //		System.err.println("A: ZIPLEVEL="+ZIPLEVEL+", ALLOW_CHANGE="+ALLOW_ZIPLEVEL_CHANGE+", zl="+zl);
-		if(nativeBgzfOut() || !Data.BGZIP()) {
+		if(!USE_BGZIP || nativeBgzfOut() || !Data.BGZIP()) {
 			if(zl>5) {zl=5;}//Required for native bgzip.
 			if(ALLOW_ZIPLEVEL_CHANGE){
 				if(zl<4 && zl>0 && threads>=16) {zl=4;}
@@ -893,9 +895,13 @@ public class ReadWrite {
 //			System.err.println("B: ZIPLEVEL="+ZIPLEVEL+", ALLOW_CHANGE="+ALLOW_ZIPLEVEL_CHANGE+", zl="+zl);
 			final OutputStream raw=getRawOutputStream(fname, append, false);//TODO - should it be true or false?
 			if(RAWMODE){return raw;}
-			OutputStream out;
+			final OutputStream out;
 			if(!BgzfSettings.USE_MULTITHREADED_BGZF) {out=new BgzfOutputStream(raw);}
-			else {out=new BgzfOutputStreamMT(raw, Tools.mid(1, 64, threads), zl);}
+			else if(BgzfSettings.USE_BGZFOS_MT2){
+				out=new BgzfOutputStreamMT2(raw, Tools.mid(1, 64, threads), zl);
+			}else {
+				out=new BgzfOutputStreamMT(raw, Tools.mid(1, 64, threads), zl);
+			}
 			return out;
 		}
 		
@@ -2576,6 +2582,8 @@ public class ReadWrite {
 	public static boolean USE_GZIP=false;
 	/** Whether to use bgzip for block-gzip compression */
 	public static boolean USE_BGZIP=true;
+	/** Whether to compress output in bgzf */
+	public static boolean USE_BGZF=true;
 	/** Whether to use pigz for parallel gzip compression */
 	public static boolean USE_PIGZ=true;
 	/** Whether to use external gunzip command for decompression */
@@ -2692,8 +2700,8 @@ public class ReadWrite {
 	/** Set tracking filenames that have been loaded (for debugging) */
 	public static final HashSet<String> loadedFiles=new HashSet<String>();
 
-	private static final String[] compressedExtensions=new String[] {".gz", ".gzip", ".zip", ".bz2", ".xz", ".dsrc", ".fqz", ".ac", ".7z", ".zst"};
-	private static final String[] compressedExtensionMap=new String[] {"gz", "gz", "zip", "bz2", "xz", "dsrc", "fqz", "ac", "7z", "zst"};
+	private static final String[] compressedExtensions=new String[] {".gz", ".gzip", ".bgz", ".bgzip", ".zip", ".bz2", ".xz", ".dsrc", ".fqz", ".ac", ".7z", ".zst"};
+	private static final String[] compressedExtensionMap=new String[] {"gz", "gz", "gz", "gz", "zip", "bz2", "xz", "dsrc", "fqz", "ac", "7z", "zst"};
 
 //	private static HashMap<String, Process> inputProcesses=new HashMap<String, Process>(8);
 //	private static HashMap<String, Process> outputProcesses=new HashMap<String, Process>(8);
