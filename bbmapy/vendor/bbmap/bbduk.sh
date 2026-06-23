@@ -3,7 +3,7 @@
 usage(){
 echo "
 Written by Brian Bushnell
-Last modified October 29, 2025
+Last modified February 11, 2026
 
 Description:  Compares reads to the kmers in a reference dataset, optionally 
 allowing an edit distance. Splits the reads into two outputs - those that 
@@ -112,6 +112,9 @@ ignorevcfindels=t   Also ignore indels listed in the VCF.
 Processing parameters:
 k=31                Kmer length used for finding contaminants.  Contaminants 
                     shorter than k will not be found.  k must be at least 1.
+ways=8              Index shards for ref kmers, must be 7 or a power of 2.
+                    Each shard can hold ~1.5B kmers, so this may be increased
+		    if there are too many kmers, but sufficient memory.
 rcomp=t             Look for reverse-complements of kmers in addition to 
                     forward kmers.
 maskmiddle=t        (mm) Treat the middle base of a kmer as a wildcard, to 
@@ -358,14 +361,18 @@ if [ -z "$1" ] || [ "$1" = "-h" ] || [ "$1" = "--help" ]; then
 fi
 
 resolveSymlinks(){
-	SCRIPT="$0"
+	SCRIPT="$(cd "$(dirname "$0")" && pwd)/$(basename "$0")"
 	while [ -h "$SCRIPT" ]; do
 		DIR="$(dirname "$SCRIPT")"
 		SCRIPT="$(readlink "$SCRIPT")"
 		[ "${SCRIPT#/}" = "$SCRIPT" ] && SCRIPT="$DIR/$SCRIPT"
 	done
 	DIR="$(cd "$(dirname "$SCRIPT")" && pwd)"
-	CP="$DIR/current/"
+	if [ -f "$DIR/bbtools.jar" ]; then
+		CP="$DIR/bbtools.jar"
+	else
+		CP="$DIR/current/"
+	fi
 }
 
 setEnv(){
@@ -377,7 +384,7 @@ setEnv(){
 }
 
 launch() {
-	CMD="java $EA $EOOM $SIMD $XMX $XMS -cp $CP jgi.BBDuk $@"
+	CMD="java $EA $EOOM $SIMD $XMX $XMS -cp $CP bbduk.BBDukS $@"
 	echo "$CMD" >&2
 	eval $CMD
 }

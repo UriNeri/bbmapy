@@ -3,7 +3,7 @@
 usage(){
 echo "
 Written by Brian Bushnell
-Last modified July 29, 2019
+Last modified Feb 25, 2026
 
 Description:  Shrinks accession2taxid tables by removing unneeded columns.
 This is not necessary but makes accession2taxid files smaller and load faster.
@@ -16,6 +16,7 @@ app=f           (append) Append to files that already exist.
 zl=4            (ziplevel) Set compression level, 1 (low) to 9 (max).
 pigz=t          Use pigz for compression, if available.
 gi=t            Retain gi numbers.
+asm=f           Run in assembly accession mode, default is sequence.
 
 Java Parameters:
 -Xmx            This will set Java's memory usage, overriding autodetection.
@@ -51,14 +52,18 @@ if [ -z "$1" ] || [ "$1" = "-h" ] || [ "$1" = "--help" ]; then
 fi
 
 resolveSymlinks(){
-	SCRIPT="$0"
+	SCRIPT="$(cd "$(dirname "$0")" && pwd)/$(basename "$0")"
 	while [ -h "$SCRIPT" ]; do
 		DIR="$(dirname "$SCRIPT")"
 		SCRIPT="$(readlink "$SCRIPT")"
 		[ "${SCRIPT#/}" = "$SCRIPT" ] && SCRIPT="$DIR/$SCRIPT"
 	done
 	DIR="$(cd "$(dirname "$SCRIPT")" && pwd)"
-	CP="$DIR/current/"
+	if [ -f "$DIR/bbtools.jar" ]; then
+		CP="$DIR/bbtools.jar"
+	else
+		CP="$DIR/current/"
+	fi
 }
 
 setEnv(){

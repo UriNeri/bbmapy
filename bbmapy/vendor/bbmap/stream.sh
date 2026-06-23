@@ -3,7 +3,7 @@
 usage(){
 echo "
 Written by Brian Bushnell
-Last modified November 15, 2025
+Last modified January 28, 2026
 
 Description:  Converts between sam, bam, fasta, fastq.
               Supports subsampling, paired files, and multithreading.
@@ -27,6 +27,7 @@ samplerate=1.0  Fraction of reads to keep (0.0 to 1.0).
 sampleseed=17   Random seed for subsampling (-1 for random).
 reads=-1        Quit after processing this many reads (-1 = all).
 ordered=t       Maintain input order in output.
+skipreads=0     Skip this many initial reads (or pairs).
 
 Threading parameters:
 threadsin=-1    Reader threads (-1 = auto).
@@ -46,14 +47,18 @@ if [ -z "$1" ] || [ "$1" = "-h" ] || [ "$1" = "--help" ]; then
 fi
 
 resolveSymlinks(){
-	SCRIPT="$0"
+	SCRIPT="$(cd "$(dirname "$0")" && pwd)/$(basename "$0")"
 	while [ -h "$SCRIPT" ]; do
 		DIR="$(dirname "$SCRIPT")"
 		SCRIPT="$(readlink "$SCRIPT")"
 		[ "${SCRIPT#/}" = "$SCRIPT" ] && SCRIPT="$DIR/$SCRIPT"
 	done
 	DIR="$(cd "$(dirname "$SCRIPT")" && pwd)"
-	CP="$DIR/current/"
+	if [ -f "$DIR/bbtools.jar" ]; then
+		CP="$DIR/bbtools.jar"
+	else
+		CP="$DIR/current/"
+	fi
 }
 
 setEnv(){

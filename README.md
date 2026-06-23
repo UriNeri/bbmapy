@@ -1,7 +1,7 @@
 # bbmapy
 
 A Python wrapper for BBTools.
-Current version of bbmapy is v39.59.
+Current version of bbmapy is v39.91.
 
 ## Installation
 

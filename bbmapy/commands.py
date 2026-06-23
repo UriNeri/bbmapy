@@ -268,7 +268,7 @@ def analyzeaccession(capture_output: bool = False, **kwargs) -> Union[None, Tupl
 
     Help message:
     Written by Brian Bushnell
-Last modified September 9, 2019
+Last modified February 26, 2026
 
 Description:  Looks at accessions to see how to compress them.
 
@@ -490,6 +490,62 @@ For documentation and the latest version, visit: https://bbmap.org
     """
     args = _pack_args(kwargs)
     return _run_command("a_sample_mt.sh", args, capture_output)
+
+def balancevectors(capture_output: bool = False, **kwargs) -> Union[None, Tuple[str, str]]:
+    """
+    Wrapper for balancevectors.sh
+
+    Help message:
+    Written by Brian Bushnell and UMP45
+Last modified June 7, 2026
+
+Description:  Balances a labeled training-vector TSV (from VcfToTrainingVectors)
+into train/validation splits for neural-network training.  Keeps all positives and
+performs stratified negative sampling so rare-but-hard false positives are not
+drowned out: a small enriched fraction is drawn evenly across category axes
+(variant type x depth/score/event-length, plus artifact axes - homopolymer,
+allele fraction, strand ratio, mapq - where false positives concentrate), and the
+remainder is a representative random sample.  Deterministic given a seed.
+
+Usage:  balancevectors.sh in_file=<vectors.tsv> outtrain_file=<file> outval=<file>
+
+I/O parameters:
+in_file=<file>       Input labeled vector TSV (last column is the 0-1 label).
+outtrain_file=<file> Output training split.
+outval=<file>   Output validation split.
+
+Balancing parameters:
+posfraction=0.3 Target fraction of positives in the output (0.3 = 30% pos / 70% neg).
+valfraction=0.1 Fraction of the balanced set held out for validation.
+enrich=t        Use stratified category sampling for negatives (f = purely random).
+newcats=t       Include the artifact category axes (homopolymer/allele-fraction/
+                strand-ratio/mapq) in addition to the type/depth/score/length axes.
+newweight=0.3   Sample the artifact axes at this fraction of the base per-category
+                quota (a smaller fraction, not an equal split).
+quota=          Override the per-existing-category sample size (default: derived).
+noscore=t       Zero the composite-score column (29) on output, so the network must
+                learn its own scoring instead of copying the existing score.
+seed=42         Random seed (sampling and shuffle are deterministic given this).
+
+Java Parameters:
+-Xmx            Set Java memory, e.g. -Xmx64g.  Large inputs (tens of millions of
+                vectors) need enough heap to hold all lines; budget ~1.5x the file size.
+-eoom           Exit on out-of-memory.
+-da             Disable assertions.
+
+Please contact Brian Bushnell at bbushnell@lbl.gov if you encounter any problems.
+For documentation and the latest version, visit: https://bbmap.org
+
+    Args:
+        capture_output (bool): If True, capture and return the output instead of printing it.
+        in_file (str): Input file (replaces 'in=' parameter)
+        **kwargs: Other arguments for balancevectors.sh
+
+    Returns:
+        Union[None, Tuple[str, str]]: If capture_output is True, returns (stdout, stderr), else None.
+    """
+    args = _pack_args(kwargs)
+    return _run_command("balancevectors.sh", args, capture_output)
 
 def bamlinestreamer(capture_output: bool = False, **kwargs) -> Union[None, Tuple[str, str]]:
     """
@@ -957,6 +1013,373 @@ def bbduk(capture_output: bool = False, **kwargs) -> Union[None, Tuple[str, str]
 
     Help message:
     Written by Brian Bushnell
+Last modified February 11, 2026
+
+Description:  Compares reads to the kmers in a reference dataset, optionally 
+allowing an edit distance. Splits the reads into two outputs - those that 
+match the reference, and those that don't. Can also trim (remove) the matching 
+parts of the reads rather than binning the reads.
+Please read bbmap/docs/guides/BBDukGuide.txt for more information.
+
+Usage:  bbduk.sh in_file=<input file> out=<output file> ref=<contaminant files>
+
+Input may be stdin or a fasta or fastq file, compressed or uncompressed.
+If you pipe via stdin/stdout, please include the file type; e.g. for gzipped 
+fasta input, set in_file=stdin.fa.gz
+
+Input parameters:
+in_file=<file>           Main input. in_file=stdin.fq will pipe from stdin.
+in2=<file>          Input for 2nd read of pairs in a different file.
+ref=<file,file>     Comma-delimited list of reference files.
+                    In addition to filenames, you may also use the keywords:
+                    adapters, artifacts, phix, lambda, pjet, mtst, kapa
+literal=<seq,seq>   Comma-delimited list of literal reference sequences.
+                    Polymers are also allowed with the 'poly' prefix;
+                    for example, 'literal=ATGGT,polyGC' will add both ATGGT
+                    and GCGCGCGCGCGCGCGCGCGCGCGCGCGCGCGCGCGC - 32+ of them,
+                    enough replicates to ensure that all kmers are present.
+touppercase=f       (tuc) Change all bases upper-case.
+interleaved=auto    (int) t/f overrides interleaved autodetection.
+                    Must be set mainually when streaming fastq input.
+qin_file=auto            Input quality offset: 33 (Sanger), 64, or auto.
+reads=-1            If positive, quit after processing X reads or pairs.
+copyundefined=f     (cu) Process non-AGCT IUPAC reference bases by making all
+                    possible unambiguous copies.  Intended for short motifs
+                    or adapter barcodes, as time/memory use is exponential.
+samplerate=1        Set lower to only process a fraction of input reads.
+samref=<file>       Optional reference fasta for processing sam files.
+
+Output parameters:
+out=<file>          (outnonmatch) Write reads here that do not contain 
+                    kmers matching the database.  'out=stdout.fq' will pipe 
+                    to standard out.
+out2=<file>         (outnonmatch2) Use this to write 2nd read of pairs to a 
+                    different file.
+outm=<file>         (outmatch) Write reads here that fail filters.  In default
+                    kfilter mode, this means any read with a matching kmer.
+                    In any mode, it also includes reads that fail filters such
+                    as minlength, mingc, maxgc, entropy, etc.  In other words,
+                    it includes all reads that do not go to 'out'.
+outm2=<file>        (outmatch2) Use this to write 2nd read of pairs to a 
+                    different file.
+outs=<file>         (outsingle) Use this to write singleton reads whose mate 
+                    was trimmed shorter than minlen.
+stats=<file>        Write statistics about which contamininants were detected.
+refstats=<file>     Write statistics on a per-reference-file basis.
+rpkm=<file>         Write RPKM for each reference sequence (for RNA-seq).
+dump=<file>         Dump kmer tables to a file, in fasta format.
+duk=<file>          Write statistics in duk's format. *DEPRECATED*
+nzo=t               Only write statistics about ref sequences with nonzero hits.
+overwrite=t         (ow) Grant permission to overwrite files.
+showspeed=t         (ss) 'f' suppresses display of processing speed.
+ziplevel=2          (zl) Compression level; 1 (min) through 9 (max).
+fastawrap=70        Length of lines in fasta output.
+qout=auto           Output quality offset: 33 (Sanger), 64, or auto.
+statscolumns=3      (cols) Number of columns for stats output, 3 or 5.
+                    5 includes base counts.
+rename=f            Rename reads to indicate which sequences they matched.
+refnames=f          Use names of reference files rather than scaffold IDs.
+trd=f               Truncate read and ref names at the first whitespace.
+ordered=f           Set to true to output reads in same order as input.
+maxbasesout=-1      If positive, quit after writing approximately this many
+                    bases to out (outu/outnonmatch).
+maxbasesoutm=-1     If positive, quit after writing approximately this many
+                    bases to outm (outmatch).
+json=f              Print to screen in json format.
+
+Histogram output parameters:
+bhist=<file>        Base composition histogram by position.
+qhist=<file>        Quality histogram by position.
+qchist=<file>       Count of bases with each quality value.
+aqhist=<file>       Histogram of average read quality.
+bqhist=<file>       Quality histogram designed for box plots.
+lhist=<file>        Read length histogram.
+phist=<file>        Polymer length histogram.
+gchist=<file>       Read GC content histogram.
+enthist=<file>      Read entropy histogram.
+ihist=<file>        Insert size histogram, for paired reads in mapped sam.
+gcbins=100          Number gchist bins.  Set to 'auto' to use read length.
+maxhistlen=6000     Set an upper bound for histogram lengths; higher uses 
+                    more memory.  The default is 6000 for some histograms
+                    and 80000 for others.
+
+Histogram parameters for mapped sam/bam files only:
+histbefore=t        Calculate histograms from reads before processing.
+ehist=<file>        Errors-per-read histogram.
+qahist=<file>       Quality accuracy histogram of error rates versus quality 
+                    score.
+indelhist=<file>    Indel length histogram.
+mhist=<file>        Histogram of match, sub, del, and ins rates by position.
+idhist=<file>       Histogram of read count versus percent identity.
+idbins=100          Number idhist bins.  Set to 'auto' to use read length.
+varfile=<file>      Ignore substitution errors listed in this file when 
+                    calculating error rates.  Can be generated with
+                    CallVariants.
+vcf=<file>          Ignore substitution errors listed in this VCF file 
+                    when calculating error rates.
+ignorevcfindels=t   Also ignore indels listed in the VCF.
+
+Processing parameters:
+k=31                Kmer length used for finding contaminants.  Contaminants 
+                    shorter than k will not be found.  k must be at least 1.
+ways=8              Index shards for ref kmers, must be 7 or a power of 2.
+                    Each shard can hold ~1.5B kmers, so this may be increased
+		    if there are too many kmers, but sufficient memory.
+rcomp=t             Look for reverse-complements of kmers in addition to 
+                    forward kmers.
+maskmiddle=t        (mm) Treat the middle base of a kmer as a wildcard, to 
+                    increase sensitivity in the presence of errors.  This may
+                    also be set to a number, e.g. mm=3, to mask that many bp.
+                    The default mm=t corresponds to mm=1 for odd-length kmers
+                    and mm=2 for even-length kmers (as of v39.04), while
+                    mm=f is always equivalent to mm=0.
+minkmerhits=1       (mkh) Reads need at least this many matching kmers 
+                    to be considered as matching the reference.
+minkmerfraction=0.0 (mkf) A reads needs at least this fraction of its total
+                    kmers to hit a ref, in order to be considered a match.
+                    If this and minkmerhits are set, the greater is used.
+mincovfraction=0.0  (mcf) A reads needs at least this fraction of its total
+                    bases to be covered by ref kmers to be considered a match.
+                    If specified, mcf overrides mkh and mkf.
+hammingdistance=0   (hdist) Maximum Hamming distance for ref kmers (subs only).
+                    Memory use is proportional to (3*K)^hdist.
+qhdist=0            Hamming distance for query kmers; impacts speed, not memory.
+editdistance=0      (edist) Maximum edit distance from ref kmers (subs 
+                    and indels).  Memory use is proportional to (8*K)^edist.
+hammingdistance2=0  (hdist2) Sets hdist for short kmers, when using mink.
+qhdist2=0           Sets qhdist for short kmers, when using mink.
+editdistance2=0     (edist2) Sets edist for short kmers, when using mink.
+forbidn=f           (fn) Forbids matching of read kmers containing N.
+                    By default, these will match a reference 'A' if 
+                    hdist>0 or edist>0, to increase sensitivity.
+removeifeitherbad=t (rieb) Paired reads get sent to 'outmatch' if either is 
+                    match (or either is trimmed shorter than minlen).  
+                    Set to false to require both.
+trimfailures=f      Instead of discarding failed reads, trim them to 1bp.
+                    This makes the statistics a bit odd.
+findbestmatch=f     (fbm) If multiple matches, associate read with sequence 
+                    sharing most kmers.  Reduces speed.
+skipr1=f            Don't do kmer-based operations on read 1.
+skipr2=f            Don't do kmer-based operations on read 2.
+ecco=f              For overlapping paired reads only.  Performs error-
+                    correction with BBMerge prior to kmer operations.
+recalibrate=f       (recal) Recalibrate quality scores.  Requires calibration
+                    matrices generated by CalcTrueQuality.
+sam=<file,file>     If recalibration is desired, and matrices have not already
+                    been generated, BBDuk will create them from the sam file.
+amino=f             Run in amino acid mode.  Some features have not been
+                    tested, but kmer-matching works fine.  Maximum k is 12.
+
+Speed and Memory parameters:
+threads=auto        (t) Set number of threads to use; default is number of 
+                    logical processors.
+prealloc=f          Preallocate memory in table.  Allows faster table loading 
+                    and more efficient memory usage, for a large reference.
+monitor=f           Kill this process if it crashes.  monitor=600,0.01 would 
+                    kill after 600 seconds under 1% usage.
+minrskip=1          (mns) Force minimal skip interval when indexing reference 
+                    kmers.  1 means use all, 2 means use every other kmer, etc.
+maxrskip=1          (mxs) Restrict maximal skip interval when indexing 
+                    reference kmers. Normally all are used for scaffolds<100kb, 
+                    but with longer scaffolds, up to maxrskip-1 are skipped.
+rskip=              Set both minrskip and maxrskip to the same value.
+                    If not set, rskip will vary based on sequence length.
+qskip=1             Skip query kmers to increase speed.  1 means use all.
+speed=0             Ignore this fraction of kmer space (0-15 out of 16) in both
+                    reads and reference.  Increases speed and reduces memory.
+Note: Do not use more than one of 'speed', 'qskip', and 'rskip'.
+
+Trimming/Filtering/Masking parameters:
+Note - if ktrim, kmask, and ksplit are unset, the default behavior is kfilter.
+All kmer processing modes are mutually exclusive.
+Reads only get sent to 'outm' purely based on kmer matches in kfilter mode.
+
+ktrim=f             Trim reads to remove bases matching reference kmers, plus
+                    all bases to the left or right.
+                    Values:
+                       f (don't trim), 
+                       r (trim to the right), 
+                       l (trim to the left)
+ktrimtips=0         Set this to a positive number to perform ktrim on both
+                    ends, examining only the outermost X bases.
+kmask=              Replace bases matching ref kmers with another symbol.
+                    Allows any non-whitespace character, and processes short
+                    kmers on both ends if mink is set.  'kmask=lc' will
+                    convert masked bases to lowercase.
+maskfullycovered=f  (mfc) Only mask bases that are fully covered by kmers.
+ksplit=f            For single-ended reads only.  Reads will be split into
+                    pairs around the kmer.  If the kmer is at the end of the
+                    read, it will be trimmed instead.  Singletons will go to
+                    out, and pairs will go to outm.  Do not use ksplit with
+                    other operations such as quality-trimming or filtering.
+mink=0              Look for shorter kmers at read tips down to this length, 
+                    when k-trimming or masking.  0 means disabled.  Enabling
+                    this will disable maskmiddle.
+qtrim=f             Trim read ends to remove bases with quality below trimq.
+                    Performed AFTER looking for kmers.  Values: 
+                       rl (trim both ends), 
+                       f (neither end), 
+                       r (right end only), 
+                       l (left end only),
+                       w (sliding window).
+trimq=6             Regions with average quality BELOW this will be trimmed,
+                    if qtrim is set to something other than f.  Can be a 
+                    floating-point number like 7.3.
+quantize            Bin quality scores to reduce file size.  quantize=2 will
+                    eliminate all odd quality scores, while quantize=0,10,37
+                    will only allow qualty scores of 0, 10, or 37.
+trimclip=f          Trim soft-clipped bases from sam files.
+minlength=10        (ml) Reads shorter than this after trimming will be 
+                    discarded.  Pairs will be discarded if both are shorter.
+mlf=0               (minlengthfraction) Reads shorter than this fraction of 
+                    original length after trimming will be discarded.
+maxlength=          Reads longer than this after trimming will be discarded.
+minavgquality=0     (maq) Reads with average quality (after trimming) below 
+                    this will be discarded.
+maqb=0              If positive, calculate maq from this many initial bases.
+minbasequality=0    (mbq) Reads with any base below this quality (after 
+                    trimming) will be discarded.
+maxns=-1            If non-negative, reads with more Ns than this 
+                    (after trimming) will be discarded.
+mcb=0               (minconsecutivebases) Discard reads without at least 
+                    this many consecutive called bases.
+ottm=f              (outputtrimmedtomatch) Output reads trimmed to shorter 
+                    than minlength to outm rather than discarding.
+tp=0                (trimpad) Trim this much extra around matching kmers.
+tbo=f               (trimbyoverlap) Trim adapters based on where paired 
+                    reads overlap.
+strictoverlap=t     Adjust sensitivity for trimbyoverlap mode.
+minoverlap=14       Require this many bases of overlap for detection.
+mininsert=40        Require insert size of at least this for overlap.
+                    Should be reduced to 16 for small RNA sequencing.
+tpe=f               (trimpairsevenly) When kmer right-trimming, trim both 
+                    reads to the minimum length of either.
+forcetrimleft=0     (ftl) If positive, trim bases to the left of this position
+                    (exclusive, 0-based).
+forcetrimright=0    (ftr) If positive, trim bases to the right of this position
+                    (exclusive, 0-based).
+forcetrimright2=0   (ftr2) If positive, trim this many bases on the right end.
+forcetrimmod=0      (ftm) If positive, right-trim length to be equal to zero,
+                    modulo this number.
+restrictleft=0      If positive, only look for kmer matches in the 
+                    leftmost X bases.
+restrictright=0     If positive, only look for kmer matches in the 
+                    rightmost X bases.
+NOTE:  restrictleft and restrictright are mutually exclusive.  If trimming
+       both ends is desired, use ktrimtips.
+mingc=0             Discard reads with GC content below this.
+maxgc=1             Discard reads with GC content above this.
+gcpairs=t           Use average GC of paired reads.
+                    Also affects gchist.
+tossjunk=f          Discard reads with invalid characters as bases.
+swift=f             Trim Swift sequences: Trailing C/T/N R1, leading G/A/N R2.
+
+Header-parsing parameters - these require Illumina headers:
+chastityfilter=f    (cf) Discard reads with id containing ' 1:Y:' or ' 2:Y:'.
+barcodefilter=f     Remove reads with unexpected barcodes if barcodes is set,
+                    or barcodes containing 'N' otherwise.  A barcode must be
+                    the last part of the read header.  Values:
+                       t:     Remove reads with bad barcodes.
+                       f:     Ignore barcodes.
+                       crash: Crash upon encountering bad barcodes.
+barcodes=           Comma-delimited list of barcodes or files of barcodes.
+xmin_file=-1             If positive, discard reads with a lesser X coordinate.
+ymin_file=-1             If positive, discard reads with a lesser Y coordinate.
+xmax=-1             If positive, discard reads with a greater X coordinate.
+ymax=-1             If positive, discard reads with a greater Y coordinate.
+
+Polymer trimming parameters:
+trimpolya=0         If greater than 0, trim poly-A or poly-T tails of
+                    at least this length on either end of reads.
+trimpolygleft=0     If greater than 0, trim poly-G prefixes of at least this
+                    length on the left end of reads.  Does not trim poly-C.
+trimpolygright=0    If greater than 0, trim poly-G tails of at least this 
+                    length on the right end of reads.  Does not trim poly-C.
+trimpolyg=0         This sets both left and right at once.
+filterpolyg=0       If greater than 0, remove reads with a poly-G prefix of
+                    at least this length (on the left).
+Note: there are also equivalent poly-C flags.
+
+Polymer tracking parameters:
+pratio=base,base    'pratio=G,C' will print the ratio of G to C polymers.
+plen=20             Length of homopolymers to count.
+
+Entropy/Complexity parameters:
+entropy=-1          Set between 0 and 1 to filter reads with entropy below
+                    that value.  Higher is more stringent.
+entropywindow=50    Calculate entropy using a sliding window of this length.
+entropyk=5          Calculate entropy using kmers of this length.
+minbasefrequency=0  Discard reads with a minimum base frequency below this.
+entropytrim=f       Values:
+                       f:  (false) Do not entropy-trim.
+                       r:  (right) Trim low entropy on the right end only.
+                       l:  (left) Trim low entropy on the left end only.
+                       rl: (both) Trim low entropy on both ends.
+entropymask=f       Values:
+                       f:  (filter) Discard low-entropy sequences.
+                       t:  (true) Mask low-entropy parts of sequences with N.
+                       lc: Change low-entropy parts of sequences to lowercase.
+entropymark=f       Mark each base with its entropy value.  This is on a scale
+                    of 0-41 and is reported as quality scores, so the output
+                    should be fastq or fasta+qual.
+NOTE: If set, entropytrim overrides entropymask.
+
+Cardinality estimation parameters:
+cardinality=f       (loglog) Count unique kmers using the LogLog algorithm.
+cardinalityout=f    (loglogout) Count unique kmers in output reads.
+loglogk=31          Use this kmer length for counting.
+loglogbuckets=2048  Use this many buckets for counting.
+khist=<file>        Kmer frequency histogram; plots number of kmers versus
+                    kmer depth.  This is approximate.
+khistout=<file>     Kmer frequency histogram for output reads.
+
+Side Channel Parameters:
+sideout=<file>      Output for aligned reads.
+sideref=phix        Reference for side-channel alignment; must be a single
+                    sequence and virtually repeat-free at selected k.
+sidek1=17           Kmer length for seeding alignment to reference.
+sidek2=13           Kmer length for seeding alignment of unaligned reads
+                    with an aligned mate.
+sideminid1=0.66     Minimum identity to accept individual alignments.
+sideminid2=0.58     Minimum identity for aligning reads with aligned mates.
+sidemm1=1           Middle mask length for sidek1.
+sidemm2=1           Middle mask length for sidek2.
+Note:  The side channel is a special additional output that allows alignment
+to a secondary reference while also doing trimming.  Alignment does not affect
+whether reads go to the normal outputs (out, outm).  The main purpose is to
+simplify pipelines that need trimmed, aligned phiX reads for recalibration.
+
+
+Java Parameters:
+
+-Xmx                This will set Java's memory usage, overriding autodetection.
+                    -Xmx20g will 
+                    specify 20 gigs of RAM, and -Xmx200m will specify 200 megs.  
+                    The max is typically 85% of physical memory.
+-eoom               This flag will cause the process to exit if an 
+                    out-of-memory exception occurs.  Requires Java 8u92+.
+-da                 Disable assertions.
+
+Please contact Brian Bushnell at bbushnell@lbl.gov if you encounter any problems.
+For documentation and the latest version, visit: https://bbmap.org
+
+    Args:
+        capture_output (bool): If True, capture and return the output instead of printing it.
+        in_file (str): Input file (replaces 'in=' parameter)
+        **kwargs: Other arguments for bbduk.sh
+
+    Returns:
+        Union[None, Tuple[str, str]]: If capture_output is True, returns (stdout, stderr), else None.
+    """
+    args = _pack_args(kwargs)
+    return _run_command("bbduk.sh", args, capture_output)
+
+def bbdukOld(capture_output: bool = False, **kwargs) -> Union[None, Tuple[str, str]]:
+    """
+    Wrapper for bbdukOld.sh
+
+    Help message:
+    Written by Brian Bushnell
 Last modified October 29, 2025
 
 Description:  Compares reads to the kmers in a reference dataset, optionally 
@@ -1307,13 +1730,13 @@ For documentation and the latest version, visit: https://bbmap.org
     Args:
         capture_output (bool): If True, capture and return the output instead of printing it.
         in_file (str): Input file (replaces 'in=' parameter)
-        **kwargs: Other arguments for bbduk.sh
+        **kwargs: Other arguments for bbdukOld.sh
 
     Returns:
         Union[None, Tuple[str, str]]: If capture_output is True, returns (stdout, stderr), else None.
     """
     args = _pack_args(kwargs)
-    return _run_command("bbduk.sh", args, capture_output)
+    return _run_command("bbdukOld.sh", args, capture_output)
 
 def bbdukS(capture_output: bool = False, **kwargs) -> Union[None, Tuple[str, str]]:
     """
@@ -1321,7 +1744,7 @@ def bbdukS(capture_output: bool = False, **kwargs) -> Union[None, Tuple[str, str
 
     Help message:
     Written by Brian Bushnell
-Last modified December 5, 2025
+Last modified February 11, 2026
 
 #This is an experimental new version of BBDuk using a faster I/O system
 
@@ -2643,7 +3066,7 @@ def bbsort(capture_output: bool = False, **kwargs) -> Union[None, Tuple[str, str
 
     Help message:
     Written by Brian Bushnell
-Last modified October 10, 2022
+Last modified February 19, 2026
 
 Description:  Sorts reads by name or other keys such as length,
 quality, mapping position, flowcell coordinates, or taxonomy.
@@ -2676,7 +3099,12 @@ clump=f         Sort reads by shared kmers, like Clumpify.
 flowcell=f      Sort reads by flowcell coordinates.
 shuffle=f       Shuffle reads randomly (untested).
 list=<file>     Sort reads according to this list of names.
-ascending=t     Sort ascending.
+ascending=t     Sort ascending.  This defaults to true except for length.
+descending=f    Sort descending instead of ascending.  Overrides ascending flag.
+maxfiles=12     Maximum number of temp files to use during external sort.
+crispr=f        Sort reads by CRISPR repeat quality score (requires neural network model).
+genkmer=t       Generate 5-bit kmers for topological/lexicographic sorting modes.
+deleteearly=f   Delete temp files as soon as they are merged, to save disk space.
 
 Memory parameters (you might reduce these if you experience a crash)
 memmult=0.30    Write a temp file when used memory exceeds this fraction
@@ -2690,7 +3118,7 @@ Taxonomy-sorting parameters (for taxa mode only):
 tree=           Specify a taxtree file.  On Genepool, use 'auto'.
 gi=             Specify a gitable file.  On Genepool, use 'auto'.
 accession=      Specify one or more comma-delimited NCBI accession to
-                taxid files.  On Genepool, use 'auto'.
+                taxid files.  On Dori/NERSC, use 'auto'.
 
 Note: name, length, and quality are mutually exclusive.
 Sorting by quality actually sorts by average expected error rate,
@@ -3628,7 +4056,7 @@ def checkstrand(capture_output: bool = False, **kwargs) -> Union[None, Tuple[str
 
     Help message:
     Written by Brian Bushnell
-Last modified April 11, 2025
+Last modified January 9, 2026
 
 Description:  Estimates the strandedness of a library without alignment; 
 intended for RNA-seq data.  Only the reads are required input to determine
@@ -3696,6 +4124,20 @@ StrandednessAL: Percent of reads aligned to the dominant strand.  More
                 accurate for transcriptome-mapped than genome-mapped reads.
 StrandednessAN: Depth-normalized strandedness, where each feature or
                 contig contributes equally.
+Binned Values (B):  The genome is divided into fixed-size bins (default 1000bp).
+                For each bin, plus-strand reads are counted as p, minus-strand as m.
+		Only bins with at least minReads total coverage are used.
+StrandednessB:  Aggregates minor and major strand counts across all qualifying bins,
+                then applies the statistical strandedness transform to the totals. 
+		This accounts for expected random variation.
+StrandednessBN: Calculates strandedness for each bin individually, then averages
+                those values. Each bin contributes equally regardless of depth.
+		This is what JGI uses for QC.
+StrandednessBS: Aggregates counts like B, but uses the simple ratio major/(major+minor) 
+                without the statistical transform. For matching external tools that
+                don't use the transform to compensate for small values.
+StrandednessBNS: Per-bin simple ratios averaged. Each bin's simple major/(major+minor)
+                ratio is calculated, then averaged across all bins.
 MajorStrandAL:  Strand to which a majority of reads aligned.
 P/(P+M)_Ratio:  P is the number of plus-mapped reads, M is minus.
 P/(P+M)_RatioN: Depth-normalized plus/total ratio.
@@ -3980,42 +4422,87 @@ def cloudplot(capture_output: bool = False, **kwargs) -> Union[None, Tuple[str, 
 
     Help message:
     Written by Brian Bushnell
-Last modified October 12, 2025
+Last modified February 19, 2026
 
-Description:  Visualizes 3D compositional metrics (GC, HH, CAGA) as 2D scatter plots.
+Description:  Visualizes up to 5D compositional metrics as 2D scatter plots.
+X, Y, Z (rotation), Size, and Color channels can display GC, HH, CAGA, Depth, or Length.
 Supports both TSV interval data and FASTA input (via ScalarIntervals).
-Generates PNG images with configurable scaling and point sizes.
+Generates PNG images with configurable scaling, sizes, and colors.
 
-Usage:  cloudplot.sh in_file=<input file> out=<output file>
-e.g.
-cloudplot.sh in_file=data.tsv out=plot.png
-or
-cloudplot.sh in_file=ecoli.fasta out=plot.png shred=5k
+Usage:  cloudplot.sh in_file=<input file> out=<output file> [options]
+
+Examples:
+# Basic 3D plot (legacy format)
+cloudplot.sh in_file=contigs.fa out=plot.png order=gc,hh,caga
+
+# 5D plot: GC vs HH, rotated by CAGA, sized by depth, colored by taxonomy
+cloudplot.sh in_file=contigs.fa out=plot.png order=gc,hh,caga,depth colorby=tax cov=coverage.txt
+
+# Alternative: depth on X-axis, length as size
+cloudplot.sh in_file=contigs.fa out=plot.png order=depth,hh,caga,length colorby=tax cov=coverage.txt
+
+# Fixed size with taxonomic coloring
+cloudplot.sh in_file=contigs.fa out=plot.png order=gc,hh,caga colorby=taxonomy
 
 Standard parameters:
 in_file=<file>       Primary input; TSV (GC/HH/CAGA columns) or FASTA/FASTQ.
 out=<file>      Output PNG image file.
 
+Dimension assignment:
+order=hh,caga,gc        Assign metrics to X, Y, Z(rotation) dimensions (default).
+order=gc,hh,caga,depth  Assign metrics to X, Y, Z(rotation), Size dimensions (5D mode).
+                        Available metrics: gc, hh, caga, depth, length, taxonomy, none
+                        Default: hh,caga,gc,none (HH on X, CAGA on Y, GC rotation, no size)
+                        Note: Taxonomy can ONLY be used for Z (rotation) or colorby.
+
+colorby=<metric>        Metric for point color (default: taxonomy).
+                        Options: gc, hh, caga, depth, length, taxonomy
+                        Use 'taxonomy' or 'tax' for taxonomic coloring.
+
+Depth/coverage sources:
+cov=<file>      Coverage file from pileup.sh (format: #ID, Avg_fold) or
+                covmaker.sh (format: #Contigs, AvgFold).
+depth=<file>    SAM/BAM file for depth calculation.
+                Calculates depth from aligned bases in SAM/BAM format.
+logoffset=0.25  Offset added before log-transforming depth/length values.
+logshift=2.0    Shift applied during log transformation of depth/length values.
+logpower=2.0    Power exponent applied during log transformation.
+cpct=0.98       Color percentile for autoscaling color range (0-1).
+
 Rendering parameters:
-order=caga,hh,gc  Plotting order of dimensions as x,y,z.
 scale=1         Image scale multiplier (1=1024x768).
-pointsize=3.5   Width of plotted points in pixels.
-autoscale=t     Autoscale dimensions with negative values based on data.
-                If false, they will be scaled to 0-1.
-xmin_file=-1         X-axis minimum.
-xmax=-1         X-axis maximum.
-ymin_file=-1         Y-axis minimum.
-ymax=-1         Y-axis maximum.
-zmin_file=-1         Z-axis (rotation/color) minimum.
-zmax=-1         Z-axis (rotation/color) maximum.
+pointsize=3.5   Base point size in pixels.
+                When size dimension is set, this is the reference size.
+                When size dimension is NOT set, this is the fixed size.
+
+Size scaling:
+minsize=-1      Minimum point size for variable sizing (pixels).
+                Default: 0.8 * pointsize (e.g., 2.8 pixels if pointsize=3.5).
+                Negative value triggers autoscaling.
+maxsize=-1      Maximum point size for variable sizing (pixels).
+                Default: 3.0 * pointsize (e.g., 10.5 pixels if pointsize=3.5).
+                Negative value triggers autoscaling.
+spct=0.998      Percentile of size values to use for autoscaling.
+                Note: Depth and Length use logarithmic scaling for size.
+
+Axis scaling:
+autoscale=t     Autoscale dimensions with negative min/max based on data percentiles.
+                If false, dimensions are scaled to 0-1 range.
+xmin_file=-1         X-axis minimum (negative = autoscale from data).
+xmax=-1         X-axis maximum (negative = autoscale from data).
+ymin_file=-1         Y-axis minimum (negative = autoscale from data).
+ymax=-1         Y-axis maximum (negative = autoscale from data).
+zmin_file=-1         Z-axis (rotation) minimum (negative = autoscale from data).
+zmax=-1         Z-axis (rotation) maximum (negative = autoscale from data).
+smin_file=-1         Size minimum (negative = autoscale from data).
+smax=-1         Size maximum (negative = autoscale from data).
 xpct=0.998      Percentile of x-axis values to use for autoscaling.
 ypct=0.998      Percentile of y-axis values to use for autoscaling.
 zpct=0.99       Percentile of z-axis values to use for autoscaling.
 
 Taxonomy/Coloring parameters:
-colorbytax=f    Color by taxonomy.  Default coloring is by the 
-colorbyname=f   Color by contig name, so points on the same contig have
-                the same, random color.
+colorbytax=f    (Legacy) Color by taxonomy. Use colorby=tax instead.
+colorbyname=f   (Legacy) Color by contig name. Not compatible with colorby parameter.
 level=          Raise taxonomy to this level before assigning color.
                 Requires a taxonomic tree.  e.g. 'level=genus'
                 See https://sourceforge.net/projects/bbmap/files/Resources/
@@ -4040,6 +4527,23 @@ shred=-1        If positive, set window and interval to the same size.
 break=t         Reset metrics at contig boundaries.
 minlen=500      Minimum interval length to generate a point.
 maxreads=-1     Maximum number of reads/contigs to process.
+
+Dimension Usage Guidelines:
+- X, Y axes: Best for GC, HH, CAGA (0-1 range, easy to interpret)
+- Z (rotation): Works for any metric, but CAGA or Taxonomy recommended
+- Size: Works well for Depth or Length (high dynamic range with log scaling)
+- Color: Taxonomy (categorical) or any continuous metric (gradient)
+
+Validation Rules:
+- Taxonomy can ONLY be assigned to Z (rotation) or colorby
+- Attempting to assign Taxonomy to X, Y, or Size will produce an error
+- All other metrics can be assigned to any dimension
+
+Notes:
+- When size dimension is enabled, point length no longer varies with Y position
+- Depth and Length metrics use logarithmic scaling for size dimension
+- GC, HH, CAGA use linear scaling for size dimension
+- Color gradient uses the cagaToColor6 palette (Red → Purple → Blue → Cyan → Green → Yellow)
 
 Java Parameters:
 -Xmx            This will set Java's memory usage, overriding autodetection.
@@ -4768,6 +5272,11 @@ addsamples=t    Include all samples in the output lines. (TODO)
 splitalleles=f  Split multi-allelic lines into multiple lines.
 splitsubs=f     Split multi-base substitutions into SNPs.
 canonize=t      Trim variations down to a canonical representation.
+normalize=f     (leftalign) Left-align indels using the reference (requires
+                ref=).  The standard normalization for cross-caller concordance.
+bed=<file>      Restrict the comparison to variants inside this BED file's
+                intervals (e.g. a high-confidence benchmark region set).
+invertbed=f     Invert the BED filter: compare only variants OUTSIDE the intervals.
 
 Java Parameters:
 -Xmx            This will set Java's memory usage, overriding autodetection.
@@ -5190,6 +5699,75 @@ For documentation and the latest version, visit: https://bbmap.org
     args = _pack_args(kwargs)
     return _run_command("countsharedlines.sh", args, capture_output)
 
+def covmaker(capture_output: bool = False, **kwargs) -> Union[None, Tuple[str, str]]:
+    """
+    Wrapper for covmaker.sh
+
+    Help message:
+    Written by Brian Bushnell
+Last modified February 18, 2026
+
+Description:  Makes cov files for QuickBin.
+Notes: This program can use a lot of memory when there are many contigs.
+Sam files use less memory than bam.  
+
+Usage:
+covmaker.sh *.sam out=cov.txt
+or
+covmaker.sh in_file=sample1.bam,sample2.bam out=cov.txt
+or
+covmaker.sh cov.txt out=cov7.txt condense=7 reorder
+
+File parameters:
+in_file=<file>       Input.  Properly named files (*.sam, etc) do not need 'in_file='.
+                Sam, bam, and cov files are supported as input;
+		bam uses the most memory, and cov the least.
+out=<file>      Output coverage file.
+
+Other parameters
+condense=<int>  When there are more than this many samples (sam/bam files),
+                combine some into the same logical sample to save memory.
+reorder=t       Reorder samples by decreasing entropy to improve indexing.
+mincontig=100   Ignore contigs shorter than this.  Saves memory.
+readthreads=4   Load up to this many sam/bam files concurrently.
+                Lower uses less memory (when there are more samples).
+minseed=2.5k    Don't calculate depth entropy from contigs shorter than this.
+magnitude=t     Use magnitude (total sample volume) in merge decisions -
+                prioritize low-volume samples.
+cosine=t        Use cosine similarity in merge decisions - 
+                prioritize similar samples.
+entropy=f       Use depth entropy in merge decisions - 
+                prioritize low-entropy samples.
+negcos=f        Invert the cosine function to prioritize dissimilar samples.
+magpower=1.0    Raise sample volume to this power to alter its strength.
+entpower=1.0    Raise entropy to this power.
+compare=100k    Only compare this many largest contigs when calculating 
+                pairwise depth similarity.
+lognorm=f       Use logs of normalized depth, instead of raw depth,
+                for pairwise similarity.
+
+Java Parameters:
+-Xmx            This will set Java's memory usage, overriding autodetection.
+                -Xmx20g will specify 20 gigs of RAM, and -Xmx200m will
+                specify 200 megs. The max is typically 85% of physical memory.
+-eoom           This flag will cause the process to exit if an out-of-memory
+                exception occurs.  Requires Java 8u92+.
+-da             Disable assertions.
+
+Please contact Brian Bushnell at bbushnell@lbl.gov if you encounter any problems.
+For documentation and the latest version, visit: https://bbmap.org
+
+    Args:
+        capture_output (bool): If True, capture and return the output instead of printing it.
+        in_file (str): Input file (replaces 'in=' parameter)
+        **kwargs: Other arguments for covmaker.sh
+
+    Returns:
+        Union[None, Tuple[str, str]]: If capture_output is True, returns (stdout, stderr), else None.
+    """
+    args = _pack_args(kwargs)
+    return _run_command("covmaker.sh", args, capture_output)
+
 def crosscontaminate(capture_output: bool = False, **kwargs) -> Union[None, Tuple[str, str]]:
     """
     Wrapper for crosscontaminate.sh
@@ -5405,6 +5983,325 @@ For documentation and the latest version, visit: https://bbmap.org
     """
     args = _pack_args(kwargs)
     return _run_command("cutprimers.sh", args, capture_output)
+
+def ddlblacklist(capture_output: bool = False, **kwargs) -> Union[None, Tuple[str, str]]:
+    """
+    Wrapper for ddlblacklist.sh
+
+    Help message:
+    Written by Brian Bushnell and Noire
+Last modified May 25, 2026
+
+Description:  Builds a DDL kmer blacklist from pre-built DDL sketch files.
+Reads sketches with kmer arrays (built with ddlwriter.sh kmers=t), promotes
+each TaxID to genus level, counts distinct genera per kmer across all input
+files, and outputs overrepresented kmers as FASTA with multi-level taxonomic
+counts in the header.  Accepts comma-separated inputs; processes each file
+sequentially and discards sketch data after kmer extraction.
+
+Also supports condense mode (condense=t blacklist=X): condenses double-sized
+sketches to half size while preferring non-blacklisted kmers, then validates.
+Approximates full re-sketching without re-reading raw genome data.
+
+Usage:  ddlblacklist.sh in_file=sketches.tsv out=dump.fa [mincount=5] [k=31]
+        ddlblacklist.sh in_file=a.tsv,b.tsv out=dump.fa k=31 exponent=5 mincount=5
+        ddlblacklist.sh in_file=sketches.tsv condense=t validate=t blacklist=bl.fa
+
+Parameters:
+in_file=<file>       Input DDL sketch file(s), comma-delimited.
+                Must have been built with kmers=t.
+out=<file>      Output FASTA of overrepresented kmers.
+                Headers: >kmer_HEX raw=N g=N f=N o=N c=N p=N k=N sk=N e=0.XXX
+mincount=5      Minimum genus count to include in output.
+k=19            K-mer length (must match input sketches).
+exponent=5      Exponent bits (must match input sketches).
+blacklist=<file> FASTA blacklist for condense mode.
+condense=f      Condense 4096-bucket sketches to 2048, preferring
+                non-blacklisted kmers.  Use with validate=t.
+validate=f      Validate shared keys at each taxonomic distance.
+samples=200000  Number of random pairs for validation.
+
+Output header format:
+  raw = distinct genus-level TaxIDs containing this kmer
+  g/f/o/c/p/k/sk = distinct taxa at genus/family/order/class/phylum/kingdom/
+                    superkingdom level (promoted from genus TaxIDs)
+  e = Shannon entropy of the kmer's trimer distribution
+
+--- Blacklist Generation Methodology ---
+
+=== SSU/ITS ribosomal blacklists (k=19, buckets=128, exponent=4) ===
+
+Build double-sized sketches (buckets=256) with kmers=t from ribo databases:
+  ddlwriter.sh in_file=16S.fa.gz out=16S_sketches.tsv k=19 buckets=256 exponent=4 \\
+    mode=pertid kmers=t lineage=t
+
+Generate blacklists at each level (run once per type per level):
+  ddlblacklist.sh in_file=16S_sketches.tsv out=bl_family.fa k=19 exponent=4 \\
+    mincount=160 validate=t samples=200000
+
+Tuned cutoffs (each level run independently, merged with MergeDDLBlacklists):
+  16S:  family/160, order/80,  class/32, phylum/18  -> 1,219 unique kmers
+  18S:  family/190, order/70,  class/25, phylum/12  -> 2,758 unique kmers
+  ITS:  family/200, order/70,  class/24, phylum/8   ->   217 unique kmers
+  Combined: 4,230 unique kmers -> riboDDLBlacklist.fa.gz
+  Noise reduction: 10-29x.  Speed improvement: 2.6x on all-to-all.
+
+=== Whole-genome blacklists (k=31, buckets=2048, exponent=5) ===
+
+Step 1: Build double-sized sketches (buckets=4096) with kmers=t per clade:
+  ddlwriter.sh in_file=refseq.CLADE.fna.gz out=CLADE.tsv.gz k=31 buckets=4096 \\
+    exponent=5 mode=pertid kmers=t lineage=t tossjunk t=32
+
+Step 2: Generate combined genus-promoted kmer dump across all clades:
+  ddlblacklist.sh in_file=archaea.tsv.gz,bacteria.tsv.gz,...,viral.tsv.gz \\
+    out=combined_dump.fa.gz k=31 exponent=5 mincount=5
+
+  Files processed sequentially; each clade's sketch data is discarded
+  after kmer extraction.  TaxIDs promoted to genus level during collection.
+  304M distinct kmers across 200k records from 12 RefSeq clades.
+
+Step 3: Filter at chosen thresholds using awk on combined_dump.fa.gz headers,
+  merge with deduplication.  Cutoffs chosen from cumulative distribution plot
+  (Y = kmers with count >= X):
+  genus/250, family/50, order/20, class/10, phylum/5
+
+  Individual level counts: g/400=3853, f/75=6309, o/30=6785, c/10=6199, p/5=8166
+  Merged: 15,726 unique kmers
+
+Step 4: Validate via condense mode (no re-sketching needed):
+  ddlblacklist.sh in_file=archaea.tsv.gz,...,viral.tsv.gz condense=t validate=t \\
+    blacklist=bl_merged.fa k=31 exponent=5 samples=200000
+
+  Condenses 4096->2048 buckets while preferring non-blacklisted kmers.
+  Approximates real blacklist effect without reading terabytes of genomes.
+
+Step 5: Iterate (optional, marginal benefit for genomes):
+  Re-sketch with blacklist active to expose second-tier masked kmers:
+    ddlwriter.sh ... blacklist=bl_merged.fa
+  Re-run ddlblacklist.sh on new sketches with same thresholds.
+  Merge iter1+iter2 blacklists.  For RefSeq genomes, iteration added
+  2,022 new kmers with negligible noise improvement
+  (0.70 -> 0.71), confirming convergence after one iteration.
+
+Final result: genomeDDLBlacklist.fa.gz (23,020 kmers, 571KB)
+  Noise floor: 4.66 -> 0.71 avg shared keys at class+ distance (6.6x)
+  Genus signal preserved: 145.4 -> 143.7 (99%)
+  Autoloaded by DDLCompare.  Also loaded by DDLWriter via blacklist= flag.
+
+Java Parameters:
+-Xmx            This will set Java's memory usage, overriding autodetection.
+                -Xmx20g will specify 20 gigs of RAM.  The max is typically
+                85% of physical memory.
+-eoom           This flag will cause the process to exit if an out-of-memory
+                exception occurs.  Requires Java 8u92+.
+-da             Disable assertions.
+
+Please contact Brian Bushnell at bbushnell@lbl.gov if you encounter any problems.
+
+    Args:
+        capture_output (bool): If True, capture and return the output instead of printing it.
+        in_file (str): Input file (replaces 'in=' parameter)
+        **kwargs: Other arguments for ddlblacklist.sh
+
+    Returns:
+        Union[None, Tuple[str, str]]: If capture_output is True, returns (stdout, stderr), else None.
+    """
+    args = _pack_args(kwargs)
+    return _run_command("ddlblacklist.sh", args, capture_output)
+
+def ddlcalibrate(capture_output: bool = False, **kwargs) -> Union[None, Tuple[str, str]]:
+    """
+    Wrapper for ddlcalibrate.sh
+
+    Help message:
+    Written by Brian Bushnell, Chloe, and Eru
+Last modified April 6, 2026
+
+Description:  Calibrates DynamicDemiLog cardinality estimators by feeding random
+longs to DDL instances with varied seeds, tracking true cardinality via PRNG counter,
+and reporting per-estimator accuracy statistics at logarithmically spaced cardinality
+checkpoints.  Cache-friendly: each thread processes one DDL at a time (create, feed
+all values, record stats at thresholds, discard), keeping the DDL's working set in
+L1/L2 cache throughout.  Results are merged after all threads complete.
+
+Usage:  ddlcalibrate.sh loglogtype=ddl ddls=1000 buckets=2048
+
+Estimator types (loglogtype= or type=):
+  ddl (ddl10)   DynamicDemiLog, 10-bit mantissa.
+  ddl2          DynamicDemiLog2, 2-bit mantissa.
+  ddl8          DynamicDemiLog8, 8-bit mantissa.
+  dll2          DynamicLogLog2, 2-bit registers.
+  dll3          DynamicLogLog3, 3-bit registers (1-bit mantissa).
+  dll3v2        DynamicLogLog3v2, variant with social promotion.
+  dll4          DynamicLogLog4, 4-bit registers (no mantissa).
+  dll4m         DynamicLogLog4m, mantissa variant.
+  bdll3         BankedDynamicLogLog3, banked 3-bit registers.
+  ll6           LogLog6, 6-bit registers (no tier promotion).
+  udll6         UltraDynamicLogLog6, 6-bit with 2-bit history.
+  pll16c        ProtoLogLog16c, 16-bit with configurable mode bits.
+  htb           HyperTwoBits, 2-bit threshold estimator.
+  htc           HLLTailCut, tail-cutoff HLL variant.
+  ull8          UltraLogLog8, 8-bit with history.
+  ertl          ErtlULL, Ertl's improved estimator.
+
+Parameters:
+ddls=1000       Number of DDL instances with varied seeds (distributed across threads).
+buckets=2048    Buckets per DDL instance. Must be a multiple of 256.
+maxmult=10      Stop when trueCard reaches buckets*maxmult.
+dupfactor=0     Number of duplicate adds per unique value (0=none).
+reportfrac=0.01 Report every this fraction of current cardinality (cascading:
+                gives one row per add at low cardinality, one per 10 at 1000, etc).
+seed=12345      Master seed for DDL seed generation.
+threads=1       Number of parallel simulation threads.
+out3=           Output file for v5 CF table (File 3).  Not written if omitted.
+out4=           Output file for per-DLC-tier data.  Not written if omitted.
+cf=f            Set cf=t to apply existing correction factors during calibration.
+                Requires matching *CorrectionFactor.tsv in resources/.
+formulas=f      Use closed-form CF formulas instead of tables (for whitelisted types).
+clamp=t         Clamp estimates to added count (clamptoadded).
+
+Overflow control (DLL2/DLL3/BDLL3 only):
+io=t            Ignore overflow buckets in estimation (ignoreoverflow).
+co=t            Apply overflow correction (correctoverflow).
+ep=t            Early promotion (advance tier when all buckets nonzero).
+
+DLC tuning:
+dlcalpha=0.25   DLC logspace alpha.
+dlcblendlo=     DLC blend low threshold (fraction of buckets).
+dlcblendhi=     DLC blend high threshold (fraction of buckets).
+
+Formula control:
+meancfformula=f     Use Mean CF formula (per-class).
+hccfformula=f       Use HC CF formula (UDLL6 only).
+sbsformula=f        Use SBS formula instead of SBS table.
+useformulas=f       Enable all available formulas (alias: formulas).
+
+ProtoLogLog16 mode bits (PLL16c only):
+hbits=2         History bits (1, 2, or 3).
+lbits=0         Luck bits.
+mbits=0         Mantissa bits.
+pllmode=        Mode: mantissa, andtissa, nlz2, history, luck, histmant, none.
+
+File 1 output columns (written after all threads complete):
+TrueCard        Ground-truth distinct count.
+Occupancy       Fraction of DDL buckets with any data (averaged across all DDLs).
+*_err           Signed relative error: (estimate - true) / true.  Zero = unbiased.
+*_abs           Mean absolute relative error.  Zero = perfectly accurate.
+*_std           Population stdev of relative error across DDL instances.  Zero = no variance.
+
+File 3 output columns (out3=, v4 CF table):
+TrueCard        Integer ground-truth cardinality (key for CF lookup).
+*_cf            Correction factor per estimator: 1/(1+avgErr).  Apply at runtime.
+                9 columns: Mean, HMean, HMeanM, GMean, Hybrid, DLC, DLCBest, DLC3B, DThHyb.
+                Copy to resources/*CorrectionFactor.tsv for runtime use with cf=t.
+
+Estimators reported:
+Mean            Arithmetic mean of bucket values, with correction.
+HMean           HLL-style harmonic mean, with correction.
+HMeanM          Harmonic mean with mantissa bits (DDL only), with correction.
+GMean           Geometric mean proxy, with correction.
+HLL             HyperLogLog estimator.
+LC              LinearCounting estimator (accurate only at low occupancy).
+Hybrid          Blend of LC and Mean/HMeanM based on occupancy.
+HybDLC50        Hybrid using DLC for zone detection (50% blend threshold).
+DThHyb          Type-aware DLC-threshold hybrid (LC->Mean->HMeanM blend).
+LCmin           Tier-compensated LC: lcPure * 2^minZeros.
+RawDup          Raw duplicate fraction (diagnostic only).
+DLC             DynamicLogLog-Corrected estimate (logspace 0.25).
+DLC3B           DLC with 3-bucket smoothing.
+DLCBest         Best single-tier DLC estimate.
+HybDLC          Hybrid using DLC for zone detection.
+DLC0..DLCn      Per-tier raw DLC estimates (diagnostic).
+
+Java Parameters:
+-Xmx            This will set Java's memory usage, overriding autodetection.
+                -Xmx20g will specify 20 gigs of RAM, and -Xmx200m will specify 200 megs.
+-eoom           This flag will cause the process to exit if an out-of-memory
+                exception occurs.  Requires Java 8u92+.
+-da             Disable assertions.
+
+Please contact Brian Bushnell at bbushnell@lbl.gov if you encounter any problems.
+For documentation and the latest version, visit: https://bbmap.org
+
+    Args:
+        capture_output (bool): If True, capture and return the output instead of printing it.
+        in_file (str): Input file (replaces 'in=' parameter)
+        **kwargs: Other arguments for ddlcalibrate.sh
+
+    Returns:
+        Union[None, Tuple[str, str]]: If capture_output is True, returns (stdout, stderr), else None.
+    """
+    args = _pack_args(kwargs)
+    return _run_command("ddlcalibrate.sh", args, capture_output)
+
+def ddlcompare(capture_output: bool = False, **kwargs) -> Union[None, Tuple[str, str]]:
+    """
+    Wrapper for ddlcompare.sh
+
+    Help message:
+    Written by Brian Bushnell and Ady
+Last modified June 1, 2026
+
+Description:  Pairwise genome comparison using DynamicDemiLog (DDL) bucket
+matching.  Creates a DDL sketch for each input, compares them, and reports
+WKID, ANI, cardinality, containment, completeness, and bucket-level
+statistics.  Can also compare a query against a pre-built DDL reference file,
+or run collision tests on a DDL file.
+
+Usage:  ddlcompare.sh genome1.fa genome2.fa
+    or: ddlcompare.sh query.fa ref=ddls.tsv records=10
+    or: ddlcompare.sh query.fa refseq records=10
+    or: ddlcompare.sh qf=queries.tsv ref=ddls.tsv t=32
+    or: ddlcompare.sh ref=ddls.tsv collisiontest
+
+Pairwise Parameters:
+in_file=<file>       First input file (query).  Also accepts positional arguments.
+in2=<file>      Second input file (reference).
+
+Reference Mode Parameters:
+ref=<file>      Pre-built DDL reference file (TSV format from DDLLoader).
+refseq          Shorthand for ref=resources/refseqSketchDDL_k25e5b4096.tsv.gz.
+                Also accepts ref=refseq.
+queryfile=<file> Pre-built DDL query file (TSV format).  Compares all queries
+qf=<file>       against all references (multi-query batch mode).
+records=20      Max hits to display.
+minhits=5       Minimum matching DDL buckets to report a hit.
+index=f         Use inverted index for query acceleration.
+t=auto          Number of threads (default: all available cores).
+
+Collision Test:
+collisiontest   Measure all-pairs collision rate in a DDL reference file.
+                Requires ref= to be set.
+
+Blacklist:
+                Autoloads genomeDDLBlacklist_k25e5b4096.fa.gz from resources/
+                if present.  The blacklist filters taxonomically uninformative
+                kmers during query sketch construction.  Pre-built reference
+                sketches already have blacklisting baked in.
+
+Sketch Parameters:
+k=25            K-mer length for hashing.
+buckets=2048    Number of DDL buckets.
+exponent=6      Exponent bits (1-8).  Default 6.
+
+Examples:
+ddlcompare.sh ecoli.fa mruber.fa
+ddlcompare.sh ref.fa mutant.fa k=25 buckets=2048
+ddlcompare.sh query.fq.gz ref=refseqSketchDDL_k25e5b2048.tsv.gz records=5
+ddlcompare.sh qf=top1k.tsv.gz ref=refseqSketchDDL_k25e5b2048.tsv.gz t=32
+
+Please contact Brian Bushnell at bbushnell@lbl.gov if you encounter any problems.
+
+    Args:
+        capture_output (bool): If True, capture and return the output instead of printing it.
+        in_file (str): Input file (replaces 'in=' parameter)
+        **kwargs: Other arguments for ddlcompare.sh
+
+    Returns:
+        Union[None, Tuple[str, str]]: If capture_output is True, returns (stdout, stderr), else None.
+    """
+    args = _pack_args(kwargs)
+    return _run_command("ddlcompare.sh", args, capture_output)
 
 def decontaminate(capture_output: bool = False, **kwargs) -> Union[None, Tuple[str, str]]:
     """
@@ -5950,6 +6847,53 @@ For documentation and the latest version, visit: https://bbmap.org
     args = _pack_args(kwargs)
     return _run_command("diskbench.sh", args, capture_output)
 
+def dlctieraccuracy(capture_output: bool = False, **kwargs) -> Union[None, Tuple[str, str]]:
+    """
+    Wrapper for dlctieraccuracy.sh
+
+    Help message:
+    Written by Brian Bushnell and Eru
+Last modified April 6, 2026
+
+Description:  Measures DLC per-tier absolute error as a function of tier occupancy.
+Uses LogLog6 (no minZeros, no microIndex, no tier promotion) for clean measurement.
+Tier occupancy = number of buckets with NLZ >= tier, an integer from 0 to B.
+Multithreaded: distributes DDL instances across threads.
+
+Usage:  dlctieraccuracy.sh buckets=2048 ddls=100000 tier=3 threads=128
+
+Parameters:
+buckets=2048    Buckets per LL6 instance.
+ddls=100000     Number of LL6 instances (distributed across threads).
+maxmult=512     Stop when trueCard reaches buckets*maxmult.
+tier=3          Which DLC tier to measure (0-63).
+seed=1          Master seed for instance seed generation.
+threads=1       Number of parallel simulation threads.
+points=500      Number of log-spaced cardinality checkpoints.
+type=ll6        Estimator type (usually ll6 for clean tier measurement).
+
+Output columns (stdout, TSV):
+Occupancy       Integer tier occupancy (0..buckets).
+Count           Number of samples at this occupancy.
+AvgAbsErr       Mean |DLC_tier_est - trueCard| / trueCard.
+AvgSignedErr    Mean (DLC_tier_est - trueCard) / trueCard.
+
+Java Parameters:
+-Xmx            Memory limit.  -Xmx20g = 20 GB.
+-eoom           Exit on out-of-memory.
+-da             Disable assertions.
+
+    Args:
+        capture_output (bool): If True, capture and return the output instead of printing it.
+        in_file (str): Input file (replaces 'in=' parameter)
+        **kwargs: Other arguments for dlctieraccuracy.sh
+
+    Returns:
+        Union[None, Tuple[str, str]]: If capture_output is True, returns (stdout, stderr), else None.
+    """
+    args = _pack_args(kwargs)
+    return _run_command("dlctieraccuracy.sh", args, capture_output)
+
 def driftingaligner(capture_output: bool = False, **kwargs) -> Union[None, Tuple[str, str]]:
     """
     Wrapper for driftingaligner.sh
@@ -6193,6 +7137,40 @@ For documentation and the latest version, visit: https://bbmap.org
     """
     args = _pack_args(kwargs)
     return _run_command("fetchproks.sh", args, capture_output)
+
+def filescan(capture_output: bool = False, **kwargs) -> Union[None, Tuple[str, str]]:
+    """
+    Wrapper for filescan.sh
+
+    Help message:
+    Written by Brian Bushnell
+Last modified January 12, 2025
+
+Description:  Fast lightweight scanner that parses newlines.
+Supports raw, gzip, bgzip, and bz2 compression, and any text filetype.
+
+Usage:  filescan.sh <file> <threads>
+e.g.
+filescan.sh contigs.fasta
+filescan.sh reads.fq.gz
+filescan.sh reads.fq 2
+
+Bgzipped input processing is multithreaded and much faster than regular gzip.
+SIMD support is autodetected and can be disabled with the flag simd=f.
+
+Please contact Brian Bushnell at bbushnell@lbl.gov if you encounter any problems.
+For documentation and the latest version, visit: https://bbmap.org
+
+    Args:
+        capture_output (bool): If True, capture and return the output instead of printing it.
+        in_file (str): Input file (replaces 'in=' parameter)
+        **kwargs: Other arguments for filescan.sh
+
+    Returns:
+        Union[None, Tuple[str, str]]: If capture_output is True, returns (stdout, stderr), else None.
+    """
+    args = _pack_args(kwargs)
+    return _run_command("filescan.sh", args, capture_output)
 
 def filterassemblysummary(capture_output: bool = False, **kwargs) -> Union[None, Tuple[str, str]]:
     """
@@ -6580,7 +7558,7 @@ def filterbytile(capture_output: bool = False, **kwargs) -> Union[None, Tuple[st
 
     Help message:
     Written by Brian Bushnell
-Last modified November 18, 2024
+Last modified January 28, 2026
 
 Description:  Filters reads based on positional quality over a flowcell.
 Quality is estimated based on quality scores and kmer uniqueness; ideally,
@@ -6935,6 +7913,10 @@ bgzip=f         Use bgzip for gzip compression.
 splitalleles=f  Split multi-allelic lines into multiple lines.
 splitsubs=f     Split multi-base substitutions into SNPs.
 canonize=t      Trim variations down to a canonical representation.
+normalize=f     (leftalign) Left-align indels using the reference (requires
+                ref=).  Combined with splitalleles, this produces a clean,
+                canonical VCF equivalent to 'bcftools norm -m -both'.
+mt=f            Multithreaded processing (faster for large files).
 
 Position-filtering parameters:
 minpos=         Ignore variants not overlapping this range.
@@ -6942,6 +7924,9 @@ maxpos=         Ignore variants not overlapping this range.
 contigs=        Comma-delimited list of contig names to include. These
                 should have no spaces, or underscores instead of spaces.
 invert=f        Invert position filters.
+bed=<file>      Keep only variants whose position falls inside an interval
+                in this BED file (e.g. a high-confidence benchmark region set).
+invertbed=f     Invert the BED filter: keep only variants OUTSIDE the intervals.
 
 Type-filtering parameters:
 sub=t           Keep substitutions.
@@ -7079,6 +8064,119 @@ For documentation and the latest version, visit: https://bbmap.org
     args = _pack_args(kwargs)
     return _run_command("findrepeats.sh", args, capture_output)
 
+def findssu(capture_output: bool = False, **kwargs) -> Union[None, Tuple[str, str]]:
+    """
+    Wrapper for findssu.sh
+
+    Help message:
+    Written by Brian Bushnell and Noire
+Last modified May 24, 2026
+
+Description:  Identifies and classifies ribosomal SSU (16S/18S) and ITS
+sequences using DynamicDemiLog (DDL) sketching against pre-built reference
+databases.  Query type is determined automatically:
+  Sequences aligning >64% to 16S or 18S consensus are classified as SSU.
+  Sequences aligning <56% to all SSU consensuses are classified as ITS.
+  Others are classified as unknown and compared to all reference types.
+
+Usage:  findssu.sh ssu1.fa [ssu2.fa ...] [records=5]
+    or: findssu.sh genome.fa call
+    or: findssu.sh literal=ACGTACGT...
+    or: findssu.sh name=Escherichia_coli
+    or: findssu.sh name=Saccharomyces_cerevisiae its
+    or: findssu.sh tid=562
+    or: findssu.sh ssu.fa ref16s=<16S.tsv> ref18s=<18S.tsv>
+
+Required resource files are loaded automatically from BBTools/resources/:
+  ssuSketchDDL.tsv.gz          SSU DDL reference sketches (276k organisms)
+  itsSketchDDL.tsv.gz          ITS DDL reference sketches (35k organisms)
+  all_prok_16S_best_taxsorted.fa.gz   16S rRNA sequences (for alignment ANI)
+  all_euk_18S_best_taxsorted.fa.gz    18S rRNA sequences (for alignment ANI)
+  all_ITS_best_taxsorted.fa.gz        ITS sequences (for alignment ANI)
+  16S_consensus_sequence.fa    16S consensus (for type classification)
+  18S_consensus_sequence.fa    18S consensus (for type classification)
+  ITS_*_consensus_sequence.fq  ITS consensuses (fungi, plant, animal, other)
+If missing, download from:
+  https://sourceforge.net/projects/bbmap/files/Resources/
+
+SSU Mode (default):
+Each input sequence is classified by alignment to consensus sequences
+(16S, 18S, or ITS), then sketched with DDL and compared to the reference.
+
+Call Mode:
+Gene-calling identifies all SSU sequences in the input genome(s).
+Each SSU found is individually sketched and classified.
+
+Parameters:
+ref=<file>      Pre-built SSU DDL reference file (TSV format).
+                Default: resources/ssuSketchDDL.tsv.gz
+ref16s=<file>   Separate 16S reference file.
+ref18s=<file>   Separate 18S reference file.
+refits=<file>   Separate ITS reference file.
+                Default: resources/itsSketchDDL.tsv.gz (if present)
+qf=<file>       Pre-built DDL query file for batch comparison.
+call            Enable gene-calling mode for genomic input.
+literal=<seq>   Provide a query sequence directly on the command line
+                instead of from a file.
+name=<name>     Look up a reference by organism name.  Accepts full names
+                (name=Escherichia_coli), abbreviated (name=E.coli), or
+                partial prefix matches.  Outputs TID, Type, Name, Sequence.
+                Works via server (default) or locally.
+tid=<int>       Look up a reference by NCBI TaxID (e.g. tid=562).
+                Outputs TID, Type, Name, and Sequence.
+                Works via server (default) or locally.
+its             In lookup mode, return only ITS records.
+16s             In lookup mode, return only 16S records.
+18s             In lookup mode, return only 18S records.
+ssu             In lookup mode, return only SSU records (16S + 18S).
+                Flags are combinable: 'its 16s' returns both ITS and 16S.
+records=5       Max hits to display per query.
+minhits=8       Minimum shared index keys to compare a ref.
+buffer=0        Alignment buffer size.  After index filtering, the top
+                max(buffer, 20+2*records) candidates are aligned, then
+                re-sorted by alignment ANI.  Bounds alignment cost while
+                ensuring the best match is captured.
+index=t         Use inverted index for query acceleration.
+align=t         Perform SSU alignment for ANI calculation.
+banself=f       Skip self-comparisons (when query and ref share a TaxID).
+sequence=f      Print SSU/ITS sequence as last output column.
+rank=f          Print rank column in output.
+lineage=f       Print lineage column in output.
+printname=t     Show Name column in output.
+printtid=t      Show TID column in output.
+loud=f          Print detailed timing and configuration info.
+local=f         Force local processing (skip server, load refs locally).
+server=t        Use the JGI SSU server (default).  Equivalent to local=f.
+k=19            K-mer length for hashing.
+buckets=128     Number of DDL buckets.
+exponent=4      Exponent bits.
+t=auto          Number of threads (default: all available cores).
+
+Output columns:
+ANI, WKID, Rank, Matches, Type, qLen, rLen, TID, Query, Name,
+File, Contig, Start, Strand, Lineage
+
+Java Parameters:
+-Xmx            This will set Java's memory usage, overriding autodetection.
+                -Xmx20g will specify 20 gigs of RAM, and -Xmx200m will
+                specify 200 megs. The max is typically 85% of physical memory.
+-eoom           This flag will cause the process to exit if an out-of-memory
+                exception occurs.  Requires Java 8u92+.
+-da             Disable assertions.
+
+Please contact Brian Bushnell at bbushnell@lbl.gov if you encounter any problems.
+
+    Args:
+        capture_output (bool): If True, capture and return the output instead of printing it.
+        in_file (str): Input file (replaces 'in=' parameter)
+        **kwargs: Other arguments for findssu.sh
+
+    Returns:
+        Union[None, Tuple[str, str]]: If capture_output is True, returns (stdout, stderr), else None.
+    """
+    args = _pack_args(kwargs)
+    return _run_command("findssu.sh", args, capture_output)
+
 def fixgaps(capture_output: bool = False, **kwargs) -> Union[None, Tuple[str, str]]:
     """
     Wrapper for fixgaps.sh
@@ -7129,6 +8227,53 @@ For documentation and the latest version, visit: https://bbmap.org
     """
     args = _pack_args(kwargs)
     return _run_command("fixgaps.sh", args, capture_output)
+
+def fll2simulate(capture_output: bool = False, **kwargs) -> Union[None, Tuple[str, str]]:
+    """
+    Wrapper for fll2simulate.sh
+
+    Help message:
+    Written by Brian Bushnell and Chloe von Einzbern-Bushnell
+Last modified April 8, 2026
+
+Description:  Simulates a single FLL2 (FutureLogLog 2-bit) word to build
+per-tier correction factor tables.  Runs iters independent trials, each
+feeding random hashes into one 16-bit FLL2 bank (6 buckets sharing a 4-bit
+exponent) until the bank's local exponent exceeds maxTier.  Accumulates
+(tier, history) statistics across all trials, combines order-equivalent
+states, and prints tier average cardinalities and per-state multipliers.
+
+Word layout: [15:12]=localExp [11:0]=6 x 2-bit future bitmap
+Per-bucket:  LSB='seen floor hit'  MSB='seen floor+1 hit'
+Promotion fires when all 6 LSBs set; MSBs shift to LSBs, localExp++.
+Max cascade = 2.  IOT mode: hashes with delta>1 are ignored.
+
+Usage:  fll2simulate.sh iters=10000 threads=8 maxTier=15
+
+Parameters:
+iters=10000     Number of simulation trials (more = better statistics).
+threads=8       Number of parallel simulation threads.
+maxTier=15      End each trial when localExp exceeds this value (0-15).
+                Lower values run faster but miss high-tier statistics.
+
+Java Parameters:
+-Xmx            Override Java memory autodetection (e.g. -Xmx4g).
+-eoom           Exit on out-of-memory exception (requires Java 8u92+).
+-da             Disable assertions (faster, but skips correctness checks).
+
+Please contact Brian Bushnell at bbushnell@lbl.gov if you encounter any problems.
+For documentation and the latest version, visit: https://bbmap.org
+
+    Args:
+        capture_output (bool): If True, capture and return the output instead of printing it.
+        in_file (str): Input file (replaces 'in=' parameter)
+        **kwargs: Other arguments for fll2simulate.sh
+
+    Returns:
+        Union[None, Tuple[str, str]]: If capture_output is True, returns (stdout, stderr), else None.
+    """
+    args = _pack_args(kwargs)
+    return _run_command("fll2simulate.sh", args, capture_output)
 
 def fungalrelease(capture_output: bool = False, **kwargs) -> Union[None, Tuple[str, str]]:
     """
@@ -7412,7 +8557,7 @@ def gitable(capture_output: bool = False, **kwargs) -> Union[None, Tuple[str, st
 
     Help message:
     Written by Brian Bushnell.
-Last modified July 29, 2019
+Last modified February 25, 2026
 
 Description:  Creates gitable.int1d from accession files:
 ftp://ftp.ncbi.nih.gov/pub/taxonomy/accession2taxid/*.accession2taxid.gz
@@ -7420,7 +8565,7 @@ This is for use of gi numbers, which are deprecated by NCBI, and are neither
 necessary nor recommended if accession numbers are present.
 See TaxonomyGuide and fetchTaxonomy.sh for more information.
 
-Usage:  gitable.sh shrunk.dead_nucl.accession2taxid.gz,shrunk.dead_prot.accession2taxid.gz,shrunk.dead_wgs.accession2taxid.gz,shrunk.nucl_gb.accession2taxid.gz,shrunk.nucl_wgs.accession2taxid.gz,shrunk.pdb.accession2taxid.gz,shrunk.prot.accession2taxid.gz gitable.int1d.gz
+Usage:  gitable.sh *accession2taxid.gz gitable.int1d.gz
 
 Java Parameters:
 -Xmx            This will set Java's memory usage, overriding autodetection.
@@ -7490,7 +8635,7 @@ def gradebins(capture_output: bool = False, **kwargs) -> Union[None, Tuple[str, 
 
     Help message:
     Written by Brian Bushnell
-Last modified June 20, 2025
+Last modified February 26, 2026
 
 Description:  Grades metagenome bins for completeness and contamination.
 The contigs can be labeled with their taxID; in which case the header should
@@ -7503,10 +8648,11 @@ Total Score is (sum of (completeness-5*contam)^2) for all bins.
 Bin Definitions:
 UHQ: >=99% complete and <=1% contam (subset of VHQ)
 VHQ: >=95% complete and <=2% contam (subset of HQ)
-HQ:  >=90% complete and <=5% contam
-MQ:  >=50% complete and <=10% contam, but not HQ
-LQ:  <50% complete or >10% contam
-VLQ: <20% complete or >5% contam    (subset of LQ)
+HQ:  >90% complete and <5% contam
+MQ:  >=50% complete and <10% contam, but not HQ
+LQ:  <50% complete and <10% contam
+VLQ: <20% complete and <10% contam    (subset of LQ)
+HCN: >=10% contam (High CoNtam, contains everything not in other sets)
 
 Usage:  gradebins.sh ref=assembly bin*.fa
 or
@@ -7522,7 +8668,7 @@ eukcc=<file>    Optional EukCC eukcc.csv file or directory.
 cami=<file>     Optional binning file from CAMI which indicates contig TaxIDs.
 taxin_file=<file>    Optional file with taxIDs and sizes (instead of loading ref).
                 Does not need to include taxIDs.  The tax file loads faster.
-gtdb=<file>     Optional gtdbtk file.
+gtdb=<file>     Optional gtdbtk directory containing gtdbtk.*.summary.tsv.
 gff=<file>      Optional gff file.
 imgmap=<file>   Optional IMG map file, for renamed IMG gff input.
 spectra=<file>  Optional path to QuickClade index.
@@ -7535,15 +8681,20 @@ taxout=<file>   Generate a tax file from the reference (for use with taxin).
 hist=<file>     Cumulative bin size and contamination histogram.
 ccplot=<file>   Per-bin completeness/contam data.
 contamhist=<file> Histogram plotting #bins or bases vs %contam.
+swapnl          Swap L50/N50 so N indicates a length, and L a number.
 
 Processing parameters:
 userna=f        Require rRNAs and tRNAs for HQ genomes.  This needs either
                 a gff file or the callgenes flag.  Specifically, HQ and
                 subtypes require at least 1 16S, 23S, and 5S, plus 18 tRNAs.
 callgenes=f     Call rRNAs and tRNAs.  Suboptimal for some RNA types.
-aligner=ssa2    Do not change this.
-quickclade=f    Assign taxonomy using QuickClade.
+aligner=quantum Aligner for gene calling.
+clade=f         Assign taxonomy using QuickClade.
 
+Proxy Parameters:
+proxyhost=<addr>  HTTPS proxy hostname for environments requiring a proxy
+                to reach external servers.  Sets -Dhttps.proxyHost for Java.
+proxyport=<num>   HTTPS proxy port number.  Sets -Dhttps.proxyPort for Java.
 
 Java Parameters:
 -Xmx            This will set Java's memory usage, overriding autodetection.
@@ -7639,7 +8790,7 @@ def icecreamfinder(capture_output: bool = False, **kwargs) -> Union[None, Tuple[
 
     Help message:
     Written by Brian Bushnell
-Last modified May 6, 2020
+Last modified February 24, 2026
 
 Description:  Finds PacBio reads containing inverted repeats.
 These are candidate triangle reads (ice cream cones).
@@ -7911,16 +9062,26 @@ def indelfree(capture_output: bool = False, **kwargs) -> Union[None, Tuple[str, 
 
     Help message:
     Written by Brian Bushnell
-Last modified October 29, 2025
+Last modified February 8, 2026
 
 Description:  Aligns sequences, not allowing indels.
 Brute force mode guarantees all alignments will be found and reported,
 up to the maximum allowed number of substitutions.
-Indexed mode may remove this guarantee (depending on kmer length,
-query length, and number of substitutions) but can be much faster.
+Indexed mode uses an adaptive Multi-K strategy.  Queries are binned by
+length and error rate, and the reference is indexed with multiple kmer
+lengths (e.g. k=10,12,14) to optimize speed without sacrificing sensitivity.
 This loads all reads into memory and streams the reference, unlike
 a traditional aligner, so it is designed for a relatively small query set
 and potentially enormous reference set.
+Speed and sensitivity are greatly affected by the list of kmer lengths (k),
+max subs allowed (subs), minimum identity (minid), minumum seed 
+probability (minprob), and minimum query length.
+Specifically, speed can be increased by:
+Eliminating short values of k (such changing the default to k=10,12,14);
+Decreasing minsubs;
+Increasing minid;
+Decreasing minprob;
+Increasing minqlen.
 
 Usage:  indelfree.sh in_file=spacers.fa ref=contigs.fa out=mapped.sam
 
@@ -7930,32 +9091,52 @@ ref=<file>      Reference input.  These will be streamed.
 out=<file>      Sam output.
 outh=<file>     Sam header output (optional).  Due to the streaming nature,
                 primary sam output is headerless, but this can be concatenated
-		with the main sam file.
-subs=5          Maximum allowed substitutions.
-minid=0.0       Minimum allowed identity.  Actual substitions allowed will be
+                with the main sam file.
+subs=5          (s) Maximum allowed substitutions.
+minid=0.85      Minimum allowed identity.  Actual substitions allowed will be
                 max(subs, (int)(qlen*(1-minid)))
-simd            Enable SIMD alignment.  Only accelerates brute force mode.
+minqlen=1       Ignore queries shorter than this.
+minrlen=1       Ignore reference sequences shorter than this.
+simd=t          Enable SIMD alignment.
 threads=        Set the max number of threads; default is logical cores.
+                Memory usage is proportional to threads times ref contig lengths.
 
 Index Parameters:
 index=t         If true, build a kmer index to accelerate search.
-k=13            Index kmer length (1-15); longer is faster but less sensitive.
-                Very short kmers are slower than brute force mode.
-mm=1            Middle mask length; the number of wildcard bases in the kmer.
-                Must be shorter than k-1; 0 disables middle mask.
-blacklist=2     Blacklist homopolymer kmers up to this repeat length.
-step=1          Only use every Nth query kmer.
-minhits=1       Require this many seed hits to perform alignment.
-minprob=0.9999  Calculate the number of seed hits needed, on a per-query
+                Otherwise, brute force mode aligns queries to all locations.
+k=8,9,10,12,14  Index kmer lengths (1-15).  Can be a single integer or a
+                comma-delimited list.  The aligner will automatically select
+                the longest valid K from the list for each query to maximize
+                speed.  More lengths use more indexing time, but not more RAM.
+		Short kmers (below 12) with short queries and high
+		subs or low minid is very slow.
+minprob=0.999   Calculate the number of seed hits needed, on a per-query
                 basis, to ensure this probability of finding valid alignments.
                 1 ensures optimality; 0 requires all seed hits; and negative
                 numbers disable this, using the minhits setting only.
                 When enabled, the min hits used for a query is the maximum
-                of minhits and the probabilistic model.
+                of the minhits flag and the probabilistic model.
+                This setting also controls the value of k chosen for a query.
+mm=1            Middle mask length; the number of wildcard bases in the kmer.
+                Must be shorter than k-1; 0 disables middle mask.
+blacklist=2     Blacklist homopolymer kmers up to this repeat length.
+chunk=1m        Fuse short sequences into chunks this long for indexing.
+                Longer can be faster, but uses more memory.
+minhits=1       Require this many seed hits to perform alignment.
 prescan=t       Count query hits before filling seed location lists.
 list=t          Store seed hits in lists rather than maps.
                 Maps are optimized for shorter kmers and more positive hits.
+iterations=200k Iterations for error distribution probability simulation.
+qstep=1         Only look up every Nth query kmer (higher is faster).
+rstep=1         Only index every Nth reference kmer.  Qstep is faster, but
+                rstep uses less memory with long reference sequences.
 
+Entropy parameters:
+emask=f         Entropy-mask reference sequences to reduce low-complexity 
+                spurious matches.
+ewindow=80      Use this window length for entropy calculation.
+ek=4            Kmer length for entropy calculation.
+ecutoff=0.7     Mask windows with entropy below this.
 
 Java Parameters:
 -Xmx            This will set Java's memory usage, overriding autodetection.
@@ -8205,7 +9386,7 @@ def kmercountexact(capture_output: bool = False, **kwargs) -> Union[None, Tuple[
 
     Help message:
     Written by Brian Bushnell
-Last modified October 14, 2020
+Last modified January 28, 2026
 
 Description:  Counts the number of unique kmers in a file.
 Generates a kmer frequency histogram and genome size estimate (in peaks output),
@@ -8909,12 +10090,14 @@ def loglog(capture_output: bool = False, **kwargs) -> Union[None, Tuple[str, str
 
     Help message:
     Written by Brian Bushnell
-Last modified March 24, 2020
+Last modified May 4, 2026
 
 Description:  Estimates cardinality of unique kmers in sequence data.
 See also kmercountmulti.sh.
 
 Usage:  loglog.sh in_file=<file> k=<31>
+For histograms:
+loglog.sh in_file=<file> buckets=256k khist=khist.txt peaks=peaks.txt
 
 Parameters:
 in_file=<file>       (in1) Input file, or comma-delimited list of files.
@@ -8926,7 +10109,21 @@ seed=-1         Use this seed for hash functions.  A negative number forces
                 a random seed.
 minprob=0       Set to a value between 0 and 1 to exclude kmers with a lower
                 probability of being correct.
-
+loglogtype=ddl  Estimator type:
+                  ddl       DynamicDemiLog (default), 10-bit mantissa.
+                  ddl8      DynamicDemiLog8, 8-bit mantissa.
+                  dll3      DynamicLogLog3, 3-bit registers.
+                  dll4      DynamicLogLog4, 4-bit registers.
+                  ll6       LogLog6, 6-bit registers.
+                  udll6     UltraDynamicLogLog6, 6-bit with history.
+                  bdll3     BankedDynamicLogLog3, banked 3-bit.
+                  htb       HyperTwoBits, 2-bit threshold estimator.
+                  (and others; see ddlcalibrate.sh for full list)
+khist=<file>    Write approximate kmer depth histogram to this file.
+                Automatically enables count tracking.
+peaks=<file>    Write peak-calling output (genome size estimation) to this
+                file.  Uses the depth histogram for peak detection.
+histmax=100000  Maximum histogram bin.
 
 Shortcuts:
 The # symbol will be substituted for 1 and 2.
@@ -8960,6 +10157,60 @@ For documentation and the latest version, visit: https://bbmap.org
     """
     args = _pack_args(kwargs)
     return _run_command("loglog.sh", args, capture_output)
+
+def lowcomplexcalibrate(capture_output: bool = False, **kwargs) -> Union[None, Tuple[str, str]]:
+    """
+    Wrapper for lowcomplexcalibrate.sh
+
+    Help message:
+    Written by Brian Bushnell, Chloe, and Eru
+Last modified April 6, 2026
+
+Description:  Tests cardinality estimator accuracy on low-complexity datasets
+with bounded cardinality and repeated values.  Draws with replacement from a
+fixed array of unique values, biased toward lower indices via min(rand, rand)
+to simulate skewed frequency distributions.  Estimates are recorded after
+every add to capture behavior while 'parked' at a given cardinality.
+
+Usage:  lowcomplexcalibrate.sh card=5000 ddls=128 type=dll3
+
+Estimator types (type= or loglogtype=):
+  ddl, ddl2, ddl8, dll2, dll3, dll3v2, dll4, dll4m, bdll3, ll6, udll6,
+  pll16c, htb, htc, ull8, ertl  (see ddlcalibrate.sh for descriptions)
+
+Parameters:
+card=5000       Maximum true cardinality (number of unique values).
+ddls=128        Number of estimator instances with varied seeds.
+buckets=2048    Buckets per estimator. Must be a multiple of 256.
+iter=0          Iterations as a multiplier of cardinality. 0=stop on saturation.
+threads=4       Number of parallel threads.
+seed=1          Master seed for value array and estimator seeds.
+reportfrac=0.01 Reporting fraction for cardinality checkpoints.
+cf=t            Enable/disable correction factors (cf=f for raw data).
+cardcf=t        Enable/disable cardinality-based correction factors.
+
+Overflow control (DLL2/DLL3/BDLL3 only):
+co=t            Apply overflow correction (correctoverflow).
+ep=t            Early promotion (earlypromote).
+
+Java Parameters:
+-Xmx            Set Java's memory usage (e.g. -Xmx4g).
+-eoom           Exit on out-of-memory exception. Requires Java 8u92+.
+-da             Disable assertions.
+
+Please contact Brian Bushnell at bbushnell@lbl.gov if you encounter any problems.
+For documentation and the latest version, visit: https://bbmap.org
+
+    Args:
+        capture_output (bool): If True, capture and return the output instead of printing it.
+        in_file (str): Input file (replaces 'in=' parameter)
+        **kwargs: Other arguments for lowcomplexcalibrate.sh
+
+    Returns:
+        Union[None, Tuple[str, str]]: If capture_output is True, returns (stdout, stderr), else None.
+    """
+    args = _pack_args(kwargs)
+    return _run_command("lowcomplexcalibrate.sh", args, capture_output)
 
 def makechimeras(capture_output: bool = False, **kwargs) -> Union[None, Tuple[str, str]]:
     """
@@ -9152,6 +10403,129 @@ For documentation and the latest version, visit: https://bbmap.org
     """
     args = _pack_args(kwargs)
     return _run_command("makequickbinvector.sh", args, capture_output)
+
+def mantissacompare(capture_output: bool = False, **kwargs) -> Union[None, Tuple[str, str]]:
+    """
+    Wrapper for mantissacompare.sh
+
+    Help message:
+    Written by Brian Bushnell
+Last modified April 2026
+
+Description:  Single-bucket sub-NLZ state simulator.  Simulates many independent
+trials of a single register (bucket) being fed random hashes, tracking how the
+sub-NLZ state bits (history, mantissa, luck, andtissa, nlz2, or combinations)
+evolve as cardinality grows.  For each NLZ tier and each sub-NLZ state, records
+the average true cardinality at which buckets occupy that state.  Outputs
+per-state correction factors (CFs) in log2 space:
+
+    CF(state) = log2( mean_cardinality_in_state / mean_cardinality_in_tier )
+
+These CFs are the values stored in StateTable.java (CF_HISTORY_1, CF_HISTORY_2,
+CF_HISTORY_3, CF_MANTISSA_2, CF_LUCK_*, CF_HISTMANT_*, etc.) and used by
+CardStats phase 2a to build tierMult for the Mean/HMean estimators:
+
+    tierMult = 2^( -(cf + CF_OFFSET) ) * invTermCF
+
+Negative CF means the state's average cardinality is BELOW the tier average
+(bucket arrived at this tier quickly, so the estimate should be lowered).
+Positive CF means the state's average cardinality is ABOVE the tier average
+(bucket has been in this tier a long time, so the estimate should be raised).
+
+Workflow:
+  1. Run mantissacompare.sh to generate per-state CFs.
+  2. Copy the CF arrays from stdout into StateTable.java.
+  3. Pick 'tier 8' values for steady-state arrays (CF_HISTORY_N).
+  4. Pick tiers 0 through (N-1) for per-tier arrays (CF_HISTORY_N_TIERS).
+  5. Run ddlcalibrate.sh with cf=f to generate a v5 CF table with the new CFs.
+  6. Run ddlcalibrate.sh with cf=t to verify accuracy.
+
+Usage:  mantissacompare.sh mode=history bits=2
+
+Modes (mode=):
+  history       N-bit history shift register (PLL16c/UDLL6 style).
+                Tracks whether sub-tiers below the current NLZ were observed.
+                bits=1: 2 states.  bits=2: 4 states.  bits=3: 8 states.
+  mantissa      N-bit inverted mantissa (fractional NLZ extension).
+                bits=2: 4 states.
+  andtissa      N-bit AND-tissa (AND of hash with shifted self).
+                bits=2: 4 states.
+  nlz2          N-bit secondary NLZ (NLZ of remaining bits after primary NLZ).
+                bits=2: 4 states.
+  luck          N-bit luck gap (difference between best and second-best NLZ).
+                bits=1: 2 states.  bits=2: 4 states.  bits=3: 8 states.
+  histmant      Combined history + mantissa.  Use hbits= and mbits= instead
+                of bits=.  Total states = 2^(hbits+mbits).
+                Example: hbits=2 mbits=2 gives 16 combined states.
+
+Parameters:
+inner=32768     Elements per trial (max cardinality simulated per bucket).
+outer=131072    Number of independent trials.  More = smoother CFs.
+                131072 trials at inner=32768 takes ~60 seconds.
+maxtier=11      Highest NLZ tier to record.  Tier 8 is the standard reference
+                for steady-state CFs.  Tiers above ~11 may have too few
+                samples for reliable statistics.
+bits=2          State bits for single-mode operation.  Ignored in histmant mode.
+hbits=2         History bits for histmant mode.
+mbits=2         Mantissa bits for histmant mode.
+
+Output format (stdout):
+  Header:  Tier  Total  P(0)  CF(0)  P(1)  CF(1)  ...
+  Per-tier rows with observation counts, state probabilities, and CFs.
+  Final line: weighted steady-state CFs across tiers 3-maxtier.
+
+  P(s) = fraction of observations in state s at this tier.
+  CF(s) = log2(stateAvg / tierAvg) = additive NLZ correction for state s.
+  N/A = too few observations (<10) for reliable CF.
+
+Tables generated from this tool:
+  StateTable.CF_HISTORY_1       mode=history bits=1, tier 8 CFs
+  StateTable.CF_HISTORY_2       mode=history bits=2, tier 8 CFs
+  StateTable.CF_HISTORY_3       mode=history bits=3, tier 8 CFs
+  StateTable.CF_HISTORY_1_TIERS mode=history bits=1, tiers 0-1
+  StateTable.CF_HISTORY_2_TIERS mode=history bits=2, tiers 0-2
+  StateTable.CF_HISTORY_3_TIERS mode=history bits=3, tiers 0-3
+  StateTable.CF_MANTISSA_2      mode=mantissa bits=2, tier 8 CFs
+  StateTable.CF_ANDTISSA_2      mode=andtissa bits=2, tier 8 CFs
+  StateTable.CF_NLZ2_2          mode=nlz2 bits=2, tier 8 CFs
+  StateTable.CF_LUCK_1          mode=luck bits=1, tier 8 CFs
+  StateTable.CF_LUCK_2          mode=luck bits=2, tier 8 CFs
+  StateTable.CF_LUCK_3          mode=luck bits=3, tier 8 CFs
+  StateTable.CF_LUCK_2_TIERS    mode=luck bits=2, tiers 0-2
+  StateTable.CF_HISTMANT_2H2M   mode=histmant hbits=2 mbits=2, tier 8
+  StateTable.CF_HISTMANT_1H3M   mode=histmant hbits=1 mbits=3, tier 8
+  StateTable.CF_HISTMANT_3H1M   mode=histmant hbits=3 mbits=1, tier 8
+  StateTable.CF_HISTMANT_1H3M_TIERS  mode=histmant hbits=1 mbits=3, tiers 0-1
+
+How the CFs are used at runtime (CardStats phase 2a):
+  For each filled bucket with absNlz and history pattern h:
+    cf = StateTable.historyOffset(absNlz, hbits, h)
+    tierMult = 2^(-(cf + CF_OFFSET)) * invTermCF
+    corrDif = dif * tierMult
+  Where dif = 2^(63-absNlz) is the bucket's raw contribution to the Mean sum.
+  The corrected dif values are summed and fed to the Mean formula.
+
+Java Parameters:
+-Xmx            This will set Java's memory usage, overriding autodetection.
+                -Xmx20g will specify 20 gigs of RAM, and -Xmx200m will
+                specify 200 megs.
+-eoom           This flag will cause the process to exit if an out-of-memory
+                exception occurs.  Requires Java 8u92+.
+-da             Disable assertions.
+
+Please contact Brian Bushnell at bbushnell@lbl.gov if you encounter any problems.
+For documentation and the latest version, visit: https://bbmap.org
+
+    Args:
+        capture_output (bool): If True, capture and return the output instead of printing it.
+        in_file (str): Input file (replaces 'in=' parameter)
+        **kwargs: Other arguments for mantissacompare.sh
+
+    Returns:
+        Union[None, Tuple[str, str]]: If capture_output is True, returns (stdout, stderr), else None.
+    """
+    args = _pack_args(kwargs)
+    return _run_command("mantissacompare.sh", args, capture_output)
 
 def mapPacBio(capture_output: bool = False, **kwargs) -> Union[None, Tuple[str, str]]:
     """
@@ -9441,6 +10815,38 @@ For documentation and the latest version, visit: https://bbmap.org
     """
     args = _pack_args(kwargs)
     return _run_command("mergesam.sh", args, capture_output)
+
+def mergesam2(capture_output: bool = False, **kwargs) -> Union[None, Tuple[str, str]]:
+    """
+    Wrapper for mergesam2.sh
+
+    Help message:
+    Written by Brian Bushnell
+Last modified June 7, 2026
+
+Description:  Merges multiple SAM or BAM files into one, keeping only the header
+from the first file.  Reads and writes BAM natively.  This is a concatenation,
+not a coordinate-sorted merge, so the output header is marked SO:unsorted.
+
+Usage:  mergesam2.sh <files> out=<file>
+   or:  mergesam2.sh in_file=a.bam,b.bam,c.bam out=merged.bam
+
+Java Parameters:
+-da             Disable assertions.
+
+Please contact Brian Bushnell at bbushnell@lbl.gov if you encounter any problems.
+For documentation and the latest version, visit: https://bbmap.org
+
+    Args:
+        capture_output (bool): If True, capture and return the output instead of printing it.
+        in_file (str): Input file (replaces 'in=' parameter)
+        **kwargs: Other arguments for mergesam2.sh
+
+    Returns:
+        Union[None, Tuple[str, str]]: If capture_output is True, returns (stdout, stderr), else None.
+    """
+    args = _pack_args(kwargs)
+    return _run_command("mergesam2.sh", args, capture_output)
 
 def mergesketch(capture_output: bool = False, **kwargs) -> Union[None, Tuple[str, str]]:
     """
@@ -10127,11 +11533,17 @@ def partition(capture_output: bool = False, **kwargs) -> Union[None, Tuple[str, 
 
     Help message:
     Written by Brian Bushnell
-Last modified September 6, 2023
+Last modified February 14, 2026
 
 Description:  Splits a sequence file evenly into multiple files.
+Can split evenly by sequence count, total BP, GC content, depth, 
+length, and other metrics.  Always keeps paired reads togther, and
+can keep PacBio subreads together as well.  When splitting by
+a metric such as GC, two passes are used to ensure even partitions;
+simple partitioning by count and bp are one-pass.
 
-Usage:  partition.sh in_file=<file> in2=<file2> out=<outfile> out2=<outfile2> ways=<number>
+
+Usage:  partition.sh in_file=<file> out=<outfile> ways=<number>
 
 in2 and out2 are for paired reads and are optional.
 If input is paired and out2 is not specified, data will be written interleaved.
@@ -10141,15 +11553,59 @@ Parameters and their defaults:
 
 in_file=<file>       Input file.
 out=<file>      Output file pattern (containing a % symbol, like 'part%.fa').
+in2, out2       Optional flags for use with twin fastq files.
 ways=-1         The number of output files to create; must be positive.
-pacbio=f        Set to true to keep PacBio subreads together.
-bp=f            Optimize for an even split by base pairs instead of sequences.
-                Not compatible with PacBio mode.
-
-ow=f            (overwrite) Overwrites files that already exist.
-app=f           (append) Append to files that already exist.
-zl=4            (ziplevel) Set compression level, 1 (low) to 9 (max).
+pacbio=f        Set to true to keep PacBio subreads together.  Only works in
+                count mode.
 int=f           (interleaved) Determines whether INPUT file is considered interleaved.
+zl=4            (ziplevel) Set compression level, 1 (low) to 9 (max).
+
+Mode parameters:
+mode=count      Partition by metric: count, bp, gc, hh, caga, length, depth
+                   count: Round-robin (default), balances by sequence count
+                   bp: Balance by number of base pairs
+                   gc: Split by GC composition 
+		   hh: Split by homo/hetero dimer ratio
+		   caga: Split by CA-GA+TG-TC metric
+                   length: Split by sequence length
+                   depth: Split by coverage depth
+cutoff=<x,y,z>  Custom partition cutoffs (auto-sets ways to cutoffs+1)
+cov=<file>      A coverage file from covmaker or pileup, or a sam or bam file,
+                used in depth mode; if unset, depth will be parsed from contig
+                headers in Tadpole, SPAdes, or MetaHipMer format.
+
+Auto-partitioning parameters:
+auto=f          Enable automatic partition detection (ignores 'ways' parameter)
+                Uses peak-based histogram analysis to find natural clusters
+minpeak=0.04    Minimum peak volume as fraction of dominant peak (0.0-1.0)
+                Lower values = more sensitive (more partitions detected)
+smoothradius=9  Smoothing radius for histogram noise reduction
+maxpartitions=25 Maximum number of auto-detected partitions
+
+
+Depth mode options:
+cov=<file>      A coverage file from covmaker or pileup, or a sam or bam file,
+                used in depth mode; if unset, depth will be parsed from contig
+                headers in Tadpole, SPAdes, or MetaHipMer format.
+
+Depth mode examples:
+  partition.sh in_file=contigs.fa partitionby=depth ways=4
+    # Auto-balance by depth parsed from contig headers
+  partition.sh in_file=contigs.fa partitionby=depth cov=coverage.txt ways=4
+    # Use external coverage file (pileup or covmaker format)
+  partition.sh in_file=contigs.fa partitionby=depth cov=reads.bam ways=3
+    # Calculate depth from BAM alignments
+  partition.sh in_file=contigs.fa partitionby=depth cutoff=10,50,200
+    # Custom cutoffs creating 4 partitions: <10, 10-50, 50-200, >200
+
+Auto-partition examples:
+  partition.sh in_file=mixed.fa out=part%.fa partitionby=gc auto=t
+    # Auto-detect GC-based clusters
+  partition.sh in_file=contigs.fa out=cov%.fa partitionby=depth auto=t minpeak=0.1
+    # Auto-detect depth clusters with 10% threshold (less sensitive)
+  partition.sh in_file=contigs.fa out=part%.fa partitionby=gc auto=t verbose
+    # Show detected peak counts and boundaries
+
 
 Java Parameters:
 -Xmx            This will set Java's memory usage, overriding autodetection.
@@ -10275,7 +11731,7 @@ def pileup(capture_output: bool = False, **kwargs) -> Union[None, Tuple[str, str
 
     Help message:
     Written by Brian Bushnell
-Last modified December 10, 2025
+Last modified December 17, 2025
 
 Description:  Calculates per-scaffold or per-base coverage information from an unsorted sam or bam file.
 Supports SAM/BAM format for reads and FASTA for reference.
@@ -10622,7 +12078,7 @@ def polyfilter(capture_output: bool = False, **kwargs) -> Union[None, Tuple[str,
 
     Help message:
     Written by Brian Bushnell
-Last modified October 1, 2024
+Last modified January 28, 2026
 
 Description:  Filters reads to remove those with suspicious homopolymers.
 
@@ -11008,7 +12464,7 @@ def quantumaligner(capture_output: bool = False, **kwargs) -> Union[None, Tuple[
 
     Help message:
     Written by Brian Bushnell
-Last modified May 4, 2025
+Last modified February 7, 2026
 
 Description:  Aligns a query sequence to a reference using QuantumAligner.
 The sequences can be any characters, but N is a special case.
@@ -11048,7 +12504,7 @@ def quickbin(capture_output: bool = False, **kwargs) -> Union[None, Tuple[str, s
 
     Help message:
     Written by Brian Bushnell
-Last modified December 1, 2025
+Last modified February 26, 2026
 
 Description:  Bins contigs using coverage and kmer frequencies.
 If reads or covstats are provided, coverage will be calculated from those;
@@ -11085,13 +12541,22 @@ out=<pattern>   Output pattern.  If this contains a % symbol, like bin%.fa,
                 indicate their bin number.  A term without a '.' symbol
                 like 'out=output' will be considered a directory.
 chaff           Enable to write small clusters to a shared file.
+chaffnums=f     Append cluster number to contigs in chaff.
 report=<file>   Report on bin size, quality, and taxonomy.
+maxsamples=8    When there are more than this many samples (sam/bam files),
+                combine some into the same logical sample to save memory.
+		It is likely better done manually by combining samples from
+		the same depth or environment.
+readthreads=4   Load up to this many sam/bam files concurrently.
+                Lower uses less memory (when there are more samples).
+writethreads=4  Write up to this many bins concurrently.
+gzip=f          Gzip output fastas (if output is a directory).
 
 Size parameters:
 mincluster=50k  (mcs) Minimum output cluster size in base pairs; smaller
                 clusters will share a residual file if chaff=t.
 mincontig=100   Don't load contigs smaller than this; reduces memory usage.
-minseed=3000    Minimum contig length to create a new cluster; reducing this
+minseed=2500    Minimum contig length to create a new cluster; reducing this
                 can increase speed dramatically for large metagenomes,
                 increase sensitivity for small contigs, and slightly increase
                 contamination.  In particular, large metagenomes with only
@@ -11104,20 +12569,26 @@ minpentamersize=2k  Increase this to reduce memory usage.
 
 Stringency parameters:
 normal          Default stringency is 'normal'.  All settings, in order of
-                increasing sensitivity, are:  xstrict, ustrict, vstrict,
+                decreasing stringency, are:  xstrict, ustrict, vstrict,
                 strict, normal, loose, vloose, uloose, xloose.  'normal'
-                aims at under 1% contamination; 'uloose' is more comparable
-                in stringency to other binners.  To set a stringency just add
-                that flag (without an = sign).  Acceptable shorthand is
-                xs, us, vs, s, n, l, vl, ul, xl.
+                aims at under 1% contamination; stricter will reduce
+                both completeness and contamination.  To set a stringency
+                add that flag without an = sign.  Acceptable shorthand is
+                xs,hs,us,vs,s,n,l,vl,ul,hl,xl. Plus y,z,i for extreme values.
+strictness=1.0  Stringency can alternatively be set finely with this flag,
+                where normal=1.0, xs=0.6, s=0.9, l=1.1, and xl=1.5.
+                Lower is stricter; this is an unbounded cutoff multiplier.
 
-Quantization parameters:
-gcwidth=0.02    Width of GC matrix gridlines.  Smaller is faster.
-depthwidth=0.5  Width of depth matrix gridlines.  Smaller is faster.  This
-                is on a log2 scale so 0.5 would mean 2 gridlines per power
-                of 2 depth - lines at 0.707, 1, 1.414, 2, 2.818, 4, etc.
-Note: Halving either quantization parameter can roughly double speed,
-but may decrease recovery of shorter contigs.
+Depth parameters:
+flat            Ignore depth; may still be used with bam files for e.g. MDA.
+                Required flag if there is no coverage information.
+
+Taxonomy parameters
+clade=t         Use QuickClade to determine taxonomy of output bins.  Fast.
+sketch=f        Use SendSketch to determine taxonomy of output bins.
+server=t        Prioritize using QuickClade server instead of local ref.
+                Reference is optional and available at:
+		https://sourceforge.net/projects/bbmap/files/Resources/
 
 Neural network parameters:
 net=auto        Specify a neural network file to use; default is
@@ -11128,31 +12599,33 @@ cutoff=0.52     Neural network output threshold; higher increases specificity,
                 make 'strict' mode stricter.
 
 Edge-processing parameters:
-e1=0                  Edge-first clustering passes; may increase speed
-                      at the cost of purity.
-e2=4                  Later edge-based clustering passes.
+e1=0            Edge-first clustering passes; may increase speed
+                at the cost of purity.
+e2=4            Later edge-based clustering passes.
+maxEdges=3      Follow up to this many edges per contig.
+minmapq=20      When loading sam files, do not make edges from reads
+                with map lower than this.  Setting it to 0 will allow
+                ambigiously-mapped reads and may improve completeness.
+                Reads below minmapq are still used for depth.
+minid=0.96      When loading sam files, ignore reads aligned with
+                identity below this, both for edges and coverage.
 edgeStringency1=0.25  Stringency for edge-first clustering;
                       lower is more stringent.
 edgeStringency2=1.1    Stringency for later edge-based clustering.
-maxEdges=3            Follow up to this many edges per contig.
 minEdgeWeight=2       Ignore edges made from fewer read pairs.
 minEdgeRatio=0.4      Ignore edges under this fraction of max edge weight.
 goodEdgeMult=1.4      Merge stringency multiplier for contigs joined by
                       an edge; lower is more stringent.
-minmapq=20            When loading sam files, do not make edges from reads
-                      with map lower than this.  Setting it to 0 will allow
-                      ambigiously-mapped reads and may improve completeness.
-                      Reads below minmapq are still used for depth.
-minid=0.96            When loading sam files, ignore reads aligned with
-                      identity below this, both for edges and coverage.
+
+Quantization parameters:
+gcwidth=0.02    Width of GC matrix gridlines.  Smaller is faster.
+depthwidth=0.5  Width of depth matrix gridlines.  Smaller is faster.  This
+                is on a log2 scale so 0.5 would mean 2 gridlines per power
+                of 2 depth - lines at 0.707, 1, 1.414, 2, 2.818, 4, etc.
+Note: Halving either quantization parameter can roughly double speed,
+but may decrease recovery of shorter contigs.
 
 Other parameters:
-quickclade=f          Use QuickClade to determine taxonomy of output bins.
-server=f              Prioritize using QuickClade server instead of local ref.
-                      Normally, a local reference will be used if present;
-		      this is faster and available at:
-		      https://sourceforge.net/projects/bbmap/files/Resources/
-sketchoutput=f        Use SendSketch to determine taxonomy of output bins.
 validate=f            If contig headers have a term such as 'tid_1234', this
                       will be parsed and used to evaluate correctness.
 printcc=f             Print completeness/contam after each step.
@@ -11161,8 +12634,14 @@ callssu=f             Call 16S and 18S genes; do not merge clusters with
 minssuid=0.96         SSUs with identity below this are incompatible.
 aligner=quantum       Options include ssa2, glocal, drifting, banded, crosscut.
 threads=auto          Number of threads; default is logical cores.
-flat                  Ignore depth; may still be used with bam files for e.g. MDA.
-                      Required flag if there is no coverage information.
+fuselowerlimit=5k     Reduce stringency for merging clusters as small as this.
+fuseupperlimit=900k   Reduce stringency for merging clusters as big as this.
+fuseupperlimit2=9m    Don't fuse small clusters into clusters bigger than this.
+
+Proxy Parameters:
+proxyhost=<addr>  HTTPS proxy hostname for environments requiring a proxy
+                to reach external servers.  Sets -Dhttps.proxyHost for Java.
+proxyport=<num>   HTTPS proxy port number.  Sets -Dhttps.proxyPort for Java.
 
 Java Parameters:
 -Xmx            This will set Java's memory usage, overriding autodetection.
@@ -11192,18 +12671,16 @@ def quickclade(capture_output: bool = False, **kwargs) -> Union[None, Tuple[str,
 
     Help message:
     Written by Brian Bushnell
-Last modified October 12, 2025
+Last modified June 3, 2026
 
 Description:  Assigns taxonomy to query sequences by comparing kmer
 frequencies to those in a reference database.  Developed for taxonomic
 assignment of metagenomic bins, but it can also run on a per-sequence basis.
 QuickClade is extremely fast and uses little memory.  However, the accuracy
-declines for incomplete genomes.  The recommended minimum sequence length
-is not yet known, but lower values of k5dif are more likely to be correct
-to a lower taxonomic level.  k5dif represents the sum of the absolute values
-of the differences between the 5-mer frequency spectra, so the range is 0-1.
-Because no marker genes are used, QuickClade should perform similarly for any
-clade in the reference dataset.
+declines for incomplete genomes.  k5dif represents the sum of the absolute 
+values of the differences between the 5-mer frequency spectra, so 
+the range is 0-1.  Because no marker genes are used, QuickClade should 
+perform similarly for any clade in the reference dataset.
 While the default reference is taxonomically labeled, you can use whatever
 you want as a reference, with or without taxonomic labels.
 
@@ -11223,24 +12700,94 @@ in_file=<file,file>  Query files or directories.  Loose file or directory names 
                 also permitted.  Input can be fasta, fastq, or spectra files;
                 spectra files are made by cladeloader.sh.
 ref=<file,file> Reference files; the current default is:
-                /clusterfs/jgi/groups/gentech/homes/bbushnell/clade/refseq_main.spectra.gz
+                refseqA48_with_ribo.spectra.gz
                 It is plaintext, human-readable, and pretty small.
 out=stdout      Set to a file to redirect output.  Only the query results will
                 be written here; progress messages will still go to stderr.
 server          Use this flag to send kmer spectra to a remote server if you do not
                 have a local database.
 
+Presets (override individual settings; can be further overridden by later flags):
+fast            records=1, buffer=1, callssu=f, sketch=f.  Fastest mode.
+medium          records=5, buffer=20, callssu=t, sketch=t.  Default behavior.
+slow            records=10, buffer=50, callssu=t, sketch=t, index=t.
+                Automatically increases memory to 12g unless -Xmx is explicit.
+
 Basic Parameters:
 percontig       Run one query per contig instead of per file.
+perfile         Opposite of percontig (default); one query per input file.
 minlen=0        Ignore sequences shorter than this in percontig mode.
-hits=1          Print this many top hits per query.
+records=5       Print this many top hits per query.  Sets both cladehits
+                and sketchhits.
+cladehits=5     Max clade-based hits to display (independent of sketchhits).
+sketchhits=5    Max sketch-based hits to display (only with sketch and index).
+buffer=20       Internal candidate buffer size for ranking.  A larger buffer
+                finds better top hits because SSU alignment is evaluated
+                lazily.  Only affects clade hits, not sketch hits.
 steps=6         Only search up to this many GC intervals (of 0.01) away from
                 the query GC.
-oneline         Print results one line per query, tab-delimited.
-callssu=f       Call 16S and 18S for alignment to reference SSU.
-                This will affect the top hit ordering only if hits>1.
+callssu=t       Call 16S and 18S for alignment to reference SSU.  Slightly
+                slower.  Affects top hit ordering.
 server=f        Send spectra to server instead of using a local reference.
                 Enabled automatically if there is no local reference.
+composition=    Output a taxonomy composition report to this file.  Shows
+                per-level tables with bases, sequences, and percentages.
+                Use composition=stdout to print to screen after results.
+                Best used with percontig or multiple input files.
+                summary= is an alias for composition=.
+		
+Output Format:
+format=human    Output format.  Options: human (multi-line per hit),
+                machine (one line per hit, tab-delimited header),
+                tabular (compact one-line per hit with column headers).
+showrecords=t   Set to false to suppress per-record output.  Useful with
+                composition to display only the taxonomy summary.
+color=t         ANSI color coding of hits by taxonomic level.  Default on
+                for human and tabular formats, off for machine format.
+colorlevel=     Taxonomic level for color grouping (default family).
+                Hits in the same family get the same color; off-family
+                hits are visually distinct.
+
+showloading=t   Print loading progress messages to stderr.  Set to false
+                to suppress index/sketch/query loading messages.
+
+Taxonomy Filtering:
+level=          Filter hits by taxonomic level (e.g. level=family).  Shows
+                only the best hit per taxon at that level, so instead of
+                7 E. coli strains you see the best hit from each family.
+		Constrained to hits within the buffer.
+topcount=10     Max entries per taxonomic level in the composition report.
+minfraction=0   Minimum fraction (0-1) to include in composition report.
+
+Proxy Parameters:
+proxyhost=<addr>  HTTPS proxy hostname for environments requiring a proxy
+                to reach external servers.  Sets -Dhttps.proxyHost for Java.
+proxyport=<num>   HTTPS proxy port number.  Sets -Dhttps.proxyPort for Java.
+
+DDL Sketch Parameters:
+sketch=t        Enable sketch-based matching using DDL (DynamicDemiLog)
+                cardinality profiles.  Auto-discovers the best available
+                DDL sketch file from the resources directory (e.g.
+                refseqSketchDDL_k25e5b4096.tsv.gz).  Also builds a DDL
+                from each query for comparison.  ddl=t is an alias.
+sketchfile=     Path to a specific DDL sketch file.  Overrides the default.
+                ddlfile= and sketchref= are aliases.
+sketchindex=f   Build an index from DDL sketches; this allows hits by 25-mer
+                matching, orthogonal to the clade index, allowing LCA
+                (lowest common ancestor) calculation.  Implies sketch=t.
+minsketchhits=5 Minimum matching DDL buckets to report a sketch hit.
+ddlk=25         K-mer length for DDL sketches.
+ddlbuckets=4096 Number of buckets in DDL sketches.
+
+Threading Parameters:
+loadthreads=auto  Number of threads for parsing reference spectra.
+                  By default uses all available threads.
+ddlloadthreads=auto  Number of threads for loading DDL sketch files.
+                  DDL files load in parallel when multiple are present;
+                  this controls the total thread budget across all files.
+comparethreads=auto  Number of threads for query comparisons.
+parallelsetup=t Load tree, reference index, and queries in parallel.
+                Disable with parallelsetup=f for lower memory usage.
 
 Advanced Parameters (mainly for benchmarking):
 printmetrics    Output accuracy statistics; mainly useful for labeled data.
@@ -11261,10 +12808,11 @@ gcmult=0.5      Max GC difference as a fraction of best 5-mer difference.
 strdif=0.12     Initial maximum strandedness difference.
 strmult=1.2     Max strandedness difference as a fraction of best 5-mer diff.
 hhdif=0.025     Maximum HH metric difference.
-cagadif=0.017   Maximum CAGA metric differece.
+cagadif=0.017   Maximum CAGA metric difference.
+hhmult=0.5      Max HH difference as a fraction of best 5-mer difference.
+cagamult=0.8    Max CAGA difference as a fraction of best 5-mer difference.
 ee=t            Early exit; increases speed.
 entropy         Calculate entropy for queries.  Slow; negligible utility.
-heap=1          Number of intermediate comparisons to store.
 usetree         Load a taxonomic tree for better grading for labeled data.
 aligner=quantum Options include ssa2, glocal, drifting, banded, crosscut.
 
@@ -11482,13 +13030,23 @@ def randomreadsmg(capture_output: bool = False, **kwargs) -> Union[None, Tuple[s
 
     Help message:
     Written by Brian Bushnell
-Last modified December 2, 2025
+Last modified February 11, 2026
 
 Description:  Generates synthetic reads from a set of fasta assemblies.
 Each assembly is assigned a random coverage level, with optional custom 
 coverage for specific genomes.  Reads headers will contain the TaxID
 of the originating genome, if the filename starts with 'tid_x_',
 where x is a positive integer.
+
+Default header style, where all numbers are 0-based:
+f_(file number in argument list)
+c_(contig number in the file)
+s_(strand, 0 for + and 1 for -)
+p_(start position on contig)
+i_(insert size, useful for paired reads)
+r_(reference length accounting for indels)
+d_(1 if a PCR duplicate)
+tid_(taxID, if present in the file or contig name)
 
 Usage:  randomreadsmg.sh *.fa out=reads.fq.gz
 or
@@ -11505,8 +13063,11 @@ Processing parameters:
 mindepth=1      Minimum assembly average depth.
 maxdepth=256    Maximum assembly average depth.
 depth=          Sets minimum and maximum to the same level.
-reads=-1        If positive, ignore depth and make this many reads per contig.
-mode=min4       Random depth distribution; can be min4, exp, root, or linear.
+reads=-1        If positive, set depth based on read length and genome size,
+                to yield approximately this number of reads per file.
+		Requires reading the input twice.
+readspercontig=-1    If positive, ignore depth and make this many reads per contig.
+mode=min4       Random depth distribution; can be min4, exp, root, or uniform.
 cov_x=          Set a custom coverage level for the file named x.
                 x can alternatively be the taxID if the filename starts
                 with tid_x_; e.g. cov_foo.fa=5 for foo.fa, or cov_7=5
@@ -11530,7 +13091,7 @@ minkprob=0.1    Minimum primer kmer probability.
 
 Platform parameters
 illumina        Use Illumina length and error mode (default).
-pacbio          Use PacBio length and error mode.
+pacbio          Use PacBio HiFi length and error mode.
 ont             Use ONT length and error mode.
 paired=true     Generate paired reads in Illumina mode.
 length=150      Read length; default is 150 for Illumina mode.
@@ -11546,12 +13107,17 @@ pbsigma=0.5     Log-normal standard deviation for PacBio length distribution.
 Error parameters (all platforms)
 adderrors=f     Set to true to add model-specific errors.
 subrate=0.0     Add substitutions at this rate, independent of platform models.
-indelrate=0.0   Add length-1 indels at this rate, independent of platform models.
+insrate=0.0     Add length-1 insertions at this rate, independent of platform models.
+delrate=0.0     Add length-1 deletions at this rate, independent of platform models.
+indelrate=      Set insrate and delrate to half of this value.
 
 Illumina-specific parameters
+illuminanames=f Generate Illumina-format headers.
 qavg=25         Average quality score, for generating Illumina errors.
 qrange=0        Quality score range (+/- this much).
-addadapters     Add adapter sequence to paired reads with insert
+qflat=f         Use constant quality within a read, to increase compression
+                when qrange>0.
+addadapters=f   Add adapter sequence to paired reads with insert
                 size shorter than read length.
 adapter1=       Optionally specify a custom R1 adapter (as observed in R1).
 adapter2=       Optionally specify a custom R2 adapter (as observed in R2).
@@ -11561,6 +13127,7 @@ machine=        Specify the machine for Illumina headers.
 
 Long-read error parameters
 Note: These may be overriden for any platform, including Illumina.
+They are independent of, and applied in addition to, subrate/insrate/delrate.
 srate=-1        Substitution rate; default 0.0025 ONT / 0.00015 PB.
 irate=-1        Insertion rate; default 0.0055 ONT / 0.000055 PB.
 drate=-1        Deletion rate; default 0.0045 ONT / 0.000045 PB.
@@ -11568,7 +13135,7 @@ hrate=-1        Homopolymer error boost; default 0.02 ONT / 0.000015 PB.
                 The indel chance increases this much per homopolymer base.
 
 Coverage variation parameters (used with 'sinewave' flag):
-sinewave        Enable realistic coverage variation within contigs.
+sinewave=f      Enable realistic coverage variation within contigs.
 waves=4         Number of sine waves to combine; more waves create more 
                 complex coverage patterns with irregular peaks and valleys.
 waveamp=0.70    Controls the maximum variation in coverage due to the sine 
@@ -11581,9 +13148,9 @@ minprob=0.10    Sets the minimum coverage probability as a fraction of target.
                 below this level, preventing assembly gaps.
 minperiod=2k    Minimum sine wave period, in bp.
 maxperiod=80k   Maximum sine wave period, in bp.
-variance=0.5    Vary coverage on a per-contig basis, within an assembly, by
+variance=0.0    Vary coverage on a per-contig basis, within an assembly, by
                 plus/minus this factor.  Unrelated to sinewave mode, which
-		is generally superior.
+		varies coverage WITHIN a contig.
 
 Java Parameters:
 -Xmx            This will set Java's memory usage, overriding autodetection.
@@ -11641,6 +13208,75 @@ For documentation and the latest version, visit: https://bbmap.org
     """
     args = _pack_args(kwargs)
     return _run_command("readlength.sh", args, capture_output)
+
+def reassemble(capture_output: bool = False, **kwargs) -> Union[None, Tuple[str, str]]:
+    """
+    Wrapper for reassemble.sh
+
+    Help message:
+    Written by Brian Bushnell
+Contributor: Noire
+Last modified February 9, 2026
+
+Description:  Processes multiple genome files individually through Tadpole assembler
+while preserving taxonomic ID labels. Reads genome files with taxID in filename
+(pattern: tid_<number>_...) or FASTA headers. By default, uses append mode where
+each genome's contigs are appended directly to the output file with unique contig IDs.
+
+This tool eliminates the need for coassembly, preventing chimeric contigs and
+simplifying the workflow for metagenomic binning evaluation datasets.
+
+Usage:  reassemble.sh in_file=<files> out=<contigs> k=<kmer>
+
+Standard parameters:
+in_file=<file>           Input files. Comma-delimited, directories, and wildcards supported.
+out=<file>          Output file for assembled contigs.
+k=<int>             Kmer length for Tadpole assembly (required).
+
+Reassemble-specific parameters:
+failfast=f          Abort on first failure (default: false, continue processing).
+tempdir=<path>      Use temporary files instead of append mode. If specified, each genome
+                    assembles to a temp file, then all are concatenated. If null (default),
+                    Tadpole appends directly to output file (more efficient).
+delete=t            Delete temporary files after concatenation (default: true).
+                    Only relevant if tempdir is specified.
+verbose=f           Verbose logging (default: false).
+
+All other parameters are passed through to Tadpole. Common Tadpole parameters:
+mcs=1               minCountSeed (default: 1 in code for sparse genomes).
+mce=1               minCountExtend (default: 1 in code for sparse genomes).
+mincontig=1         Minimum contig length (default: 1 in code).
+prefilter=0         Prefilter level.
+mode=contig         Assembly mode (contig/extend/correct).
+
+Usage examples:
+
+# Basic usage with directory input
+reassemble.sh in_file=genomes/ out=assembled.fa k=155
+
+# Comma-delimited file list
+reassemble.sh in_file=tid_123.fa,tid_456.fa out=output.fa k=31
+
+# With custom parameters and fail-fast mode
+reassemble.sh in_file=genomes/*.fa out=output.fa k=155 mcs=2 mce=2 mincontig=200 failfast=t
+
+Java Parameters:
+-Xmx                This will set Java's memory usage, overriding autodetection.
+                    -Xmx20g will specify 20 gigs of RAM. The max is typically 85% of physical memory.
+-eoom               This flag will cause the process to exit if an out-of-memory exception occurs.
+
+Please contact Brian Bushnell at bbushnell@lbl.gov if you encounter any problems.
+
+    Args:
+        capture_output (bool): If True, capture and return the output instead of printing it.
+        in_file (str): Input file (replaces 'in=' parameter)
+        **kwargs: Other arguments for reassemble.sh
+
+    Returns:
+        Union[None, Tuple[str, str]]: If capture_output is True, returns (stdout, stderr), else None.
+    """
+    args = _pack_args(kwargs)
+    return _run_command("reassemble.sh", args, capture_output)
 
 def reducecolumns(capture_output: bool = False, **kwargs) -> Union[None, Tuple[str, str]]:
     """
@@ -13209,7 +14845,7 @@ def rqcfilter2(capture_output: bool = False, **kwargs) -> Union[None, Tuple[str,
 
     Help message:
     Written by Brian Bushnell
-Last modified September 20, 2024
+Last modified January 31, 2026
 
 Description:  RQCFilter2 is a revised version of RQCFilter that uses a common path for all dependencies.
 The dependencies are available at http://portal.nersc.gov/dna/microbial/assembly/bushnell/RQCFilterData.tar
@@ -13396,6 +15032,11 @@ barcodefilter=f     Crash when improper barcodes are discovered.  Set to 'f' to 
 barcodes=           A comma-delimited list of barcodes or files of barcodes.
 filterbytile        Also needs to be disabled for SRA data.
 
+Proxy Parameters:
+proxyhost=<addr>  HTTPS proxy hostname for environments requiring a proxy
+                to reach external servers.  Sets -Dhttps.proxyHost for Java.
+proxyport=<num>   HTTPS proxy port number.  Sets -Dhttps.proxyPort for Java.
+
 Java Parameters:
 -Xmx                This will set Java's memory usage, overriding autodetection.
                     -Xmx20g will specify 20 gigs of RAM, and -Xmx200m will specify 200 megs.
@@ -13426,7 +15067,7 @@ def rqcfilter3(capture_output: bool = False, **kwargs) -> Union[None, Tuple[str,
 
     Help message:
     Written by Brian Bushnell
-Last modified December 3, 2025
+Last modified February 24, 2026
 
 Description:  RQCFilter3 is a revised version of RQCFilter2 using BBDukStreamer and the Streamer interface.
 The dependencies are available at http://portal.nersc.gov/dna/microbial/assembly/bushnell/RQCFilterData.tar
@@ -13613,6 +15254,11 @@ barcodefilter=f     Crash when improper barcodes are discovered.  Set to 'f' to 
 barcodes=           A comma-delimited list of barcodes or files of barcodes.
 filterbytile        Also needs to be disabled for SRA data.
 
+Proxy Parameters:
+proxyhost=<addr>  HTTPS proxy hostname for environments requiring a proxy
+                to reach external servers.  Sets -Dhttps.proxyHost for Java.
+proxyport=<num>   HTTPS proxy port number.  Sets -Dhttps.proxyPort for Java.
+
 Java Parameters:
 -Xmx                This will set Java's memory usage, overriding autodetection.
                     -Xmx20g will specify 20 gigs of RAM, and -Xmx200m will specify 200 megs.
@@ -13775,39 +15421,72 @@ def scalarintervals(capture_output: bool = False, **kwargs) -> Union[None, Tuple
 
     Help message:
     Written by Brian Bushnell
-Last modified October 13, 2025
+Last modified February 19, 2026
 
-Description:  Calculates some scalars from nucleotide sequence data.
-Writes them periodically as a tsv.
+Description:  Calculates compositional scalar metrics from nucleotide sequences.
+Computes GC content, HH (homo/hetero dimer ratio), CAGA (transition preference),
+depth, and length for sequence intervals. Outputs data in TSV format for 
+visualization with CloudPlot or external analysis tools.
 
-Usage:  scalarintervals.sh in_file=<input file> out=<output file>
-e.g.
-scalarintervals.sh in_file=ecoli.fasta out=data.tsv shred=5k
-or
-scalarintervals.sh *.fa.gz out=data.tsv shred=5k
+Output TSV Format:
+#Name   Length  GC      HH      CAGA    Depth   Start   TaxID   TaxID2
+- Name: Sequence/contig name
+- Length: Interval length in bases
+- GC: GC content (0-1)
+- HH: Homopolymer-heteropolymer ratio (0-1, GC-independent)
+- CAGA: Compositional asymmetry (0-1, GC-independent)
+- Depth: Read coverage depth (from cov/depth file or header)
+- Start: Start position within contig (0 for whole contigs)
+- TaxID: Primary taxonomy ID (from clade, sketch, or header)
+- TaxID2: Secondary taxonomy ID (for concordance checking)
+
+Usage:  scalarintervals.sh in_file=<input file> out=<output file> [options]
+
+Examples:
+# Basic interval generation
+scalarintervals.sh in_file=assembly.fa out=data.tsv shred=20k header=t
+
+# With coverage from BAM file
+scalarintervals.sh in_file=contigs.fa out=data.tsv shred=20k depth=mapped.bam header=t
+
+# With coverage file and taxonomy
+scalarintervals.sh in_file=assembly.fa out=data.tsv shred=20k cov=coverage.txt clade=t header=t
+
+# Multiple input files
+scalarintervals.sh *.fa.gz out=combined.tsv shred=10k header=t printname=t
 
 Standard parameters:
-in_file=<file>       Primary input; fasta or fastq.
-                This can also be a directory or comma-delimited list.
-		Filenames can also be used without in_file=
-out=stdout      Set to a file to redirect tsv output.  The mean and stdev
-                will be printed to stderr.
+in_file=<file>       Primary input; FASTA or FASTQ.
+                Can be a directory or comma-delimited list.
+                Filenames can also be used without in_file=
+out=stdout      Output TSV file. Mean and stdev printed to stderr.
+
+Depth/Coverage parameters:
+cov=<file>      Coverage file from pileup.sh (format: #ID, Avg_fold) or
+                covmaker.sh (format: #Contigs, AvgFold).
+depth=<file>    SAM/BAM file for depth calculation.
+                Calculates depth from aligned bases in the file.
 
 Processing parameters:
-header=f        Print a header line.
+header=f        Print TSV header line.
 window=50000    If nonzero, calculate metrics over sliding windows.
-                Otherwise calculate per contig.  Larger has lower variance.
+                Otherwise calculate per contig. Larger has lower variance.
 interval=10000  Generate a data point every this many bp.
 shred=-1        If positive, set window and interval to the same size.
+                Example: shred=20k sets both window and interval to 20000.
 break=t         Reset metrics at contig boundaries.
 minlen=500      Minimum interval length to generate a point.
 maxreads=-1     Maximum number of reads/contigs to process.
 printname=f     Print contig names in output.
-printpos=f      Print contig position in output.
-printtime=t     Print timing information to screen.
+printpos=f      Print start position in output (same as Start column).
+printtime=t     Print timing information to stderr.
+
+Taxonomy parameters:
 parsetid=f      Parse TaxIDs from file and sequence headers.
 sketch=f        Use BBSketch (SendSketch) to assign taxonomy per contig.
+                Assigns TaxID2 field.
 clade=f         Use QuickClade to assign taxonomy per contig.
+                Assigns TaxID field.
 
 Java Parameters:
 -Xmx            This will set Java's memory usage, overriding autodetection.
@@ -13940,7 +15619,7 @@ def scrabblealigner(capture_output: bool = False, **kwargs) -> Union[None, Tuple
 
     Help message:
     Written by Brian Bushnell
-Last modified December 14, 2025
+Last modified February 7, 2026
 
 Description:  Aligns a query sequence to a reference using ScrabbleAligner.
 The sequences can be any characters, but N is a special case.
@@ -14268,6 +15947,11 @@ Standard BBTools Parameters:
 overwrite=f     Allow overwriting of existing output files.
 append=f        Append to existing output files instead of overwriting.
 
+Proxy Parameters:
+proxyhost=<addr>  HTTPS proxy hostname for environments requiring a proxy
+                to reach external servers.  Sets -Dhttps.proxyHost for Java.
+proxyport=<num>   HTTPS proxy port number.  Sets -Dhttps.proxyPort for Java.
+
 Server Communication:
 The default server is: https://bbmapservers.jgi.doe.gov/quickclade
 Sequences are sent in batches of up to 100 clades for efficient processing.
@@ -14512,6 +16196,11 @@ requiredmeta=   (rmeta) Required optional metadata values.  For example:
                 rmeta=subunit:ssu,source:silva
 bannedmeta=     (bmeta) Forbidden optional metadata values.
 
+Proxy Parameters:
+proxyhost=<addr>  HTTPS proxy hostname for environments requiring a proxy
+                to reach external servers.  Sets -Dhttps.proxyHost for Java.
+proxyport=<num>   HTTPS proxy port number.  Sets -Dhttps.proxyPort for Java.
+
 Java Parameters:
 -Xmx            This will set Java's memory usage, overriding autodetection.
                 -Xmx20g will specify 20 gigs of RAM, and -Xmx200m will specify 200 megs.
@@ -14651,7 +16340,7 @@ def shrinkaccession(capture_output: bool = False, **kwargs) -> Union[None, Tuple
 
     Help message:
     Written by Brian Bushnell
-Last modified July 29, 2019
+Last modified Feb 25, 2026
 
 Description:  Shrinks accession2taxid tables by removing unneeded columns.
 This is not necessary but makes accession2taxid files smaller and load faster.
@@ -14664,6 +16353,7 @@ app=f           (append) Append to files that already exist.
 zl=4            (ziplevel) Set compression level, 1 (low) to 9 (max).
 pigz=t          Use pigz for compression, if available.
 gi=t            Retain gi numbers.
+asm=f           Run in assembly accession mode, default is sequence.
 
 Java Parameters:
 -Xmx            This will set Java's memory usage, overriding autodetection.
@@ -15093,7 +16783,7 @@ def sortbyname(capture_output: bool = False, **kwargs) -> Union[None, Tuple[str,
 
     Help message:
     Written by Brian Bushnell
-Last modified October 6, 2022
+Last modified February 19, 2026
 
 Description:  Sorts reads by name or other keys such as length,
 quality, mapping position, flowcell coordinates, or taxonomy.
@@ -15126,7 +16816,12 @@ clump=f         Sort reads by shared kmers, like Clumpify.
 flowcell=f      Sort reads by flowcell coordinates.
 shuffle=f       Shuffle reads randomly (untested).
 list=<file>     Sort reads according to this list of names.
-ascending=t     Sort ascending.
+ascending=t     Sort ascending.  This defaults to true except for length.
+descending=f    Sort descending instead of ascending.  Overrides ascending flag.
+maxfiles=12     Maximum number of temp files to use during external sort.
+crispr=f        Sort reads by CRISPR repeat quality score (requires neural network model).
+genkmer=t       Generate 5-bit kmers for topological/lexicographic sorting modes.
+deleteearly=f   Delete temp files as soon as they are merged, to save disk space.
 
 Memory parameters (you might reduce these if you experience a crash)
 memmult=0.30    Write a temp file when used memory exceeds this fraction
@@ -15140,7 +16835,7 @@ Taxonomy-sorting parameters (for taxa mode only):
 tree=           Specify a taxtree file.  On Genepool, use 'auto'.
 gi=             Specify a gitable file.  On Genepool, use 'auto'.
 accession=      Specify one or more comma-delimited NCBI accession to
-                taxid files.  On Genepool, use 'auto'.
+                taxid files.  On Dori/NERSC, use 'auto'.
 
 Note: name, length, and quality are mutually exclusive.
 Sorting by quality actually sorts by average expected error rate,
@@ -15440,6 +17135,67 @@ For documentation and the latest version, visit: https://bbmap.org
     args = _pack_args(kwargs)
     return _run_command("splitsam6way.sh", args, capture_output)
 
+def ssuserver(capture_output: bool = False, **kwargs) -> Union[None, Tuple[str, str]]:
+    """
+    Wrapper for ssuserver.sh
+
+    Help message:
+    Written by Chloe and Brian Bushnell
+Last modified May 20, 2026
+
+Description:  Starts a persistent HTTP server for SSU (16S/18S) ribosomal
+sequence classification using DDL sketching against a pre-built reference
+database of 276k organisms.
+
+The server preloads all reference data at startup and serves queries over
+HTTP with sub-second response times.  Use findssu.sh with address= to
+send queries to this server, or POST FASTA sequences directly.
+
+Usage:  ssuserver.sh [port=3070] [ref=<ssu_ddls.tsv.gz>]
+
+Server Parameters:
+port=3070       HTTP listen port.
+kill=<code>     Kill code for graceful remote shutdown via /kill/<code>.
+prefix=<addr>   Restrict access to addresses starting with this prefix.
+domain_file=<url>    CORS allowed origin (default: * for any origin).
+ref=<file>      SSU DDL reference file (default: resources/ssuSketchDDL.tsv.gz).
+ref16s=<file>   Separate 16S reference file.
+ref18s=<file>   Separate 18S reference file.
+k=19            K-mer length for hashing.
+buckets=128     Number of DDL buckets.
+exponent=4      Exponent bits.
+records=5       Max hits to return per query.
+minhits=8       Minimum shared index keys to compare a ref.
+buffer=0        Alignment buffer size.
+maxsize=100000000  Max request body size in bytes (default 100MB).
+t=4             Number of handler threads.
+verbose         Enable request logging.
+
+Request Format:
+  POST raw FASTA to / for SSU classification.
+  Prefix body with //Call to enable gene-calling mode.
+  Prefix body with //JSON for JSON output.
+  GET / returns usage information.
+  POST //Status returns server health check.
+
+Java Parameters:
+-Xmx            Set Java memory.  Default is 8g for the server.
+-eoom           Exit on out-of-memory exception.
+-da             Disable assertions.
+
+Please contact Brian Bushnell at bbushnell@lbl.gov if you encounter any problems.
+
+    Args:
+        capture_output (bool): If True, capture and return the output instead of printing it.
+        in_file (str): Input file (replaces 'in=' parameter)
+        **kwargs: Other arguments for ssuserver.sh
+
+    Returns:
+        Union[None, Tuple[str, str]]: If capture_output is True, returns (stdout, stderr), else None.
+    """
+    args = _pack_args(kwargs)
+    return _run_command("ssuserver.sh", args, capture_output)
+
 def stats(capture_output: bool = False, **kwargs) -> Union[None, Tuple[str, str]]:
     """
     Wrapper for stats.sh
@@ -15612,7 +17368,7 @@ def stream(capture_output: bool = False, **kwargs) -> Union[None, Tuple[str, str
 
     Help message:
     Written by Brian Bushnell
-Last modified November 15, 2025
+Last modified January 28, 2026
 
 Description:  Converts between sam, bam, fasta, fastq.
               Supports subsampling, paired files, and multithreading.
@@ -15636,6 +17392,7 @@ samplerate=1.0  Fraction of reads to keep (0.0 to 1.0).
 sampleseed=17   Random seed for subsampling (-1 for random).
 reads=-1        Quit after processing this many reads (-1 = all).
 ordered=t       Maintain input order in output.
+skipreads=0     Skip this many initial reads (or pairs).
 
 Threading parameters:
 threadsin_file=-1    Reader threads (-1 = auto).
@@ -16131,7 +17888,7 @@ def tadpole(capture_output: bool = False, **kwargs) -> Union[None, Tuple[str, st
 
     Help message:
     Written by Brian Bushnell
-Last modified February 3, 2021
+Last modified February 15, 2026
 
 Description:  Uses kmer counts to assemble contigs, extend sequences, 
 or error-correct reads.  Tadpole has no upper bound for kmer length,
@@ -16174,6 +17931,9 @@ dump=<file>         Write kmers and their counts.
 fastadump=t         Write kmers and counts as fasta versus 2-column tsv.
 mincounttodump=1    Only dump kmers with at least this depth.
 showstats=t         Print assembly statistics after writing contigs.
+shortnames=t        Short contig names without branch data.
+veryshortnames=f    Very short contig names without min/max depth and hh/caga.
+tid=-1              If positive, embed this TaxID in contig names.
 
 Prefiltering parameters:
 prefilter=0         If set to a positive integer, use a countmin sketch
@@ -16737,6 +18497,82 @@ For documentation and the latest version, visit: https://bbmap.org
     args = _pack_args(kwargs)
     return _run_command("testaligners2.sh", args, capture_output)
 
+def testalignersbatch(capture_output: bool = False, **kwargs) -> Union[None, Tuple[str, str]]:
+    """
+    Wrapper for testalignersbatch.sh
+
+    Help message:
+    Written by Brian Bushnell and Neptune
+Last modified March 22, 2026
+
+Description:  Batch benchmark for aligners using random sequences.
+Pre-generates all sequence pairs, runs Glocal first to establish truth,
+then runs each other aligner. Uses multithreaded work-stealing.
+
+Usage:
+testalignersbatch.sh length=40000 samples=100 threads=64 subsonly=t ani=100,99,95,90
+
+Parameters:
+length          Sequence length in bp (default 40000).
+samples         Number of random pairs per ANI level (default 10).
+threads         Number of parallel threads (default all available).
+subsonly        Substitutions only, no indels (default false).
+equalrates      Equal S/D/I rates at 33/33/33 (default false).
+ani             Comma-separated list of design ANI values.
+seed            Random seed for reproducibility (default 12345).
+
+Please contact Brian Bushnell at bbushnell@lbl.gov if you encounter any problems.
+For documentation and the latest version, visit: https://bbmap.org
+
+    Args:
+        capture_output (bool): If True, capture and return the output instead of printing it.
+        in_file (str): Input file (replaces 'in=' parameter)
+        **kwargs: Other arguments for testalignersbatch.sh
+
+    Returns:
+        Union[None, Tuple[str, str]]: If capture_output is True, returns (stdout, stderr), else None.
+    """
+    args = _pack_args(kwargs)
+    return _run_command("testalignersbatch.sh", args, capture_output)
+
+def testalignerslength(capture_output: bool = False, **kwargs) -> Union[None, Tuple[str, str]]:
+    """
+    Wrapper for testalignerslength.sh
+
+    Help message:
+    Written by Brian Bushnell and Neptune
+Last modified March 23, 2026
+
+Description:  Benchmark search space vs sequence length at fixed ANI.
+Generates random sequence pairs at each length, runs Glocal as truth,
+then each heuristic aligner. Multithreaded with loop tracking.
+
+Usage:
+testalignerslength.sh ani=75 samples=100 threads=64 lengths=64,128,256,512
+
+Parameters:
+ani             Target ANI in percent (default 75).
+samples         Number of random pairs per length (default 100).
+threads         Number of parallel threads (default all available).
+lengths         Comma-separated list of sequence lengths.
+subsonly        Substitutions only, no indels (default false).
+equalrates      Equal S/D/I rates at 33/33/33 (default false).
+seed            Random seed for reproducibility (default 54321).
+
+Please contact Brian Bushnell at bbushnell@lbl.gov if you encounter any problems.
+For documentation and the latest version, visit: https://bbmap.org
+
+    Args:
+        capture_output (bool): If True, capture and return the output instead of printing it.
+        in_file (str): Input file (replaces 'in=' parameter)
+        **kwargs: Other arguments for testalignerslength.sh
+
+    Returns:
+        Union[None, Tuple[str, str]]: If capture_output is True, returns (stdout, stderr), else None.
+    """
+    args = _pack_args(kwargs)
+    return _run_command("testalignerslength.sh", args, capture_output)
+
 def testfilesystem(capture_output: bool = False, **kwargs) -> Union[None, Tuple[str, str]]:
     """
     Wrapper for testfilesystem.sh
@@ -17289,6 +19125,52 @@ For documentation and the latest version, visit: https://bbmap.org
     args = _pack_args(kwargs)
     return _run_command("trimcontigs.sh", args, capture_output)
 
+def ttllsimulate(capture_output: bool = False, **kwargs) -> Union[None, Tuple[str, str]]:
+    """
+    Wrapper for ttllsimulate.sh
+
+    Help message:
+    Written by Brian Bushnell and Ady
+Last modified April 2026
+
+Description:  Simulates a single TTLL (TwinTailLogLog) word to build a
+per-tier state table and per-state correction factors.  Each word is an
+8-bit register: [7:4]=4-bit exponent, [3:2]=history1, [1:0]=history0.
+Each trial feeds random hashes into one bucket until its local exponent
+exceeds maxTier.  The simulator accumulates (tier, combined_history)
+statistics across trials, smooths sparse states, and emits tier averages
+plus per-state multipliers for CF table construction.
+
+Usage:  ttllsimulate.sh iters=10000 threads=8 maxTier=14
+
+Parameters:
+iters=10000     Number of simulation trials (more = better statistics).
+threads=8       Number of parallel simulation threads.
+maxTier=14      End each trial when localExp exceeds this value (0-14).
+minObs=100      Merge states with fewer than this many observations.
+out=            Optional output file for state table (default: stdout).
+table=          Optional input state table for CV reference.
+avg=lin         Averaging mode: lin | geo | harm | blend.
+
+Java Parameters:
+-Xmx            Override Java memory autodetection (e.g. -Xmx4g).
+-eoom           Exit on out-of-memory exception (requires Java 8u92+).
+-da             Disable assertions.
+
+Please contact Brian Bushnell at bbushnell@lbl.gov if you encounter any problems.
+For documentation and the latest version, visit: https://bbmap.org
+
+    Args:
+        capture_output (bool): If True, capture and return the output instead of printing it.
+        in_file (str): Input file (replaces 'in=' parameter)
+        **kwargs: Other arguments for ttllsimulate.sh
+
+    Returns:
+        Union[None, Tuple[str, str]]: If capture_output is True, returns (stdout, stderr), else None.
+    """
+    args = _pack_args(kwargs)
+    return _run_command("ttllsimulate.sh", args, capture_output)
+
 def unicode2ascii(capture_output: bool = False, **kwargs) -> Union[None, Tuple[str, str]]:
     """
     Wrapper for unicode2ascii.sh
@@ -17665,3 +19547,21 @@ For documentation and the latest version, visit: https://bbmap.org
     """
     args = _pack_args(kwargs)
     return _run_command("xdrophaligner.sh", args, capture_output)
+
+def zz_rename_package(capture_output: bool = False, **kwargs) -> Union[None, Tuple[str, str]]:
+    """
+    Wrapper for zz_rename_package.sh
+
+    Help message:
+    No help message found.
+
+    Args:
+        capture_output (bool): If True, capture and return the output instead of printing it.
+        in_file (str): Input file (replaces 'in=' parameter)
+        **kwargs: Other arguments for zz_rename_package.sh
+
+    Returns:
+        Union[None, Tuple[str, str]]: If capture_output is True, returns (stdout, stderr), else None.
+    """
+    args = _pack_args(kwargs)
+    return _run_command("zz_rename_package.sh", args, capture_output)

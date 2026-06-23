@@ -3,11 +3,17 @@
 usage(){
 echo "
 Written by Brian Bushnell
-Last modified September 6, 2023
+Last modified February 14, 2026
 
 Description:  Splits a sequence file evenly into multiple files.
+Can split evenly by sequence count, total BP, GC content, depth, 
+length, and other metrics.  Always keeps paired reads togther, and
+can keep PacBio subreads together as well.  When splitting by
+a metric such as GC, two passes are used to ensure even partitions;
+simple partitioning by count and bp are one-pass.
 
-Usage:  partition.sh in=<file> in2=<file2> out=<outfile> out2=<outfile2> ways=<number>
+
+Usage:  partition.sh in=<file> out=<outfile> ways=<number>
 
 in2 and out2 are for paired reads and are optional.
 If input is paired and out2 is not specified, data will be written interleaved.
@@ -17,15 +23,59 @@ Parameters and their defaults:
 
 in=<file>       Input file.
 out=<file>      Output file pattern (containing a % symbol, like 'part%.fa').
+in2, out2       Optional flags for use with twin fastq files.
 ways=-1         The number of output files to create; must be positive.
-pacbio=f        Set to true to keep PacBio subreads together.
-bp=f            Optimize for an even split by base pairs instead of sequences.
-                Not compatible with PacBio mode.
-
-ow=f            (overwrite) Overwrites files that already exist.
-app=f           (append) Append to files that already exist.
-zl=4            (ziplevel) Set compression level, 1 (low) to 9 (max).
+pacbio=f        Set to true to keep PacBio subreads together.  Only works in
+                count mode.
 int=f           (interleaved) Determines whether INPUT file is considered interleaved.
+zl=4            (ziplevel) Set compression level, 1 (low) to 9 (max).
+
+Mode parameters:
+mode=count      Partition by metric: count, bp, gc, hh, caga, length, depth
+                   count: Round-robin (default), balances by sequence count
+                   bp: Balance by number of base pairs
+                   gc: Split by GC composition 
+		   hh: Split by homo/hetero dimer ratio
+		   caga: Split by CA-GA+TG-TC metric
+                   length: Split by sequence length
+                   depth: Split by coverage depth
+cutoff=<x,y,z>  Custom partition cutoffs (auto-sets ways to cutoffs+1)
+cov=<file>      A coverage file from covmaker or pileup, or a sam or bam file,
+                used in depth mode; if unset, depth will be parsed from contig
+                headers in Tadpole, SPAdes, or MetaHipMer format.
+
+Auto-partitioning parameters:
+auto=f          Enable automatic partition detection (ignores 'ways' parameter)
+                Uses peak-based histogram analysis to find natural clusters
+minpeak=0.04    Minimum peak volume as fraction of dominant peak (0.0-1.0)
+                Lower values = more sensitive (more partitions detected)
+smoothradius=9  Smoothing radius for histogram noise reduction
+maxpartitions=25 Maximum number of auto-detected partitions
+
+
+Depth mode options:
+cov=<file>      A coverage file from covmaker or pileup, or a sam or bam file,
+                used in depth mode; if unset, depth will be parsed from contig
+                headers in Tadpole, SPAdes, or MetaHipMer format.
+
+Depth mode examples:
+  partition.sh in=contigs.fa partitionby=depth ways=4
+    # Auto-balance by depth parsed from contig headers
+  partition.sh in=contigs.fa partitionby=depth cov=coverage.txt ways=4
+    # Use external coverage file (pileup or covmaker format)
+  partition.sh in=contigs.fa partitionby=depth cov=reads.bam ways=3
+    # Calculate depth from BAM alignments
+  partition.sh in=contigs.fa partitionby=depth cutoff=10,50,200
+    # Custom cutoffs creating 4 partitions: <10, 10-50, 50-200, >200
+
+Auto-partition examples:
+  partition.sh in=mixed.fa out=part%.fa partitionby=gc auto=t
+    # Auto-detect GC-based clusters
+  partition.sh in=contigs.fa out=cov%.fa partitionby=depth auto=t minpeak=0.1
+    # Auto-detect depth clusters with 10% threshold (less sensitive)
+  partition.sh in=contigs.fa out=part%.fa partitionby=gc auto=t verbose
+    # Show detected peak counts and boundaries
+
 
 Java Parameters:
 -Xmx            This will set Java's memory usage, overriding autodetection.
@@ -53,7 +103,11 @@ resolveSymlinks(){
 		[ "${SCRIPT#/}" = "$SCRIPT" ] && SCRIPT="$DIR/$SCRIPT"
 	done
 	DIR="$(cd "$(dirname "$SCRIPT")" && pwd)"
-	CP="$DIR/current/"
+	if [ -f "$DIR/bbtools.jar" ]; then
+		CP="$DIR/bbtools.jar"
+	else
+		CP="$DIR/current/"
+	fi
 }
 
 setEnv(){
@@ -65,7 +119,7 @@ setEnv(){
 }
 
 launch() {
-	CMD="java $EA $EOOM $SIMD $XMX $XMS -cp $CP jgi.PartitionReads $@"
+	CMD="java $EA $EOOM $SIMD $XMX $XMS -cp $CP scalar.PartitionReads3 $@"
 	echo "$CMD" >&2
 	eval $CMD
 }

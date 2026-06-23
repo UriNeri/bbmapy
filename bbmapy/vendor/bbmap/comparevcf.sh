@@ -28,6 +28,11 @@ addsamples=t    Include all samples in the output lines. (TODO)
 splitalleles=f  Split multi-allelic lines into multiple lines.
 splitsubs=f     Split multi-base substitutions into SNPs.
 canonize=t      Trim variations down to a canonical representation.
+normalize=f     (leftalign) Left-align indels using the reference (requires
+                ref=).  The standard normalization for cross-caller concordance.
+bed=<file>      Restrict the comparison to variants inside this BED file's
+                intervals (e.g. a high-confidence benchmark region set).
+invertbed=f     Invert the BED filter: compare only variants OUTSIDE the intervals.
 
 Java Parameters:
 -Xmx            This will set Java's memory usage, overriding autodetection.
@@ -42,46 +47,40 @@ For documentation and the latest version, visit: https://bbmap.org
 "
 }
 
-#This block allows symlinked shellscripts to correctly set classpath.
-pushd . > /dev/null
-DIR="${BASH_SOURCE[0]}"
-while [ -h "$DIR" ]; do
-  cd "$(dirname "$DIR")"
-  DIR="$(readlink "$(basename "$DIR")")"
-done
-cd "$(dirname "$DIR")"
-DIR="$(pwd)/"
-popd > /dev/null
-
-#DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )/"
-CP="$DIR""current/"
-
-z="-Xmx4g"
-z2="-Xms4g"
-set=0
-
 if [ -z "$1" ] || [[ $1 == -h ]] || [[ $1 == --help ]]; then
 	usage
 	exit
 fi
 
-calcXmx () {
-	source "$DIR""/calcmem.sh"
-	setEnvironment
-	parseXmx "$@"
-	if [[ $set == 1 ]]; then
-		return
+resolveSymlinks(){
+	SCRIPT="$(cd "$(dirname "$0")" && pwd)/$(basename "$0")"
+	while [ -h "$SCRIPT" ]; do
+		DIR="$(dirname "$SCRIPT")"
+		SCRIPT="$(readlink "$SCRIPT")"
+		[ "${SCRIPT#/}" = "$SCRIPT" ] && SCRIPT="$DIR/$SCRIPT"
+	done
+	DIR="$(cd "$(dirname "$SCRIPT")" && pwd)"
+	if [ -f "$DIR/bbtools.jar" ]; then
+		CP="$DIR/bbtools.jar"
+	else
+		CP="$DIR/current/"
 	fi
-	freeRam 4000m 84
-	z="-Xmx${RAM}m"
-	z2="-Xms${RAM}m"
 }
-calcXmx "$@"
 
-comparevcf() {
-	local CMD="java $EA $SIMD $EOOM $z $z2 -cp $CP var2.CompareVCF $@"
-	echo $CMD >&2
+setEnv(){
+	. "$DIR/javasetup.sh"
+	. "$DIR/memdetect.sh"
+
+	parseJavaArgs "--xmx=4g" "--xms=4g" "--percent=84" "--mode=auto" "$@"
+	setEnvironment
+}
+
+launch() {
+	CMD="java $EA $EOOM $SIMD $XMX $XMS -cp $CP var2.CompareVCF $@"
+	echo "$CMD" >&2
 	eval $CMD
 }
 
-comparevcf "$@"
+resolveSymlinks
+setEnv "$@"
+launch "$@"

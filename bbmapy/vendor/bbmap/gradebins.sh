@@ -3,7 +3,7 @@
 usage(){
 echo "
 Written by Brian Bushnell
-Last modified June 20, 2025
+Last modified February 26, 2026
 
 Description:  Grades metagenome bins for completeness and contamination.
 The contigs can be labeled with their taxID; in which case the header should
@@ -16,10 +16,11 @@ Total Score is (sum of (completeness-5*contam)^2) for all bins.
 Bin Definitions:
 UHQ: >=99% complete and <=1% contam (subset of VHQ)
 VHQ: >=95% complete and <=2% contam (subset of HQ)
-HQ:  >=90% complete and <=5% contam
-MQ:  >=50% complete and <=10% contam, but not HQ
-LQ:  <50% complete or >10% contam
-VLQ: <20% complete or >5% contam    (subset of LQ)
+HQ:  >90% complete and <5% contam
+MQ:  >=50% complete and <10% contam, but not HQ
+LQ:  <50% complete and <10% contam
+VLQ: <20% complete and <10% contam    (subset of LQ)
+HCN: >=10% contam (High CoNtam, contains everything not in other sets)
 
 Usage:  gradebins.sh ref=assembly bin*.fa
 or
@@ -35,7 +36,7 @@ eukcc=<file>    Optional EukCC eukcc.csv file or directory.
 cami=<file>     Optional binning file from CAMI which indicates contig TaxIDs.
 taxin=<file>    Optional file with taxIDs and sizes (instead of loading ref).
                 Does not need to include taxIDs.  The tax file loads faster.
-gtdb=<file>     Optional gtdbtk file.
+gtdb=<file>     Optional gtdbtk directory containing gtdbtk.*.summary.tsv.
 gff=<file>      Optional gff file.
 imgmap=<file>   Optional IMG map file, for renamed IMG gff input.
 spectra=<file>  Optional path to QuickClade index.
@@ -48,15 +49,20 @@ taxout=<file>   Generate a tax file from the reference (for use with taxin).
 hist=<file>     Cumulative bin size and contamination histogram.
 ccplot=<file>   Per-bin completeness/contam data.
 contamhist=<file> Histogram plotting #bins or bases vs %contam.
+swapnl          Swap L50/N50 so N indicates a length, and L a number.
 
 Processing parameters:
 userna=f        Require rRNAs and tRNAs for HQ genomes.  This needs either
                 a gff file or the callgenes flag.  Specifically, HQ and
                 subtypes require at least 1 16S, 23S, and 5S, plus 18 tRNAs.
 callgenes=f     Call rRNAs and tRNAs.  Suboptimal for some RNA types.
-aligner=ssa2    Do not change this.
-quickclade=f    Assign taxonomy using QuickClade.
+aligner=quantum Aligner for gene calling.
+clade=f         Assign taxonomy using QuickClade.
 
+Proxy Parameters:
+proxyhost=<addr>  HTTPS proxy hostname for environments requiring a proxy
+                to reach external servers.  Sets -Dhttps.proxyHost for Java.
+proxyport=<num>   HTTPS proxy port number.  Sets -Dhttps.proxyPort for Java.
 
 Java Parameters:
 -Xmx            This will set Java's memory usage, overriding autodetection.
@@ -77,14 +83,18 @@ if [ -z "$1" ] || [ "$1" = "-h" ] || [ "$1" = "--help" ]; then
 fi
 
 resolveSymlinks(){
-	SCRIPT="$0"
+	SCRIPT="$(cd "$(dirname "$0")" && pwd)/$(basename "$0")"
 	while [ -h "$SCRIPT" ]; do
 		DIR="$(dirname "$SCRIPT")"
 		SCRIPT="$(readlink "$SCRIPT")"
 		[ "${SCRIPT#/}" = "$SCRIPT" ] && SCRIPT="$DIR/$SCRIPT"
 	done
 	DIR="$(cd "$(dirname "$SCRIPT")" && pwd)"
-	CP="$DIR/current/"
+	if [ -f "$DIR/bbtools.jar" ]; then
+		CP="$DIR/bbtools.jar"
+	else
+		CP="$DIR/current/"
+	fi
 }
 
 setEnv(){
@@ -96,7 +106,7 @@ setEnv(){
 }
 
 launch() {
-	CMD="java $EA $EOOM $SIMD $XMX $XMS -cp $CP bin.GradeBins $@"
+	CMD="java $EA $EOOM $SIMD $PROXY $XMX $XMS -cp $CP bin.GradeBins $@"
 	echo "$CMD" >&2
 	eval $CMD
 }

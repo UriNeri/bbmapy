@@ -3,7 +3,7 @@
 usage(){
 echo "
 Written by Brian Bushnell
-Last modified December 3, 2025
+Last modified February 24, 2026
 
 Description:  RQCFilter3 is a revised version of RQCFilter2 using BBDukStreamer and the Streamer interface.
 The dependencies are available at http://portal.nersc.gov/dna/microbial/assembly/bushnell/RQCFilterData.tar
@@ -190,6 +190,11 @@ barcodefilter=f     Crash when improper barcodes are discovered.  Set to 'f' to 
 barcodes=           A comma-delimited list of barcodes or files of barcodes.
 filterbytile        Also needs to be disabled for SRA data.
 
+Proxy Parameters:
+proxyhost=<addr>  HTTPS proxy hostname for environments requiring a proxy
+                to reach external servers.  Sets -Dhttps.proxyHost for Java.
+proxyport=<num>   HTTPS proxy port number.  Sets -Dhttps.proxyPort for Java.
+
 Java Parameters:
 -Xmx                This will set Java's memory usage, overriding autodetection.
                     -Xmx20g will specify 20 gigs of RAM, and -Xmx200m will specify 200 megs.
@@ -211,14 +216,18 @@ if [ -z "$1" ] || [ "$1" = "-h" ] || [ "$1" = "--help" ]; then
 fi
 
 resolveSymlinks(){
-	SCRIPT="$0"
+	SCRIPT="$(cd "$(dirname "$0")" && pwd)/$(basename "$0")"
 	while [ -h "$SCRIPT" ]; do
 		DIR="$(dirname "$SCRIPT")"
 		SCRIPT="$(readlink "$SCRIPT")"
 		[ "${SCRIPT#/}" = "$SCRIPT" ] && SCRIPT="$DIR/$SCRIPT"
 	done
 	DIR="$(cd "$(dirname "$SCRIPT")" && pwd)"
-	CP="$DIR/current/"
+	if [ -f "$DIR/bbtools.jar" ]; then
+		CP="$DIR/bbtools.jar"
+	else
+		CP="$DIR/current/"
+	fi
 	JNI="-Djava.library.path=$DIR/jni/"
 	JNI=""
 }
@@ -238,7 +247,7 @@ launch() {
 		#Ignore NERSC_HOST
 		shifter=1
 	fi
-	CMD="java $EA $EOOM $SIMD $XMX $XMS -cp $CP jgi.RQCFilter3 $@"
+	CMD="java --enable-native-access=ALL-UNNAMED $EA $EOOM $SIMD $PROXY $XMX $XMS -cp $CP jgi.RQCFilter3 $@"
 	echo "$CMD" >&2
 	eval $CMD
 }

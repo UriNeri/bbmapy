@@ -44,7 +44,7 @@ def ensure_java_availability(on_runtime=False, on_build=False,on_conda_build_tes
         else:
             raise ValueError(f"couldn't find a bin folder in the path variable")
     print("Java not found in PATH, installing...")
-    version = '11'
+    version = '17'
     jre_path = jdk.install(version, jre=True, path=prefix_path,vendor="adoptium")
     print(f"Java adoptium JRE {version} installed to {jre_path}")
     print("Trying to add to conda environment PATH...")

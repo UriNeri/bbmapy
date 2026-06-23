@@ -3,7 +3,7 @@
 usage(){
 echo "
 Written by Brian Bushnell
-Last modified October 6, 2022
+Last modified February 19, 2026
 
 Description:  Sorts reads by name or other keys such as length,
 quality, mapping position, flowcell coordinates, or taxonomy.
@@ -36,7 +36,12 @@ clump=f         Sort reads by shared kmers, like Clumpify.
 flowcell=f      Sort reads by flowcell coordinates.
 shuffle=f       Shuffle reads randomly (untested).
 list=<file>     Sort reads according to this list of names.
-ascending=t     Sort ascending.
+ascending=t     Sort ascending.  This defaults to true except for length.
+descending=f    Sort descending instead of ascending.  Overrides ascending flag.
+maxfiles=12     Maximum number of temp files to use during external sort.
+crispr=f        Sort reads by CRISPR repeat quality score (requires neural network model).
+genkmer=t       Generate 5-bit kmers for topological/lexicographic sorting modes.
+deleteearly=f   Delete temp files as soon as they are merged, to save disk space.
 
 Memory parameters (you might reduce these if you experience a crash)
 memmult=0.30    Write a temp file when used memory exceeds this fraction
@@ -50,7 +55,7 @@ Taxonomy-sorting parameters (for taxa mode only):
 tree=           Specify a taxtree file.  On Genepool, use 'auto'.
 gi=             Specify a gitable file.  On Genepool, use 'auto'.
 accession=      Specify one or more comma-delimited NCBI accession to
-                taxid files.  On Genepool, use 'auto'.
+                taxid files.  On Dori/NERSC, use 'auto'.
 
 Note: name, length, and quality are mutually exclusive.
 Sorting by quality actually sorts by average expected error rate,
@@ -75,14 +80,18 @@ if [ -z "$1" ] || [ "$1" = "-h" ] || [ "$1" = "--help" ]; then
 fi
 
 resolveSymlinks(){
-	SCRIPT="$0"
+	SCRIPT="$(cd "$(dirname "$0")" && pwd)/$(basename "$0")"
 	while [ -h "$SCRIPT" ]; do
 		DIR="$(dirname "$SCRIPT")"
 		SCRIPT="$(readlink "$SCRIPT")"
 		[ "${SCRIPT#/}" = "$SCRIPT" ] && SCRIPT="$DIR/$SCRIPT"
 	done
 	DIR="$(cd "$(dirname "$SCRIPT")" && pwd)"
-	CP="$DIR/current/"
+	if [ -f "$DIR/bbtools.jar" ]; then
+		CP="$DIR/bbtools.jar"
+	else
+		CP="$DIR/current/"
+	fi
 }
 
 setEnv(){

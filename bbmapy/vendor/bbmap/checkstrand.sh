@@ -3,7 +3,7 @@
 usage(){
 echo "
 Written by Brian Bushnell
-Last modified April 11, 2025
+Last modified January 9, 2026
 
 Description:  Estimates the strandedness of a library without alignment; 
 intended for RNA-seq data.  Only the reads are required input to determine
@@ -71,6 +71,20 @@ StrandednessAL: Percent of reads aligned to the dominant strand.  More
                 accurate for transcriptome-mapped than genome-mapped reads.
 StrandednessAN: Depth-normalized strandedness, where each feature or
                 contig contributes equally.
+Binned Values (B):  The genome is divided into fixed-size bins (default 1000bp).
+                For each bin, plus-strand reads are counted as p, minus-strand as m.
+		Only bins with at least minReads total coverage are used.
+StrandednessB:  Aggregates minor and major strand counts across all qualifying bins,
+                then applies the statistical strandedness transform to the totals. 
+		This accounts for expected random variation.
+StrandednessBN: Calculates strandedness for each bin individually, then averages
+                those values. Each bin contributes equally regardless of depth.
+		This is what JGI uses for QC.
+StrandednessBS: Aggregates counts like B, but uses the simple ratio major/(major+minor) 
+                without the statistical transform. For matching external tools that
+                don't use the transform to compensate for small values.
+StrandednessBNS: Per-bin simple ratios averaged. Each bin's simple major/(major+minor)
+                ratio is calculated, then averaged across all bins.
 MajorStrandAL:  Strand to which a majority of reads aligned.
 P/(P+M)_Ratio:  P is the number of plus-mapped reads, M is minus.
 P/(P+M)_RatioN: Depth-normalized plus/total ratio.
@@ -161,14 +175,18 @@ if [ -z "$1" ] || [ "$1" = "-h" ] || [ "$1" = "--help" ]; then
 fi
 
 resolveSymlinks(){
-	SCRIPT="$0"
+	SCRIPT="$(cd "$(dirname "$0")" && pwd)/$(basename "$0")"
 	while [ -h "$SCRIPT" ]; do
 		DIR="$(dirname "$SCRIPT")"
 		SCRIPT="$(readlink "$SCRIPT")"
 		[ "${SCRIPT#/}" = "$SCRIPT" ] && SCRIPT="$DIR/$SCRIPT"
 	done
 	DIR="$(cd "$(dirname "$SCRIPT")" && pwd)"
-	CP="$DIR/current/"
+	if [ -f "$DIR/bbtools.jar" ]; then
+		CP="$DIR/bbtools.jar"
+	else
+		CP="$DIR/current/"
+	fi
 }
 
 setEnv(){

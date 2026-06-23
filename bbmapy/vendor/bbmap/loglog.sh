@@ -3,12 +3,14 @@
 usage(){
 echo "
 Written by Brian Bushnell
-Last modified March 24, 2020
+Last modified May 4, 2026
 
 Description:  Estimates cardinality of unique kmers in sequence data.
 See also kmercountmulti.sh.
 
 Usage:  loglog.sh in=<file> k=<31>
+For histograms:
+loglog.sh in=<file> buckets=256k khist=khist.txt peaks=peaks.txt
 
 Parameters:
 in=<file>       (in1) Input file, or comma-delimited list of files.
@@ -20,7 +22,21 @@ seed=-1         Use this seed for hash functions.  A negative number forces
                 a random seed.
 minprob=0       Set to a value between 0 and 1 to exclude kmers with a lower
                 probability of being correct.
-
+loglogtype=ddl  Estimator type:
+                  ddl       DynamicDemiLog (default), 10-bit mantissa.
+                  ddl8      DynamicDemiLog8, 8-bit mantissa.
+                  dll3      DynamicLogLog3, 3-bit registers.
+                  dll4      DynamicLogLog4, 4-bit registers.
+                  ll6       LogLog6, 6-bit registers.
+                  udll6     UltraDynamicLogLog6, 6-bit with history.
+                  bdll3     BankedDynamicLogLog3, banked 3-bit.
+                  htb       HyperTwoBits, 2-bit threshold estimator.
+                  (and others; see ddlcalibrate.sh for full list)
+khist=<file>    Write approximate kmer depth histogram to this file.
+                Automatically enables count tracking.
+peaks=<file>    Write peak-calling output (genome size estimation) to this
+                file.  Uses the depth histogram for peak detection.
+histmax=100000  Maximum histogram bin.
 
 Shortcuts:
 The # symbol will be substituted for 1 and 2.
@@ -52,21 +68,25 @@ if [ -z "$1" ] || [ "$1" = "-h" ] || [ "$1" = "--help" ]; then
 fi
 
 resolveSymlinks(){
-	SCRIPT="$0"
+	SCRIPT="$(cd "$(dirname "$0")" && pwd)/$(basename "$0")"
 	while [ -h "$SCRIPT" ]; do
 		DIR="$(dirname "$SCRIPT")"
 		SCRIPT="$(readlink "$SCRIPT")"
 		[ "${SCRIPT#/}" = "$SCRIPT" ] && SCRIPT="$DIR/$SCRIPT"
 	done
 	DIR="$(cd "$(dirname "$SCRIPT")" && pwd)"
-	CP="$DIR/current/"
+	if [ -f "$DIR/bbtools.jar" ]; then
+		CP="$DIR/bbtools.jar"
+	else
+		CP="$DIR/current/"
+	fi
 }
 
 setEnv(){
 	. "$DIR/javasetup.sh"
 	. "$DIR/memdetect.sh"
 
-	parseJavaArgs "--xmx=200m" "--xms=200m" "--mode=fixed" "$@"
+	parseJavaArgs "--xmx=1000m" "--xms=200m" "--mode=fixed" "$@"
 	setEnvironment
 }
 

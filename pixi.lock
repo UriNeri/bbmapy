@@ -62,8 +62,8 @@ packages:
   timestamp: 1650670423406
 - pypi: ./
   name: bbmapy
-  version: 0.0.56
-  sha256: ccfb2fd11901568d34182ca2f120cee6db63fda73a6fc2deb8455417cc25100a
+  version: 0.0.57
+  sha256: a86fd97d1a5d2f459f533a6ab976fefeb11f7068b83bcc60d9c83125dd86cc68
   requires_dist:
   - rich
   - install-jdk
